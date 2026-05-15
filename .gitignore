@@ -31,5 +31,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# Agents
-AGENTS.md
+#Agents
+AGENTS.MD
+.agents/
+

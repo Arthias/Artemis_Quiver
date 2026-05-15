@@ -10,7 +10,7 @@ User pastes a job posting to the chatbox and the app reviews it, compares it to 
 
 The app should have a sidebar where they can see their previous chats, in case they want to ask follow-up questions about any position.
 The sidebar will also include a "you" section, which includes:
-- **Profile**: A section where the user can upload CVs/files as context. Files are stored locally and scanned to update a master `.md` file. The user can view and edit this `.md` file and chat with an AI to optimize it.
+- **Profile**: A section where the user can upload CVs/files as context. Files are stored locally and scanned to update a master .md file. The user can view and edit this .md file and chat with an AI to optimize it. (MVP Scope: Markdown files only)
 - **CV Builder**: Generates an ideal CV based on job requirements or the master profile. Includes interactive chat for modifications and PDF download.
 - **CL builder**: Generates a cover letter focused on a specific job or generic. Includes interactive chat and PDF download.
 - **Config**: Configuration for API keys (Anthropic, Gemini, etc.) and LLM providers (OpenRouter, LMStudio).
@@ -21,7 +21,7 @@ The sidebar will also include a "you" section, which includes:
 Artemis Quiver is an AI-driven job hunting engine that automates the comparison between a user's professional profile and specific job postings. It provides instant scoring, actionable application tips, and generates optimized CVs and cover letters via interactive AI chat sessions.
 
 ### Core Features
-* **Job Analysis Engine**: Input job descriptions $\rightarrow$ Output Score (%), Salary Range, Interview Tips.
+* **Job Analysis Engine**: Input job descriptions $\rightarrow$ Output Score (%), Salary Range, Interview Tips, and a structured JSON object for consumption by other components.
 * **Profile Management**: A central `.md` "Master Profile" that evolves through file uploads and chat-driven updates.
 * **Interactive Builders**: Chat-based modification for CVs and Cover Letters with PDF export capability.
 * **Session History**: Sidebar navigation to revisit previous job analyses and follow up on interview preparations.
@@ -67,4 +67,4 @@ graph TD
 * **Context Overflow**: Large uploaded files/CVs may exceed LLM token limits; requires chunking or summarization logic.
 * **Hallucination Risk**: AI might misinterpret job requirements or invent non-existent skills in the profile.
 * **Parsing Failures**: Inconsistent formatting in user-uploaded text could break the extraction engine.
-* **API Latency**: High-latency providers (OpenRouter) may cause UI freezing; requires robust streaming and loading states.
+* **Error Handling**: All critical API failures or parsing errors must be logged to a dedicated log file for debugging, while the user interface displays a concise, automated error message to maintain usability.
