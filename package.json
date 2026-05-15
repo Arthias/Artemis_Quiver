@@ -4,12 +4,14 @@
   "description": "This app, called artemis quiver, will have the following flow: User pastes a job posting to the chatbox and the app reviews it, compares it to the $user's profile and outputs: - **Scoring**: A percentage match for the position (100% = perfect fit). - **Recommendations**: Salary range and short tips for the application. - **Focused CV**: Recommendations on CV optimizations and a button to go to the CV builder. - **Cover letter**: A short draft of a cover letter and a button to go to the Cover Letter builder.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "next dev",
+    "build": "next build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@ai-sdk/openai": "^3.0.63",
     "ai": "^6.0.180",
@@ -20,5 +22,10 @@
     "react-dom": "^19.2.6",
     "shadcn-ui": "^0.9.5",
     "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.8.0",
+    "@types/react": "19.2.14",
+    "typescript": "6.0.3"
   }
 }
