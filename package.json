@@ -26,9 +26,11 @@
     "ts-node": "^10.9.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "25.8.0",
     "@types/react": "19.2.14",
     "@vitest/ui": "^4.1.6",
+    "playwright": "^1.60.0",
     "typescript": "6.0.3",
     "vitest": "^4.1.6"
   }
