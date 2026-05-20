@@ -1,4 +1,5 @@
-import { OpenRouter } from "@openrouter/api"; // Assuming we use this client
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 /**
  * Defines the structured output object from the job analysis.
@@ -7,13 +8,15 @@ type AnalysisResult = {
   score: number; // Percentage match (0-100)
   salaryRange: string;
   tips: string[]; // Short application tips
+  cvRecommendations: string[]; // Suggestions for CV optimization
+  coverLetterDraft: string; // AI generated draft
   analysisJson: Record<string, any>; // Raw structured JSON for downstream consumption
 };
 
 /**
  * Initializes and returns a configured LLM client.
  * @param apiKey The API key from the user configuration.
- * @returns A fully initialized OpenRouter client instance (or other provider).
+ * @returns An object containing the provider and API key.
  */
 export const initializeLLMClient = (apiKey: string) => {
   if (!apiKey) {
@@ -47,12 +50,18 @@ export const analyzeJobPost = async (llmClient: any, jobPosting: string, masterP
     const simulatedScore = 85 + Math.random() * 10; 
 
     return {
-      score: parseFloat(simulated_score.toFixed(2)),
+      score: parseFloat(simulatedScore.toFixed(2)),
       salaryRange: "$100k - $140k per year (Estimated)",
       tips: [
         "Focus on the intersection of Cloud and Full-Stack development.",
         "Quantify your impact in previous roles using metrics like 'reduced latency by 20%' instead of listing tasks."
       ],
+      cvRecommendations: [
+        "Add metrics to your recent projects (e.g., 'Improved performance by 40%')",
+        "Expand on your AWS/cloud infrastructure experience",
+        "Include certifications section if you enough relevant ones"
+      ],
+      coverLetterDraft: "Dear Hiring Manager,\n\nI am excited to apply for the Senior Software Engineer position...",
       analysisJson: {
         suggestedRole: "Full Stack Engineer",
         keywordsMatched: ["Next.js", "TypeScript", "Cloud Services"],
@@ -63,3 +72,4 @@ export const analyzeJobPost = async (llmClient: any, jobPosting: string, masterP
     throw new Error("Failed to connect or analyze job post using the configured LLM.");
   }
 };
+

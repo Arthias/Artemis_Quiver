@@ -69,7 +69,6 @@ export default function Page() {
         </button>
       </section>
 
-        {/* Results Display */}
         {analysisResult ? (
           <div className="space-y-4 border p-6 rounded-xl border-border bg-card/50 shadow-inner">
         <h2 className="text-xl font-semibold text-foreground">Analysis Results</h2>
@@ -82,14 +81,14 @@ export default function Page() {
         </div>
 
             {/* Tips Section */}
-            <div>
+            <div className="mt-6">
               <h3 className='text-lg font-medium mt-6 mb-2 text-foreground'>Actionable Recommendations</h3>
               <ul className="list-disc list-inside space-y-1 text-sm ml-4">
                 {analysisResult.tips.map((tip, index) => (
                   <li key={index} className='text-muted-foreground'>{tip}</li>
                 ))}
               </ul>
-    </div>
+    </div >
           </div>
         )
         : !loading && ( // Display placeholder if no results and not loading
@@ -100,6 +99,5 @@ export default function Page() {
         )
       </div>
   );
-}
 }
 
