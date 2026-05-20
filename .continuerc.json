@@ -1,0 +1,7 @@
+{
+  "mergeBehavior": "merge",
+  "rules": [
+    "Always modularize functions into independent files.",
+    "Write exhaustive unit tests using pytest for all edge cases before declaring a task complete."
+  ]
+}
