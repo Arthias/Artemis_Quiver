@@ -5,9 +5,8 @@ export default function Page() {
   import ScoreBadge from "@/components/ScoreBadge";
   import { analyzeJobPost, initializeLLMClient } from "@/lib/job_analyzer"; // Import core logic
 
-  // Placeholder for a global configuration state hook (In production this would come from a context or local storage)
+  // Helper function to simulate config (as seen in original)
   const useConfig = () => {
-    // Simulate fetching the API key and provider from a persistent source (like a dedicated config store)
     return {
       apiKey: "dummy-key-12345", // Use dummy key for now
       provider: "OpenRouter"
@@ -16,7 +15,7 @@ export default function Page() {
 
   export default function Page() {
     const [jobInput, setJobInput] = useState("");
-    const [analysisResult, setAnalysisResult] = useState(null);
+    const [analysisResult, setAnalysisResult] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const config = useConfig();
 
@@ -76,7 +75,7 @@ export default function Page() {
 
             {/* Score Card */}
             <div className="pt-4 border-t border-border flex justify-between items-center">
-              <div>Match Score: <ScoreBadge score={analysisResult.score} /></div>
+              <div>Match Score: <ScoreBadge score={analysisResult.score} /></div >
               <button className="bg-primary/10 text-primary cursor-pointer hover:bg-primary/20 px-4 py-2 rounded transition-colors">Go to CV Builder</button>
         </div>
 
@@ -88,16 +87,15 @@ export default function Page() {
                   <li key={index} className='text-muted-foreground'>{tip}</li>
                 ))}
               </ul>
-    </div >
+    </div>
           </div>
-        )
-        : !loading && ( // Display placeholder if no results and not loading
+        ) : !loading && ( // Display placeholder if no results and not loading
           <div className="space-y-4 border p-6 rounded-xl border-border bg-card/50 shadow-inner">
             <h2 className="text-xl font-semibold text-foreground">Analysis Results</h2>
             <p className='text-sm text-muted-foreground'>*Results will appear here after running analysis.*</p>
-          </div>
-        )
+        </div>
+        )}
       </div>
-  );
+    );
 }
 
