@@ -1,359 +1,176 @@
-# Artemis Quiver - Development Plan
+# Artemis Quiver — Development Plan
 
-## Project Overview
-Artemis Quiver is a job hunting automation engine that helps users analyze job postings against their professional profile, generates optimized CVs and cover letters, and provides interview preparation tips.
+> **Failsafe:** This file is the canonical implementation plan. Update it as each sprint/task completes so work can resume after a restart. Last synced with active roadmap: May 2026.
 
-## Current Status
-- **UI Complete**: All frontend interfaces have been implemented using React + Vite + Tailwind CSS
-- **Core Pages**: AnalysisHub, Profile, CVBuilder, CoverLetterBuilder, Config
-- **Navigation**: Sidebar with route-based navigation
-- **Missing**: Actual AI integration, persistence, PDF generation, and real functionality
+## Documentation maintenance
 
-## Architecture Overview
+| When | Action |
+|------|--------|
+| **Before coding** | Ensure this `PLAN.md` reflects the current plan (done at roadmap start). |
+| **After each sprint / major task** | Update task checkboxes, “Current status”, and “Suggested order” here. |
+| **After full implementation pass** | Sync `README.md` MVP section to match what shipped. |
 
-### Frontend Stack
-- **Framework**: React 18 with Vite
-- **Styling**: Tailwind CSS + shadcn/ui components
-- **Routing**: React Router v7
-- **State Management**: React hooks (useState, useEffect)
-- **HTTP Client**: To be implemented (fetch/axios for API calls)
+`Overview.md` was merged into `README.md` and removed.
 
-### Backend/Layer Architecture
-Since this is a frontend-focused application with local LLM integration:
-- **UI Layer**: React components in `/src`
-- **Service Layer**: To be created (`/src/services`) for API communication
-- **Utility Layer**: Helper functions (`/src/utils`)
-- **Configuration**: Centralized config management (`/src/config`)
-- **Persistence**: Local storage/indexedDB or file system access
+---
 
-### Key Directories
-```
-/src
-  /components     - Reusable UI components (buttons, forms, cards, etc.)
-  /pages          - Page components (AnalysisHub, Profile, etc.)
-  /services       - API service layer (to be created)
-  /utils          - Utility functions (to be created)
-  /config         - Configuration management (to be enhanced)
-  /hooks          - Custom React hooks (to be created)
-```
+## Project overview
 
-## Implementation Plan
+Artemis Quiver is an AI-driven job hunting engine: compare job postings to a master profile, get scoring and tips, then refine CVs and cover letters via interactive builders. Data stays in the browser (`localStorage`) unless exported as Markdown.
 
-### Phase 1: Infrastructure Setup
-1. **Environment Configuration**
-   - Set up environment variables for API endpoints
-   - Configure Vite for proxying if needed
-   - Set up ESLint/Prettier if desired
+**Design:** [Figma — Job Hunting Automation Engine](https://www.figma.com/design/NAKF9BYIvmXKegz6JDnaJl/Job-Hunting-Automation-Engine)
 
-2. **Service Layer Foundation**
-   - Create API service for LLM communication
-   - Implement request/response handling
-   - Add error handling and retry logic
+**Stack (actual):** React 18, Vite, Tailwind CSS, shadcn/ui, React Router v7. Local LLM via LMStudio or Ollama (dev proxy).
 
-### Phase 2: Core AI Integration
-1. **LLM Service Implementation**
-   - Support for Ollama (local)
-   - Support for LMStudio (local)
-   - Optional: OpenAI API, Anthropic API, Gemini API
-   - Streaming response support for chat
+**Out of scope (this roadmap):** PDF export, cloud API keys, user login/auth.
 
-2. **Analysis Engine**
-   - Replace mock implementation in AnalysisHub
-   - Implement job description analysis against user profile
-   - Generate matching score, salary range, tips, recommendations
+---
 
-### Phase 3: Feature Implementation
-1. **CV Builder Enhancement**
-   - Replace mock CV generation with AI-powered generation
-   - Implement AI chat for CV editing
-   - Add PDF export functionality
+## Current status
 
-2. **Cover Letter Builder Enhancement**
-   - Replace mock cover letter generation with AI-powered generation
-   - Implement AI chat for cover letter editing
-   - Add PDF export functionality
+| Area | Status |
+|------|--------|
+| Analysis Hub + `jobAnalysisService` | **Done** — LLM JSON analysis, sessions, `.md` export |
+| Profile editor + `ProfileContext` | **Done** — single global profile (workspace split planned) |
+| Settings + `llmService` | **Done** — LMStudio/Ollama, connection test |
+| Sidebar | **Placeholder** — fake history, inert New Analysis, static footer |
+| Settings → General | **Partial** — auto-save only; no theme yet |
+| CV / CL builders | **Placeholder** — mock content, `alert()` chat |
+| Profile AI tab + file upload | **Stub** |
+| Multi-profile workspace | **Planned** |
+| Dark theme switcher | **Planned** |
 
-3. **Profile Management**
-   - Implement persistence for user profile (markdown file)
-   - Enable file upload for additional context
-   - Implement AI-powered profile optimization chat
+---
 
-### Phase 4: Polish & Integration
-1. **Configuration Integration**
-   - Connect service layer to Config page settings
-   - Implement dynamic provider/model switching
-   - Add API key validation
+## Product flow (vision)
 
-2. **Persistence Layer**
-   - Implement local storage for chat history
-   - Implement file system persistence for profiles
-   - Add export/import functionality
+1. User pastes a job posting → app scores match vs profile, estimates salary, gives interview tips.
+2. Outputs CV optimization notes + cover letter draft with links to builders.
+3. Sidebar shows past analyses (per profile) and profile switcher (up to 3 local profiles, no login).
+4. **Profile:** master `.md`, file upload merge, AI assistant chat.
+5. **CV / CL builders:** AI generation + chat refinement (Markdown export first; PDF later).
+6. **Settings:** LLM provider + General (theme, auto-save) per active profile.
 
-3. **Testing & Validation**
-   - Test all AI integrations
-   - Validate PDF generation quality
-   - Ensure responsive design works
-
-## Detailed Tasks
-
-### 1. Environment Setup (Task #1)
-- [ ] Create `.env` file for environment variables
-- [ ] Configure API endpoints for local LLMs
-- [ ] Set up proxy configuration if needed
-- [ ] Install any additional dependencies (axios, etc.)
-
-### 2. API Service Layer (Foundation for multiple tasks)
-- [ ] Create `/src/services/llmService.ts`
-- [ ] Implement base API client with configuration
-- [ ] Add support for different LLM providers:
-  - Ollama API (`http://localhost:11434`)
-  - LMStudio API (`http://localhost:1234`)
-- [ ] Implement request formatting for each provider
-- [ ] Add streaming response handling
-- [ ] Add error handling and timeout management
-- [ ] Create utility functions for prompt formatting
-
-### 3. Job Analysis Integration (Task #2)
-- [ ] Modify `/src/pages/AnalysisHub.tsx`
-- [ ] Import and use LLM service
-- [ ] Replace mock analysis with real API calls
-- [ ] Implement prompt engineering for:
-  - Job description analysis
-  - Skills matching
-  - Salary range estimation
-  - Interview tips generation
-  - CV improvement recommendations
-  - Cover letter drafting
-- [ ] Add loading states and error handling
-- [ ] Parse and validate AI responses
-
-### 4. CV Builder Enhancement (Task #3)
-- [ ] Modify `/src/pages/CVBuilder.tsx`
-- [ ] Replace mock CV generation with AI-powered generation
-- [ ] Implement AI chat functionality for CV editing
-- [ ] Create prompts for:
-  - CV generation from profile + job description
-  - CV editing based on user requests
-  - Section-specific modifications
-- [ ] Implement PDF generation using jsPDF or react-pdf
-- [ ] Add download functionality
-
-### 5. Cover Letter Builder Enhancement (Task #4)
-- [ ] Modify `/src/pages/CLBuilder.tsx`
-- [ ] Replace mock cover letter generation with AI-powered generation
-- [ ] Implement AI chat functionality for cover letter editing
-- [ ] Create prompts for:
-  - Cover letter generation from profile + job + company info
-  - Cover letter editing based on user requests
-  - Tone adjustment (formal, enthusiastic, concise, etc.)
-- [ ] Implement PDF generation
-- [ ] Add download functionality
-
-### 6. PDF Generation (Task #5)
-- [ ] Choose PDF library (jsPDF, react-pdf, or html2pdf)
-- [ ] Create reusable PDF generation utilities
-- [ ] Implement CV-specific styling and layout
-- [ ] Implement cover letter styling and layout
-- [ ] Add print/preview functionality
-
-### 7. Data Persistence (Task #6)
-- [ ] Implement profile storage:
-  - Save/load profile.md to local storage or file system
-  - Handle markdown editing and saving
-  - Implement auto-save based on configuration
-- [ ] Implement chat history persistence:
-  - Store conversations per session/entity
-  - Retrieve history when returning to chats
-- [ ] Implement session history for AnalysisHub
-- [ ] Add export/import functionality for data backup
-
-### 8. Real-time AI Chat (Task #7)
-- [ ] Enhance chat components in:
-  - Profile page (AI Assistant tab)
-  - CV Builder (AI Assistant panel)
-  - Cover Letter Builder (AI Assistant panel)
-- [ ] Implement streaming responses for better UX
-- [ ] Add typing indicators
-- [ ] Implement message formatting (markdown support)
-- [ ] Add copy/paste functionality for responses
-
-### 9. Configuration Integration (Task #8)
-- [ ] Enhance `/src/pages/Config.tsx` to actually save settings
-- [ ] Create configuration context or hook
-- [ ] Make LLM service configurable based on:
-  - Selected provider (anthropic, gemini, openrouter, lmstudio)
-  - API keys from config
-  - Model selection
-  - Temperature and other parameters
-- [ ] Add connection testing functionality
-- [ ] Implement fallback mechanisms
-
-### 10. Profile Context Integration (Task #9)
-- [ ] Create profile context or hook for accessing user data
-- [ ] Ensure all AI functions have access to current profile
-- [ ] Implement profile update propagation
-- [ ] Add validation for profile completeness
-
-## Technical Implementation Details
-
-### LLM Service Interface
-```typescript
-interface LLMService {
-  generateText(prompt: string, options?: GenerationOptions): Promise<string>;
-  generateTextStream(prompt: string, options?: GenerationOptions): ReadableStream<string>;
-  chat(messages: ChatMessage[], options?: GenerationOptions): Promise<string>;
-  chatStream(messages: ChatMessage[], options?: GenerationOptions): ReadableStream<string>;
-}
-
-interface GenerationOptions {
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  stream?: boolean;
-  [key: string]: any;
-}
+```mermaid
+flowchart TB
+  subgraph workspace [WorkspaceProfileContext]
+    Manifest[profiles max 3]
+    Active[activeProfileId]
+  end
+  subgraph perProfile [Per-profile data]
+    ProfileMD[profile markdown]
+    LlmCfg[llm config + theme]
+    Analysis[analysis sessions]
+  end
+  SidebarModal[Sidebar profile modal] --> workspace
+  ConfigGeneral[Settings General] --> LlmCfg
+  ProfileCtx[ProfileContext] --> ProfileMD
+  ConfigCtx[ConfigContext] --> LlmCfg
+  AnalysisCtx[AnalysisContext] --> Analysis
+  workspace --> perProfile
 ```
 
-### Provider-Specific Implementation
-**Ollama**: 
-- Endpoint: `http://localhost:11434/api/generate`
-- Model specification in request body
-- Streaming via SSE
+---
 
-**LMStudio**:
-- Endpoint: `http://localhost:1234/v1/completions` or `/v1/chat/completions`
-- OpenAI-compatible API
-- Similar to OpenAI API format
+## New requirements (active roadmap)
 
-### Prompt Engineering Guidelines
-1. **Job Analysis Prompt**:
-   ```
-   Analyze this job description against the user's professional profile.
-   Provide:
-   1. Match percentage (0-100)
-   2. Estimated salary range
-   3. 3-5 key interview preparation tips
-   4. CV improvement recommendations
-   5. Draft cover letter
-   
-   Job Description: [JOB_DESCRIPTION]
-   
-   User Profile: [USER_PROFILE]
-   ```
+### A. Dark theme switcher
 
-2. **CV Generation Prompt**:
-   ```
-   Generate a professional CV based on the user's profile and targeting this job description.
-   
-   User Profile: [USER_PROFILE]
-   Target Job: [JOB_DESCRIPTION]
-   
-   Format as markdown with clear sections:
-   - Contact Information
-   - Professional Summary
-   - Skills
-   - Experience
-   - Education
-   - Certifications
-   ```
+- **Settings → General** (`src/app/pages/Config.tsx`).
+- Light / Dark; toggle `dark` on `document.documentElement` (`src/styles/theme.css`).
+- Stored per workspace profile with LLM settings.
 
-3. **Cover Letter Prompt**:
-   ```
-   Generate a tailored cover letter for this position at this company.
-   
-   User Profile: [USER_PROFILE]
-   Job Description: [JOB_DESCRIPTION]
-   Company Name: [COMPANY_NAME]
-   Position: [POSITION_TITLE]
-   
-   Format as a professional business letter.
-   ```
+### B. Multi-profile workspace (no login)
 
-## Development Guidelines
+- Max **3** profiles in `localStorage`; each isolates profile markdown, LLM/general settings, analysis sessions, draft posting.
+- Metadata: `createdAt`, `lastUsedAt`, `lastModifiedAt`.
+- **4th profile** → evict profile with oldest `lastUsedAt` (`console.info`).
+- **Migration:** legacy global keys → default “Default” profile on first load.
 
-### Code Style
-- Follow existing code style in the project
-- Use TypeScript strict mode
-- Extract reusable components
-- Keep functions small and focused
-- Add JSDoc comments for complex functions
+### C. Sidebar profile modal
 
-### State Management
-- Use React hooks for local component state
-- Consider Context API for global state (profile, configuration)
-- Avoid over-engineering for this scope
+- Footer: active name + avatar → modal with 3 profiles (by `lastUsedAt` desc) + **Add profile**.
+- Add flow: name prompt → create → switch → `/profile` with edit enabled for import.
 
-### Error Handling
-- Implement consistent error handling in service layer
-- Show user-friendly error messages in UI
-- Log errors for debugging
-- Provide retry mechanisms where appropriate
+---
 
-### Performance Considerations
-- Debounce input where appropriate
-- Implement loading states for all async operations
-- Optimize re-renders with useCallback/useMemo
-- Consider virtualization for long lists if needed
+## Implementation sprints
 
-## Testing Strategy
+### Sprint 0 — Workspace profiles + theme
 
-### Manual Testing
-1. Test each AI provider separately
-2. Verify PDF generation quality
-3. Test chat functionality with streaming responses
-4. Validate data persistence across sessions
-5. Test responsive design on different screen sizes
+- [ ] `src/app/types/workspace.ts` — types + settings (`theme`, `LlmConfig`)
+- [ ] `src/app/context/WorkspaceProfileContext.tsx` — manifest, CRUD, eviction, migration
+- [ ] Refactor `ConfigContext`, `ProfileContext`, `AnalysisContext` for per-profile storage
+- [ ] Theme switch on General tab; apply on profile switch
+- [ ] `ProfileSwitcherModal` + sidebar footer; add-profile → `/profile?edit=1`
+- [ ] Legacy `STORAGE_KEYS` migration in `src/app/config/defaults.ts`
 
-### Automated Testing (Future)
-- Consider adding unit tests for utility functions
-- Add integration tests for service layer
-- Add end-to-end tests for critical user flows
+### Sprint 1 — Integration glue
 
-## Deployment Considerations
-Since this is primarily a frontend application:
-- Can be deployed as static site (Vercel, Netlify, etc.)
-- LLM services need to be running separately (local or remote)
-- Consider build-time environment variable injection
-- Add service worker for offline capabilities if desired
+- [ ] Sidebar “Recent Analyses” → `AnalysisContext` (scoped per profile)
+- [ ] `activeSessionId`; New Analysis clears draft
+- [ ] `BuilderHandoffContext` + Analysis Hub → CV/CL builders
 
-## Risks and Mitigations
+### Sprint 2 — Profile features
 
-### Risk: LLM API Unreliability
-- Mitigation: Implement retry logic, fallback responses, clear error messages
+- [ ] File upload (`.md`, `.txt`) + LLM merge with confirmation
+- [ ] Profile AI Assistant tab + per-profile chat history
 
-### Risk: Token Limit Exceeded
-- Mitigation: Truncate long inputs, summarize content, implement chunking strategy
+### Sprint 3 — CV / Cover Letter AI
 
-### Risk: Slow Response Times
-- Mitigation: Implement streaming responses, add loading skeletons, set reasonable timeouts
+- [ ] `cvBuilderService` / `clBuilderService`
+- [ ] Replace mocks; real chat; Markdown export (not PDF)
 
-### Risk: Privacy Concerns
-- Mitigation: Ensure API keys are stored locally, clarify data usage in documentation
+### Sprint 4 — Optional polish
 
-## Next Steps for Other Agents
+- [ ] Follow-up chat on analysis sessions
+- [ ] Markdown preview on Profile
+- [ ] Final `README.md` sync
 
-1. **Begin with Environment Setup** (Task #1)
-   - Set up configuration for local LLMs
-   - Verify connections to Ollama and LMStudio
+---
 
-2. **Proceed with Core AI Integration** 
-   - Start with Job Analysis (Task #2) as it's central to the application
-   - Then move to CV Builder (Task #3) and Cover Letter Builder (Task #4)
+## Suggested implementation order
 
-3. **Implement Supporting Features**
-   - PDF generation (Task #5)
-   - Persistence (Task #6)
-   - Real-time chat (Task #7)
-   - Configuration integration (Task #8)
-   - Profile context (Task #9)
+1. **Docs:** Keep this `PLAN.md` current; `README.md` updated at start and after ship.
+2. Workspace types + context + migration
+3. Refactor contexts for per-profile storage
+4. Theme + profile modal + new-profile flow
+5. Sidebar analysis history + handoff
+6. Profile upload + AI chat
+7. CV/CL builder AI
+8. README final sync
 
-4. **Follow the Implementation Order**
-   - Tasks can be worked on in parallel where dependencies allow
-   - Service layer should be established first
-   - UI modifications depend on the service layer
+---
 
-## Communication and Coordination
-- Update task status using the task management system
-- Create new tasks for discovered sub-tasks
-- Report blockers early
-- Share useful utility functions or patterns discovered
+## Key files
+
+| Path | Role |
+|------|------|
+| `src/app/context/WorkspaceProfileContext.tsx` | Multi-profile (new) |
+| `src/app/components/workspace/ProfileSwitcherModal.tsx` | Profile modal (new) |
+| `src/app/components/navigation/Sidebar.tsx` | History + profile footer |
+| `src/app/context/AnalysisContext.tsx` | Job analysis state |
+| `src/app/context/ProfileContext.tsx` | Master profile markdown |
+| `src/app/context/ConfigContext.tsx` | LLM + general settings |
+| `src/app/pages/Config.tsx` | Settings UI |
+| `src/app/pages/Profile.tsx` | Profile editor |
+| `src/app/pages/AnalysisHub.tsx` | Job analysis UI |
+| `src/app/pages/CVBuilder.tsx` / `CLBuilder.tsx` | Builders (stubs) |
+| `src/app/services/llmService.ts` | LLM client |
+| `src/app/services/jobAnalysisService.ts` | Analysis prompts |
+| `src/app/config/defaults.ts` | Storage keys, defaults |
+
+---
+
+## Risks (from product spec)
+
+- **Context overflow** — large uploads; chunk/summarize.
+- **Hallucination** — profile merge and builders must not invent experience.
+- **Parsing failures** — inconsistent uploads; confirm before apply.
+- **Errors** — user-friendly UI; log details for debugging.
+
+---
+
+## Historical note
+
+Earlier phases assumed Next.js + Vercel AI SDK; the shipped app uses **Vite + React** with a custom `llmService`. Job analysis AI is implemented; CV/CL builders and sidebar glue are not.
