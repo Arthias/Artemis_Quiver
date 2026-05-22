@@ -1,0 +1,21 @@
+{
+	"nodes":[
+		{"id":"components","type":"file","file":"10-Architecture/Component Tree.md","x":0,"y":-400,"width":320,"height":320,"color":"2"},
+		{"id":"contexts","type":"file","file":"10-Architecture/Context Providers.md","x":0,"y":0,"width":320,"height":320,"color":"3"},
+		{"id":"storage","type":"file","file":"10-Architecture/Local Storage.md","x":0,"y":400,"width":320,"height":320,"color":"4"},
+		{"id":"llm","type":"file","file":"20-APIs/Local LLM Integration.md","x":450,"y":0,"width":320,"height":320,"color":"5"},
+		{"id":"prompts","type":"file","file":"20-APIs/AI Prompt Templates.md","x":450,"y":400,"width":320,"height":320,"color":"6"},
+		{"id":"roadmap","type":"file","file":"60-Roadmap/Plan.md","x":-500,"y":400,"width":350,"height":320},
+		{"id":"moc","type":"file","file":"00-Index/MOC.md","x":-500,"y":-180,"width":350,"height":450,"color":"1"}
+	],
+	"edges":[
+		{"id":"edge-moc-components","fromNode":"moc","fromSide":"right","toNode":"components","toSide":"left"},
+		{"id":"edge-moc-contexts","fromNode":"moc","fromSide":"right","toNode":"contexts","toSide":"left"},
+		{"id":"edge-moc-storage","fromNode":"moc","fromSide":"right","toNode":"storage","toSide":"left"},
+		{"id":"edge-components-contexts","fromNode":"components","fromSide":"bottom","toNode":"contexts","toSide":"top"},
+		{"id":"edge-contexts-storage","fromNode":"contexts","fromSide":"bottom","toNode":"storage","toSide":"top"},
+		{"id":"edge-contexts-llm","fromNode":"contexts","fromSide":"right","toNode":"llm","toSide":"left"},
+		{"id":"edge-llm-prompts","fromNode":"llm","fromSide":"bottom","toNode":"prompts","toSide":"top"},
+		{"id":"edge-moc-roadmap","fromNode":"moc","fromSide":"bottom","toNode":"roadmap","toSide":"top"}
+	]
+}

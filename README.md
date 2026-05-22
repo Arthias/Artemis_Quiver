@@ -81,12 +81,20 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 - **AI:** `fetch` to local LMStudio (OpenAI-compatible) or Ollama chat APIs
 - **Persistence:** `localStorage` via workspace manifest + per-profile blobs
 
-## Roadmap
+## 📖 Internal Documentation & AI Agent Context
 
-Deferred polish and future work: **[PLAN.md](PLAN.md)** (analysis follow-up chat, rendered Markdown preview on Profile).
+Artemis Quiver features a comprehensive internal documentation vault inside [artemis_quiver_docs/](artemis_quiver_docs/). This vault is an Obsidian-compatible notebook containing architecture maps, state details, prompt patterns, coding rules, manual test cases, and the sprint backlog.
+
+### 🤖 AI Agent Instructions
+If you are an AI coding assistant, **read this readme for initial context, then proceed to the documentation vault**. The vault contains detailed specifications of the codebase and must be treated as the source of truth for planning and writing code.
+- **Root Map of Content:** [MOC.md](artemis_quiver_docs/00-Index/MOC.md) (Use this to find notes and pages).
+- **Development Roadmap & Backlog:** [Plan.md](artemis_quiver_docs/60-Roadmap/Plan.md) (The backlog/sprint checklist).
+- **Architecture Details:** See [Context Providers](artemis_quiver_docs/10-Architecture/Context%20Providers.md) and [Local Storage Schemas](artemis_quiver_docs/10-Architecture/Local%20Storage.md).
+- **Coding Guidelines:** Adhere to the rules in [Guidelines.md](artemis_quiver_docs/40-Development/Guidelines.md) and [Coding Standards.md](artemis_quiver_docs/40-Development/Coding%20Standards.md).
 
 ## Risks
 
 - Large uploads may exceed model context — review merges carefully.
 - Models may misread jobs or invent skills — verify generated CVs and letters.
 - API failures show in the UI; check the browser console for detail.
+

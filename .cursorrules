@@ -1,0 +1,34 @@
+# Artemis Quiver — Cursor Rules & AI Agent Instructions
+
+Always consult the project `README.md` and the Obsidian documentation vault in `artemis_quiver_docs/` for all context, guidelines, and roadmap plans.
+
+---
+
+## 📖 Documentation Vault Source of Truth
+
+All internal documentation, design specifications, and backlog plans are stored inside the Obsidian notebook under [artemis_quiver_docs/](file:///F:/Dev/Artemis_Quiver/artemis_quiver_docs).
+
+- **Index & MOC:** [MOC.md](file:///F:/Dev/Artemis_Quiver/artemis_quiver_docs/00-Index/MOC.md) is the entry point. Start there to understand where notes live.
+- **Development Roadmap:** All sprint planning, backlogs, and roadmap items reside in [Plan.md](file:///F:/Dev/Artemis_Quiver/artemis_quiver_docs/60-Roadmap/Plan.md) (formerly `PLAN.md`).
+- **Guidelines & Design:** Architectural choices are defined in [Guidelines.md](file:///F:/Dev/Artemis_Quiver/artemis_quiver_docs/40-Development/Guidelines.md) and [Coding Standards.md](file:///F:/Dev/Artemis_Quiver/artemis_quiver_docs/40-Development/Coding%20Standards.md).
+
+---
+
+## 🚫 File Organization Restraints
+
+- **Clean Root Policy:** Never add new planning markdown files (e.g. `TODO.md`, `PLAN.md`, `NOTES.md`), architectural outlines, or guideline checklists to the project root directory. Keep the front-face of the repository clean.
+- **Documentation Updates:** Any new documentation, design specifications, or test cases must be added inside the appropriate folder in the `artemis_quiver_docs/` vault.
+- **Obsidian Compatibility:** When creating or modifying markdown notes inside the vault:
+  - Add standard YAML frontmatter properties (`tags`, `status`, `last_updated`).
+  - Use Obsidian-style internal links (wikilinks), e.g., `[[Note Name]]` or `[[Note Name#Section|Link Label]]`.
+  - Use GitHub-style callouts for warnings/notes: `> [!NOTE]` or `> [!WARNING]`.
+
+---
+
+## 🛠️ Codebase & Architecture Standards
+
+- **Context Providers:** All global state must route through context providers (`WorkspaceProfileContext`, `ProfileContext`, `ConfigContext`, `AnalysisContext`, `BuilderHandoffContext`). Never access `localStorage` directly in visual components; interface via these context functions.
+- **Stateless Services:** Server configurations, prompt assemblies, and LLM fetch integrations must reside in `src/app/services/`.
+- **Pure Client Architecture:** Artemis Quiver operates entirely client-side. Do not install server databases, session backends, or cloud-dependent libraries.
+- **Tailwind & shadcn/ui:** Style elements using Tailwind CSS. Utilize CSS variables to support Light and Dark themes dynamically.
+- **TypeScript Strictness:** Keep types strict. Avoid using the `any` identifier. Ensure interfaces exist for all data transfer models.

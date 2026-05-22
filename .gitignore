@@ -22,6 +22,7 @@ yarn-error.log*
 # Editor & OS
 .vscode/
 .idea/
+.obsidian/
 *.swp
 *.swo
 .DS_Store
