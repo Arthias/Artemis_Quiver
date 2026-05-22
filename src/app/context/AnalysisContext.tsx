@@ -2,17 +2,17 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { STORAGE_KEYS } from "../config/defaults";
 import { analyzeJobPosting } from "../services/jobAnalysisService";
 import type { AnalysisResult, AnalysisSession } from "../types/analysis";
 import { useConfig } from "./ConfigContext";
 import { useProfile } from "./ProfileContext";
+import { useWorkspace } from "./WorkspaceProfileContext";
 import { downloadMarkdown } from "../utils/download";
-import { loadJson, loadText, saveJson, saveText } from "../utils/storage";
 
 interface AnalysisContextValue {
   draftJobPosting: string;
@@ -20,6 +20,7 @@ interface AnalysisContextValue {
   sessions: AnalysisSession[];
   currentResult: AnalysisResult | null;
   currentMarkdown: string | null;
+  activeSessionId: string | null;
   analyzing: boolean;
   error: string | null;
   analyze: () => Promise<void>;
@@ -33,26 +34,44 @@ const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const { config } = useConfig();
   const { profile } = useProfile();
-  const [draftJobPosting, setDraftJobPosting] = useState(() =>
-    loadText(STORAGE_KEYS.draftJobPosting, "")
-  );
-  const [sessions, setSessions] = useState<AnalysisSession[]>(() =>
-    loadJson<AnalysisSession[]>(STORAGE_KEYS.analysisSessions, [])
-  );
+  const { activeProfileId, profileData, updateProfileData, persistActiveProfile, touchLastUsed } =
+    useWorkspace();
+
+  const [draftJobPosting, setDraftJobPosting] = useState(profileData.draftJobPosting);
+  const [sessions, setSessions] = useState<AnalysisSession[]>(profileData.analysisSessions);
   const [currentResult, setCurrentResult] = useState<AnalysisResult | null>(null);
   const [currentMarkdown, setCurrentMarkdown] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const persistDraft = useCallback((value: string) => {
-    setDraftJobPosting(value);
-    saveText(STORAGE_KEYS.draftJobPosting, value);
-  }, []);
+  useEffect(() => {
+    setDraftJobPosting(profileData.draftJobPosting);
+    setSessions(profileData.analysisSessions);
+    setCurrentResult(null);
+    setCurrentMarkdown(null);
+    setActiveSessionId(null);
+    setError(null);
+  }, [activeProfileId, profileData.draftJobPosting, profileData.analysisSessions]);
 
-  const persistSessions = useCallback((next: AnalysisSession[]) => {
-    setSessions(next);
-    saveJson(STORAGE_KEYS.analysisSessions, next);
-  }, []);
+  const persistAnalysisState = useCallback(
+    (draft: string, nextSessions: AnalysisSession[]) => {
+      updateProfileData({
+        draftJobPosting: draft,
+        analysisSessions: nextSessions,
+      });
+      persistActiveProfile();
+    },
+    [updateProfileData, persistActiveProfile]
+  );
+
+  const persistDraft = useCallback(
+    (value: string) => {
+      setDraftJobPosting(value);
+      persistAnalysisState(value, sessions);
+    },
+    [sessions, persistAnalysisState]
+  );
 
   const analyze = useCallback(async () => {
     const trimmed = draftJobPosting.trim();
@@ -73,39 +92,47 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
 
       setCurrentResult(result);
       setCurrentMarkdown(markdown);
+      setActiveSessionId(session.id);
       setSessions((prev) => {
         const next = [session, ...prev].slice(0, 50);
-        saveJson(STORAGE_KEYS.analysisSessions, next);
+        persistAnalysisState(trimmed, next);
         return next;
       });
+      touchLastUsed();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Analysis failed. Check LLM settings.";
       setError(message);
       setCurrentResult(null);
       setCurrentMarkdown(null);
+      setActiveSessionId(null);
     } finally {
       setAnalyzing(false);
     }
-  }, [draftJobPosting, profile, config]);
+  }, [draftJobPosting, profile, config, persistAnalysisState, touchLastUsed]);
 
   const clearCurrent = useCallback(() => {
     setCurrentResult(null);
     setCurrentMarkdown(null);
+    setActiveSessionId(null);
     setError(null);
-    persistDraft("");
-  }, [persistDraft]);
+    setDraftJobPosting("");
+    persistAnalysisState("", sessions);
+  }, [sessions, persistAnalysisState]);
 
   const loadSession = useCallback(
     (id: string) => {
       const session = sessions.find((s) => s.id === id);
       if (!session) return;
-      persistDraft(session.jobPosting);
+      setDraftJobPosting(session.jobPosting);
       setCurrentResult(session.result);
       setCurrentMarkdown(session.markdown);
+      setActiveSessionId(id);
       setError(null);
+      persistAnalysisState(session.jobPosting, sessions);
+      touchLastUsed();
     },
-    [sessions, persistDraft]
+    [sessions, persistAnalysisState, touchLastUsed]
   );
 
   const exportCurrentAnalysis = useCallback(() => {
@@ -121,6 +148,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       sessions,
       currentResult,
       currentMarkdown,
+      activeSessionId,
       analyzing,
       error,
       analyze,
@@ -134,6 +162,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       sessions,
       currentResult,
       currentMarkdown,
+      activeSessionId,
       analyzing,
       error,
       analyze,

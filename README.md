@@ -13,25 +13,26 @@ Paste a job posting and the app compares it to your **master profile** (Markdown
 - **CV focus** — optimization suggestions and a path to the CV builder
 - **Cover letter** — a draft plus a path to the cover letter builder
 
-The **sidebar** links to Analysis Hub, Profile, CV Builder, Cover Letter Builder, and Settings. Session history and a multi-profile switcher are on the roadmap (see [PLAN.md](PLAN.md)).
+### Workspace profiles (no login)
+
+Up to **3 local profiles**, each with its own master profile, LLM settings, theme, and analysis history. Switch profiles from the sidebar footer. Adding a fourth profile removes the least recently used one.
 
 ### Profile workspace
 
-- Central **master profile** as editable Markdown (browser storage)
-- **Export** `profile.md` for backup
-- Planned: file upload to merge context, AI assistant to optimize the profile
+- Markdown editor with auto-save and export
+- **Import** `.md` / `.txt` with LLM merge (preview before apply)
+- **AI Assistant** tab to refine the profile
 
 ### Builders
 
-- **CV Builder** — tailored CV from profile + optional job description; chat refinement
-- **Cover Letter Builder** — letter for a role/company or generic; chat refinement
-- Planned: real LLM generation; PDF export deferred
+- **CV Builder** — generate from profile + optional job description; chat to edit; export `.md`
+- **Cover Letter Builder** — tailored letter with company/role fields; chat to edit; export `.md`
+- Open from Analysis Hub with job context pre-filled
 
 ### Settings
 
-- Local LLM: **LMStudio** or **Ollama** (URL, model, temperature, connection test)
-- General: auto-save profile; planned per-profile **light/dark theme**
-- Cloud providers (Anthropic, Gemini, OpenRouter) deferred
+- **LLM Provider:** LMStudio or Ollama
+- **General:** light/dark theme and auto-save (per active profile)
 
 ## Run locally
 
@@ -48,20 +49,21 @@ Vite proxies `/api/lmstudio` → `http://192.168.8.171:1234` with model `google/
 2. Open **Settings** → **Test connection**.
 3. Edit **Profile**, then run **Job Analysis** on the Analysis Hub.
 
-Data stays in the browser (`localStorage`) unless you export `.md` files.
+Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy single-profile data migrates into a “Default” workspace profile on first load.
 
-## MVP (implemented today)
+## MVP (implemented)
 
 | Feature | Status |
 |---------|--------|
-| Profile editor, auto-save, export | Done |
-| Job analysis (score, tips, CV notes, cover letter draft) | Done |
-| Analysis session history (in hub) + Markdown export | Done |
-| Settings: LMStudio/Ollama, test connection | Done |
-| Sidebar analysis history / profile switcher | Planned |
-| CV & CL builder AI | Planned |
-| PDF download | Out of scope for current sprint |
-| Login / cloud API keys | Out of scope |
+| Job analysis + session history + export | Done |
+| Up to 3 workspace profiles + switcher modal | Done |
+| Per-profile settings + light/dark theme | Done |
+| Sidebar analysis history + New Analysis | Done |
+| Analysis → CV/CL builder handoff | Done |
+| Profile import + AI assistant | Done |
+| CV & CL builder AI + Markdown export | Done |
+| PDF download | Not planned (current sprint) |
+| Cloud API keys / login | Not planned |
 
 ## Routes
 
@@ -76,17 +78,15 @@ Data stays in the browser (`localStorage`) unless you export `.md` files.
 ## Tech stack
 
 - **UI:** React 18, Vite, Tailwind CSS, shadcn/ui, React Router v7
-- **AI:** `fetch` to local OpenAI-compatible (LMStudio) or Ollama chat APIs
-- **Persistence:** `localStorage` (profile, config, analysis sessions)
+- **AI:** `fetch` to local LMStudio (OpenAI-compatible) or Ollama chat APIs
+- **Persistence:** `localStorage` via workspace manifest + per-profile blobs
 
 ## Roadmap
 
-Full task list, sprint order, and failsafe notes: **[PLAN.md](PLAN.md)**.
-
-Active work includes: up to **3 local workspace profiles** (no login), dark theme per profile, sidebar profile modal, wiring sidebar history and analysis→builder handoff, profile upload/AI chat, then CV/CL builder LLM integration.
+Deferred polish and future work: **[PLAN.md](PLAN.md)** (analysis follow-up chat, rendered Markdown preview on Profile).
 
 ## Risks
 
-- Large profile uploads may exceed model context — merge/summarize carefully.
-- Models may misread jobs or invent skills — review merges and generated CVs.
-- API failures should show clear UI errors; check the browser console for detail.
+- Large uploads may exceed model context — review merges carefully.
+- Models may misread jobs or invent skills — verify generated CVs and letters.
+- API failures show in the UI; check the browser console for detail.

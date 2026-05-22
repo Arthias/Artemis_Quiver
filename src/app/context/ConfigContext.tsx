@@ -6,14 +6,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_LLM_CONFIG, STORAGE_KEYS } from "../config/defaults";
+import type { ProfileSettings } from "../types/workspace";
 import { testConnection } from "../services/llmService";
-import type { LlmConfig } from "../types/llm";
-import { loadJson, saveJson } from "../utils/storage";
+import { useWorkspace } from "./WorkspaceProfileContext";
 
 interface ConfigContextValue {
-  config: LlmConfig;
-  updateConfig: (patch: Partial<LlmConfig>) => void;
+  config: ProfileSettings;
+  updateConfig: (patch: Partial<ProfileSettings>) => void;
   saveConfig: () => void;
   testLlmConnection: () => Promise<string>;
   isTesting: boolean;
@@ -23,20 +22,25 @@ interface ConfigContextValue {
 const ConfigContext = createContext<ConfigContextValue | null>(null);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<LlmConfig>(() =>
-    loadJson(STORAGE_KEYS.llmConfig, DEFAULT_LLM_CONFIG)
-  );
+  const { profileData, updateSettings, persistActiveProfile, touchLastUsed } =
+    useWorkspace();
   const [isTesting, setIsTesting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
-  const updateConfig = useCallback((patch: Partial<LlmConfig>) => {
-    setConfig((prev) => ({ ...prev, ...patch }));
-  }, []);
+  const config = profileData.settings;
+
+  const updateConfig = useCallback(
+    (patch: Partial<ProfileSettings>) => {
+      updateSettings(patch);
+    },
+    [updateSettings]
+  );
 
   const saveConfig = useCallback(() => {
-    saveJson(STORAGE_KEYS.llmConfig, config);
+    persistActiveProfile();
+    touchLastUsed();
     setLastSavedAt(new Date().toISOString());
-  }, [config]);
+  }, [persistActiveProfile, touchLastUsed]);
 
   const testLlmConnection = useCallback(async () => {
     setIsTesting(true);

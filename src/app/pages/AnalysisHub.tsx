@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAnalysis } from "../context/AnalysisContext";
+import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import {
   Select,
   SelectContent,
@@ -42,7 +43,9 @@ export function AnalysisHub() {
     clearCurrent,
     loadSession,
     exportCurrentAnalysis,
+    activeSessionId,
   } = useAnalysis();
+  const { setHandoff } = useBuilderHandoff();
 
   const result = currentResult;
   const hasResult = result !== null;
@@ -237,7 +240,14 @@ export function AnalysisHub() {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => navigate("/cv-builder")}
+                    onClick={() => {
+                      setHandoff({
+                        jobPosting: draftJobPosting,
+                        cvRecommendations: result.cvRecommendations,
+                        sourceSessionId: activeSessionId ?? undefined,
+                      });
+                      navigate("/cv-builder");
+                    }}
                   >
                     <FileText className="w-4 h-4" />
                     Open CV Builder
@@ -263,7 +273,14 @@ export function AnalysisHub() {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => navigate("/cl-builder")}
+                    onClick={() => {
+                      setHandoff({
+                        jobPosting: draftJobPosting,
+                        coverLetterDraft: result.coverLetterDraft,
+                        sourceSessionId: activeSessionId ?? undefined,
+                      });
+                      navigate("/cl-builder");
+                    }}
                   >
                     <Mail className="w-4 h-4" />
                     Edit in Builder

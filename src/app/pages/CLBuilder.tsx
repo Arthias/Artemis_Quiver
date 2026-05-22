@@ -1,61 +1,101 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Mail, Download, Sparkles, Wand2 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
+import { useConfig } from "../context/ConfigContext";
+import { useProfile } from "../context/ProfileContext";
+import { useBuilderHandoff } from "../context/BuilderHandoffContext";
+import { generateCoverLetter, editCoverLetter } from "../services/clBuilderService";
+import { downloadMarkdown } from "../utils/download";
+
+const CL_SUGGESTIONS = [
+  { title: "Make it more formal", hint: "Corporate tone", prompt: "Make the tone more formal and professional for a corporate setting." },
+  { title: "Make it shorter", hint: "About 3 paragraphs", prompt: "Shorten the letter to roughly three concise paragraphs." },
+  { title: "Add enthusiasm", hint: "Show more excitement", prompt: "Add more enthusiasm while staying professional." },
+  { title: "Emphasize leadership", hint: "Highlight management", prompt: "Emphasize leadership and team management experience." },
+  { title: "Focus on tech stack", hint: "Mention technologies", prompt: "Highlight relevant technical skills and stack from the profile." },
+];
 
 export function CLBuilder() {
+  const { config } = useConfig();
+  const { profile } = useProfile();
+  const { consumeHandoff } = useBuilderHandoff();
+
   const [jobDescription, setJobDescription] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [position, setPosition] = useState("");
   const [letterContent, setLetterContent] = useState("");
+  const [seedDraft, setSeedDraft] = useState<string | undefined>();
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handoff = consumeHandoff();
+    if (!handoff) return;
+    if (handoff.jobPosting) setJobDescription(handoff.jobPosting);
+    if (handoff.coverLetterDraft) {
+      setSeedDraft(handoff.coverLetterDraft);
+      setLetterContent(handoff.coverLetterDraft);
+      setIsGenerated(true);
+    }
+    if (handoff.companyName) setCompanyName(handoff.companyName);
+    if (handoff.position) setPosition(handoff.position);
+  }, [consumeHandoff]);
 
   const generateLetter = async () => {
     setGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const company = companyName || "the Company";
-    const role = position || "this position";
-
-    setLetterContent(`Dear Hiring Manager,
-
-I am writing to express my strong interest in the ${role} at ${company}. With over 8 years of experience in software engineering and a proven track record of building scalable distributed systems, I am confident that my skills and background align perfectly with your team's needs.
-
-Throughout my career, I have specialized in developing high-performance backend systems and microservices architectures. At my current role at Tech Corp, I led the development of a microservices platform that serves over 10 million daily active users, improving overall system performance by 40% through strategic optimization and caching strategies. This experience has given me deep expertise in cloud infrastructure, distributed systems design, and scalable architecture patterns.
-
-What particularly excites me about this opportunity is the chance to contribute to ${company}'s mission and work on challenging technical problems at scale. I am impressed by your commitment to innovation and technical excellence, and I believe my background in leading cross-functional teams and mentoring junior engineers would enable me to make meaningful contributions from day one.
-
-In my previous role at StartupXYZ, I built a real-time data processing pipeline handling over 1 million events daily and developed a comprehensive CI/CD pipeline that reduced deployment time by 60%. These experiences have taught me the importance of building robust, maintainable systems while maintaining high development velocity.
-
-I am particularly drawn to this role because it aligns with my passion for solving complex technical challenges and my desire to work with a team that values engineering excellence. I am excited about the opportunity to bring my expertise in distributed systems, cloud infrastructure, and team leadership to ${company}.
-
-Thank you for considering my application. I look forward to the opportunity to discuss how my experience and skills can contribute to your team's success.
-
-Best regards,
-John Doe`);
-
-    setIsGenerated(true);
-    setGenerating(false);
+    setError(null);
+    try {
+      const content = await generateCoverLetter(
+        profile,
+        {
+          jobDescription: jobDescription || undefined,
+          companyName,
+          position,
+          seedDraft,
+        },
+        config
+      );
+      setLetterContent(content.trim());
+      setIsGenerated(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cover letter generation failed.");
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const downloadPDF = () => {
-    alert("PDF download would be implemented here using a library like react-pdf or jspdf");
+  const downloadMarkdownExport = () => {
+    downloadMarkdown("cover-letter.md", letterContent);
   };
 
-  const handleChatSubmit = () => {
-    if (!chatMessage.trim()) return;
-    alert(`AI would process: "${chatMessage}" and update the cover letter accordingly`);
+  const handleChatSubmit = async (message?: string) => {
+    const text = (message ?? chatMessage).trim();
+    if (!text || chatLoading) return;
+
+    setChatLoading(true);
+    setError(null);
     setChatMessage("");
+
+    try {
+      const updated = await editCoverLetter(letterContent, text, profile, config);
+      setLetterContent(updated.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not apply changes.");
+      setChatMessage(text);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -71,20 +111,23 @@ John Doe`);
               </div>
             </div>
             {isGenerated && (
-              <Button onClick={downloadPDF} className="gap-2">
+              <Button onClick={downloadMarkdownExport} className="gap-2" variant="outline">
                 <Download className="w-4 h-4" />
-                Download PDF
+                Export .md
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-hidden flex">
-        {/* Left Panel - Letter Preview */}
         <div className="flex-1 border-r border-border overflow-auto">
           <div className="p-6">
+            {error && (
+              <Card className="p-3 mb-4 text-sm text-destructive border-destructive/50">
+                {error}
+              </Card>
+            )}
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
                 <Card className="p-6">
@@ -147,44 +190,19 @@ John Doe`);
                     </Button>
                   </div>
                 </Card>
-
-                <Card className="p-6 bg-muted/30 border-dashed">
-                  <h3 className="font-medium mb-3">Cover Letter Tips</h3>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">1</Badge>
-                      <span>Provide company and position for personalized content</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">2</Badge>
-                      <span>Include job description to highlight relevant skills and experience</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">3</Badge>
-                      <span>Use the chat panel to refine tone, length, or specific sections</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">4</Badge>
-                      <span>Generated content is based on your master profile</span>
-                    </li>
-                  </ul>
-                </Card>
               </div>
             ) : (
               <div className="max-w-3xl mx-auto">
                 <Card className="p-8 bg-white dark:bg-card">
-                  <div className="prose prose-sm max-w-none">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                      {letterContent}
-                    </pre>
-                  </div>
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                    {letterContent}
+                  </pre>
                 </Card>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Panel - AI Chat */}
         {isGenerated && (
           <div className="w-96 flex flex-col bg-muted/20">
             <div className="p-4 border-b border-border">
@@ -199,52 +217,41 @@ John Doe`);
 
             <div className="flex-1 overflow-auto p-4">
               <div className="space-y-3">
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Make it more formal</p>
-                  <p className="text-xs text-muted-foreground">Adjust tone for corporate setting</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Make it shorter</p>
-                  <p className="text-xs text-muted-foreground">Reduce to 3 paragraphs</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Add enthusiasm</p>
-                  <p className="text-xs text-muted-foreground">Show more excitement</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Emphasize leadership</p>
-                  <p className="text-xs text-muted-foreground">Highlight management skills</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Focus on tech stack</p>
-                  <p className="text-xs text-muted-foreground">Mention specific technologies</p>
-                </Card>
+                {CL_SUGGESTIONS.map((s) => (
+                  <Card
+                    key={s.title}
+                    className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+                    onClick={() => handleChatSubmit(s.prompt)}
+                  >
+                    <p className="text-sm font-medium">{s.title}</p>
+                    <p className="text-xs text-muted-foreground">{s.hint}</p>
+                  </Card>
+                ))}
               </div>
             </div>
 
             <div className="p-4 border-t border-border">
-              <div className="flex gap-2">
-                <Textarea
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleChatSubmit();
-                    }
-                  }}
-                  placeholder="Request changes..."
-                  className="resize-none bg-input-background border-border text-sm"
-                  rows={3}
-                />
-              </div>
+              <Textarea
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleChatSubmit();
+                  }
+                }}
+                placeholder="Request changes..."
+                className="resize-none bg-input-background border-border text-sm"
+                rows={3}
+                disabled={chatLoading}
+              />
               <Button
-                onClick={handleChatSubmit}
-                disabled={!chatMessage.trim()}
+                onClick={() => handleChatSubmit()}
+                disabled={!chatMessage.trim() || chatLoading}
                 className="w-full mt-2"
                 size="sm"
               >
-                Apply Changes
+                {chatLoading ? "Applying..." : "Apply Changes"}
               </Button>
             </div>
           </div>

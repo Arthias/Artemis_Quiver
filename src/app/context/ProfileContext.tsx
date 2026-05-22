@@ -7,10 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_PROFILE_MARKDOWN, STORAGE_KEYS } from "../config/defaults";
 import { useConfig } from "./ConfigContext";
+import { useWorkspace } from "./WorkspaceProfileContext";
 import { downloadMarkdown } from "../utils/download";
-import { loadText, saveText } from "../utils/storage";
 
 interface ProfileContextValue {
   profile: string;
@@ -25,19 +24,28 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { config } = useConfig();
-  const [profile, setProfileState] = useState(() =>
-    loadText(STORAGE_KEYS.profile, DEFAULT_PROFILE_MARKDOWN)
-  );
-  const [savedProfile, setSavedProfile] = useState(profile);
+  const { activeProfileId, profileData, updateProfileData, persistActiveProfile, touchLastUsed } =
+    useWorkspace();
+
+  const [profile, setProfileState] = useState(profileData.profileMarkdown);
+  const [savedProfile, setSavedProfile] = useState(profileData.profileMarkdown);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    setProfileState(profileData.profileMarkdown);
+    setSavedProfile(profileData.profileMarkdown);
+    setLastSavedAt(null);
+  }, [activeProfileId, profileData.profileMarkdown]);
 
   const isDirty = profile !== savedProfile;
 
   const saveProfile = useCallback(() => {
-    saveText(STORAGE_KEYS.profile, profile);
+    updateProfileData({ profileMarkdown: profile });
+    persistActiveProfile();
+    touchLastUsed();
     setSavedProfile(profile);
     setLastSavedAt(new Date().toISOString());
-  }, [profile]);
+  }, [profile, updateProfileData, persistActiveProfile, touchLastUsed]);
 
   const setProfile = useCallback((value: string) => {
     setProfileState(value);

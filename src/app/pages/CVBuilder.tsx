@@ -1,74 +1,87 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { FileText, Download, Sparkles, Wand2 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
+import { useConfig } from "../context/ConfigContext";
+import { useProfile } from "../context/ProfileContext";
+import { useBuilderHandoff } from "../context/BuilderHandoffContext";
+import { generateCv, editCv } from "../services/cvBuilderService";
+import { downloadMarkdown } from "../utils/download";
+
+const CV_SUGGESTIONS = [
+  { title: "Add more metrics", hint: "Include quantifiable achievements", prompt: "Add more quantifiable metrics and measurable achievements throughout the CV." },
+  { title: "Shorten experience", hint: "Make it more concise", prompt: "Make the experience section more concise while keeping the strongest points." },
+  { title: "Reorder sections", hint: "Prioritize key information", prompt: "Reorder sections to prioritize the most relevant experience for the target role." },
+  { title: "Change formatting", hint: "Adjust layout and style", prompt: "Improve formatting and structure for clarity and scannability." },
+];
 
 export function CVBuilder() {
+  const { config } = useConfig();
+  const { profile } = useProfile();
+  const { consumeHandoff } = useBuilderHandoff();
+
   const [jobDescription, setJobDescription] = useState("");
   const [cvContent, setCvContent] = useState("");
+  const [cvRecommendations, setCvRecommendations] = useState<string[] | undefined>();
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handoff = consumeHandoff();
+    if (!handoff) return;
+    if (handoff.jobPosting) setJobDescription(handoff.jobPosting);
+    if (handoff.cvRecommendations?.length) setCvRecommendations(handoff.cvRecommendations);
+  }, [consumeHandoff]);
 
   const generateCV = async () => {
     setGenerating(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    setCvContent(`JOHN DOE
-Senior Software Engineer
-john.doe@email.com | +1 (555) 123-4567 | linkedin.com/in/johndoe
-
-PROFESSIONAL SUMMARY
-Results-driven Senior Software Engineer with 8+ years of experience in building scalable distributed systems and leading cross-functional teams. Proven track record of improving system performance by 40% and delivering high-impact solutions for 10M+ users.
-
-TECHNICAL SKILLS
-Languages: JavaScript, TypeScript, Python, Go
-Frameworks: React, Node.js, Django, FastAPI
-Cloud & DevOps: AWS (EC2, S3, Lambda), Docker, Kubernetes, CI/CD
-Databases: PostgreSQL, MongoDB, Redis
-
-PROFESSIONAL EXPERIENCE
-
-Senior Software Engineer | Tech Corp | 2021 - Present
-• Led development of microservices architecture serving 10M+ daily active users
-• Improved system performance by 40% through optimization and caching strategies
-• Mentored team of 5 junior engineers, conducting code reviews and technical training
-• Implemented monitoring and alerting systems reducing incident response time by 60%
-
-Software Engineer | StartupXYZ | 2018 - 2021
-• Built real-time data processing pipeline handling 1M+ events per day
-• Developed CI/CD pipeline reducing deployment time from 2 hours to 20 minutes
-• Collaborated with product team on feature development in Agile environment
-• Reduced production bugs by 35% through comprehensive testing strategies
-
-EDUCATION
-Bachelor of Science in Computer Science
-University of Technology | 2018
-
-CERTIFICATIONS
-• AWS Certified Solutions Architect - Professional
-• Certified Kubernetes Administrator (CKA)
-`);
-
-    setIsGenerated(true);
-    setGenerating(false);
+    setError(null);
+    try {
+      const content = await generateCv(
+        profile,
+        jobDescription || undefined,
+        cvRecommendations,
+        config
+      );
+      setCvContent(content.trim());
+      setIsGenerated(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CV generation failed.");
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const downloadPDF = () => {
-    alert("PDF download would be implemented here using a library like react-pdf or jspdf");
+  const downloadMarkdownExport = () => {
+    downloadMarkdown("cv.md", cvContent);
   };
 
-  const handleChatSubmit = () => {
-    if (!chatMessage.trim()) return;
-    alert(`AI would process: "${chatMessage}" and update the CV accordingly`);
+  const handleChatSubmit = async (message?: string) => {
+    const text = (message ?? chatMessage).trim();
+    if (!text || chatLoading) return;
+
+    setChatLoading(true);
+    setError(null);
     setChatMessage("");
+
+    try {
+      const updated = await editCv(cvContent, text, profile, config);
+      setCvContent(updated.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not apply changes.");
+      setChatMessage(text);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -84,20 +97,23 @@ CERTIFICATIONS
               </div>
             </div>
             {isGenerated && (
-              <Button onClick={downloadPDF} className="gap-2">
+              <Button onClick={downloadMarkdownExport} className="gap-2" variant="outline">
                 <Download className="w-4 h-4" />
-                Download PDF
+                Export .md
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-hidden flex">
-        {/* Left Panel - CV Preview */}
         <div className="flex-1 border-r border-border overflow-auto">
           <div className="p-6">
+            {error && (
+              <Card className="p-3 mb-4 text-sm text-destructive border-destructive/50">
+                {error}
+              </Card>
+            )}
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
                 <Card className="p-6">
@@ -157,18 +173,15 @@ CERTIFICATIONS
             ) : (
               <div className="max-w-3xl mx-auto">
                 <Card className="p-8 bg-white dark:bg-card">
-                  <div className="prose prose-sm max-w-none">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                      {cvContent}
-                    </pre>
-                  </div>
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                    {cvContent}
+                  </pre>
                 </Card>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Panel - AI Chat */}
         {isGenerated && (
           <div className="w-96 flex flex-col bg-muted/20">
             <div className="p-4 border-b border-border">
@@ -183,48 +196,41 @@ CERTIFICATIONS
 
             <div className="flex-1 overflow-auto p-4">
               <div className="space-y-3">
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Add more metrics</p>
-                  <p className="text-xs text-muted-foreground">Include quantifiable achievements</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Shorten experience</p>
-                  <p className="text-xs text-muted-foreground">Make it more concise</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Reorder sections</p>
-                  <p className="text-xs text-muted-foreground">Prioritize key information</p>
-                </Card>
-                <Card className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors">
-                  <p className="text-sm font-medium">Change formatting</p>
-                  <p className="text-xs text-muted-foreground">Adjust layout and style</p>
-                </Card>
+                {CV_SUGGESTIONS.map((s) => (
+                  <Card
+                    key={s.title}
+                    className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+                    onClick={() => handleChatSubmit(s.prompt)}
+                  >
+                    <p className="text-sm font-medium">{s.title}</p>
+                    <p className="text-xs text-muted-foreground">{s.hint}</p>
+                  </Card>
+                ))}
               </div>
             </div>
 
             <div className="p-4 border-t border-border">
-              <div className="flex gap-2">
-                <Textarea
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleChatSubmit();
-                    }
-                  }}
-                  placeholder="Ask for changes..."
-                  className="resize-none bg-input-background border-border text-sm"
-                  rows={3}
-                />
-              </div>
+              <Textarea
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleChatSubmit();
+                  }
+                }}
+                placeholder="Ask for changes..."
+                className="resize-none bg-input-background border-border text-sm"
+                rows={3}
+                disabled={chatLoading}
+              />
               <Button
-                onClick={handleChatSubmit}
-                disabled={!chatMessage.trim()}
+                onClick={() => handleChatSubmit()}
+                disabled={!chatMessage.trim() || chatLoading}
                 className="w-full mt-2"
                 size="sm"
               >
-                Apply Changes
+                {chatLoading ? "Applying..." : "Apply Changes"}
               </Button>
             </div>
           </div>

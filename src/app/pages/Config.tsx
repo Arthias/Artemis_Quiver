@@ -16,6 +16,7 @@ import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { useConfig } from "../context/ConfigContext";
 import type { LocalLlmProvider } from "../types/llm";
+import type { ThemeMode } from "../types/workspace";
 
 export function Config() {
   const { config, updateConfig, saveConfig, testLlmConnection, isTesting, lastSavedAt } =
@@ -197,8 +198,33 @@ export function Config() {
             </TabsContent>
 
             <TabsContent value="general" className="space-y-4">
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold mb-4">General Settings</h2>
+              <Card className="p-6 space-y-6">
+                <h2 className="text-lg font-semibold">General Settings</h2>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Theme</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Light or dark appearance for this profile
+                    </p>
+                  </div>
+                  <Select
+                    value={config.theme}
+                    onValueChange={(value: ThemeMode) => {
+                      updateConfig({ theme: value });
+                      setTimeout(() => saveConfig(), 0);
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px] bg-input-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Auto-save profile</Label>

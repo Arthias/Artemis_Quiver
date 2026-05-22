@@ -42,9 +42,32 @@ export const DEFAULT_LLM_CONFIG: LlmConfig = {
   autoSaveProfile: true,
 };
 
-export const STORAGE_KEYS = {
+export const MINIMAL_PROFILE_MARKDOWN = `# Professional Profile
+
+## Overview
+Add a short summary of your background and career goals.
+
+## Skills
+- 
+
+## Experience
+
+### Role | Company
+*Dates*
+- Key achievement
+
+## Education
+`;
+
+/** @deprecated Migrated into workspace profile data */
+export const LEGACY_STORAGE_KEYS = {
   llmConfig: "artemis-llm-config",
   profile: "artemis-profile",
   analysisSessions: "artemis-analysis-sessions",
   draftJobPosting: "artemis-draft-job-posting",
+} as const;
+
+export const STORAGE_KEYS = {
+  workspace: "artemis-workspace",
+  profileDataPrefix: "artemis-profile-data-",
 } as const;
