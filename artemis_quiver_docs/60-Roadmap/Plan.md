@@ -1,12 +1,15 @@
 ---
 tags: [roadmap, planning, backlog]
-status: completed
+status: completed  
 last_updated: 2026-05-28
 ---
 
-# 📅 Development Plan & Sprint Backlog
+# Development Plan & Sprint Backlog
 
 This document maps out the roadmap, completed milestones, and pending backlog items for Artemis Quiver.
+
+> [!NOTE] CV Builder Upgrade Complete
+> The CV Builder now generates JSON output and supports themed PDF export via HTML rendering with 3 theme options (Modern, Classic, Minimal). See [[../30-Features/CV Builder Themed PDF Export|CV Builder Feature Doc]] for details.
 
 ---
 

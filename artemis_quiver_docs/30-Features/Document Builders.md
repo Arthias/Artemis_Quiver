@@ -6,7 +6,7 @@ last_updated: 2026-05-28
 
 # 📝 Document Builders (CV & Cover Letter)
 
-Artemis Quiver provides two interactive builders: **CV Studio** and **Cover Letter Studio**. These tools allow users to generate tailored copies from their master profile, refine them iteratively via chat, and export them as plain text/Markdown files.
+Artemis Quiver provides two interactive builders: **CV Studio** and **Cover Letter Studio**. These tools allow users to generate tailored copies from their master profile, refine them iteratively via chat, and export them.
 
 ---
 
@@ -29,19 +29,28 @@ Analysis Hub (Route: /)
 - **File:** [CVBuilder.tsx](file:///F:/Dev/Artemis_Quiver/src/app/pages/CVBuilder.tsx)
 - **Service Integration:** [cvBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cvBuilderService.ts)
 
+### Architecture (v2 — Structured JSON + Themed HTML)
+- LLM generates **structured JSON** (Zod-validated schema) instead of raw Markdown
+- JSON is normalized via `normalizeCvJson()` — handles both `{"type":"summary","content":"..."}` and `{"summary":"..."}` formats
+- `renderCVToHTML()` converts JSON to themed HTML (Modern / Classic / Minimal)
+- PDF export via iframe printing (clean isolation from app UI)
+
+**Schema:** `src/types/cv.ts` — 6 section types: summary, contact, skills, experience, education, certifications
+
 ### Pre-Generation Layout
-- Renders an input field for the **Job Description** (pre-populated by handoff).
-- The **Generate CV** trigger prompts the local model to build a structured CV (Contact, Summary, Skills, Experience, Education, Certifications).
+- Renders an input field for the **Job Description** (pre-populated by handoff, optional).
+- The **Generate CV** trigger prompts the local model to build a structured CV JSON.
+- Theme configuration panel (color picker + template selector) appears after generation.
 
 ### Post-Generation Split Screen
-- **Left Panel (Document View)**: Renders the generated CV markdown.
+- **Left Panel (Document View)**: Renders the generated CV in a themed iframe.
 - **Right Panel (AI Refinement Assistant)**:
   - **Quick Suggestions**: Quick-click suggestion buttons for rapid alterations:
     - *Add more metrics* (Measurable achievements)
     - *Shorten experience* (Consolidate sentences)
     - *Reorder sections* (Prioritize core roles)
     - *Change formatting* (Formatting adjustments)
-  - **Custom Request Chat**: A text input box for arbitrary user instructions (e.g., "rewrite the StartupXYZ bullet points to emphasize Go development").
+  - Export button for `.md` (legacy) and PDF via browser print dialog.
 
 ---
 
@@ -64,6 +73,18 @@ Analysis Hub (Route: /)
 
 ---
 
-## 📤 Markdown Exports
+## 📤 Exports
 
-Both builders feature a download button that calls [download.ts](file:///F:/Dev/Artemis_Quiver/src/app/utils/download.ts). This triggers browser downloads of raw `.md` documents locally (e.g. `cv.md`, `cover-letter.md`).
+- **CV Builder**: PDF export via browser print dialog (themed HTML rendered in isolated iframe). Legacy `.md` export also available.
+- **Cover Letter Builder**: `.md` file download via [download.ts](file:///F:/Dev/Artemis_Quiver/src/app/utils/download.ts).
+
+## 📁 Key Files
+
+| Path | Purpose |
+|------|---------|
+| `src/types/cv.ts` | Zod schema + TypeScript types for CV structure |
+| `src/app/types/cv.ts` | Barrel re-export for app-level imports |
+| `src/components/cv/renderingEngine.ts` | JSON → themed HTML converter (3 themes) |
+| `src/components/cv/CVRenderer.tsx` | React iframe component for PDF export |
+| `src/app/services/cvBuilderService.ts` | LLM integration + JSON normalization |
+| `src/app/utils/jsonParse.ts` | Markdown fence stripping for LLM JSON responses |

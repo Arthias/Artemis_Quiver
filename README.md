@@ -61,8 +61,28 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 | Sidebar analysis history + New Analysis | Done |
 | Analysis → CV/CL builder handoff | Done |
 | Profile import + AI assistant | Done |
-| CV & CL builder AI + Markdown export | Done |
-| PDF download | Not planned (current sprint) |
+| CV & CL builder AI + structured JSON generation | **Done** |
+| Themed PDF download (HTML rendering) | ✅ **Implemented** |
+
+---
+
+## 📄 New: Themed PDF Export via HTML Rendering
+
+The CV Builder now supports professional PDF export with multiple themes:
+
+### Features Added:
+- ✅ Structured JSON CV format for reliable rendering
+- ✅ Three printable themes: Modern, Classic, Minimal
+- ✅ HTML-based rendering engine (`renderCVToHTML()`)
+- ✅ Print isolation via iframe (no app UI bleed)
+- ✅ XSS protection with HTML entity escaping
+- ✅ Theme-switching interface
+
+### Architecture Change:
+**Before:** LLM generated plain Markdown text → exported as `.md` file  
+**Now:** LLM generates structured JSON → rendered to themed HTML → printed as PDF
+
+See [`src/types/cv.ts`](./src/types/cv.ts) for the content schema and [`renderingEngine.ts`](./src/components/cv/renderingEngine.ts) for the rendering logic.
 | Cloud API keys / login | Not planned |
 
 ## Routes
@@ -90,17 +110,20 @@ The internal documentation vault inside [artemis_quiver_docs/](artemis_quiver_do
 ### 🤖 AI Agent Instructions
 1. Read `README.md` for project-wide overview and routes
 2. **Check `artemis_quiver_docs/60-Roadmap/Plan.md`** for upcoming features & backlog items  
-3. **Review `artemis_quiver_docs/CODFIXES.md`** ✅ before fixing any issues (prevents duplicate work)
+3. **Review `artemis_quiver_docs/30-Bugs-and-Fixes/_Index.md`** ✅ before fixing any issues (prevents duplicate work)
 4. Consult relevant feature docs in vault (e.g., Analysis Hub, Document Builders) before making changes
 5. Update documentation regularly after fixing bugs or implementing features
+6. Follow [Documentation Guidelines](artemis_quiver_docs/40-Development/Documentation%20Guidelines.md) when adding or modifying vault contents
 
 ### 📍 Documentation Map
-- **Index & Navigation:** [[00-Index/MOC.md|artemis_quiver_docs/00-Index/]]
-- **Bug Fixes Log:** [[artemis_quiver_docs/CODFIXES.md|🐛 Bug Fix History]] (check before fixing issues!)
-- **Development Roadmap & Backlog:** [[60-Roadmap/Plan.md|artemis_quiver_docs/60-Roadmap/]]  
-- **Architecture Overview:** [[10-Architecture/Context%20Providers.md|Context Providers]] and [[10-Architecture/Local%20Storage.md|Local Storage]]
-- **Coding Rules & Standards:** [[40-Development/Guidelines.md|Guidelines]] and [[40-Development/Coding%20Standards.md|Coding Standards]]
-- **Test Cases & QA Scenarios:** [[50-Testing/Test%20Cases.md|Test]]
+- **Index & Navigation:** `artemis_quiver_docs/00-Index/MOC.md`
+- **Bug Fixes Log:** `artemis_quiver_docs/30-Bugs-and-Fixes/_Index.md`
+- **Development Roadmap & Backlog:** `artemis_quiver_docs/60-Roadmap/Plan.md`
+- **Architecture Overview:** `artemis_quiver_docs/10-Architecture/_Index.md`
+- **Coding Rules & Standards:** `artemis_quiver_docs/40-Development/_Index.md`
+- **Documentation Standards:** `artemis_quiver_docs/40-Development/Documentation Guidelines.md`
+- **Test Cases & QA Scenarios:** `artemis_quiver_docs/50-Testing/Test Cases.md`
+- **Changelog:** `artemis_quiver_docs/90-Meta/CHANGELOG.md`
 
 See [`artemis_quiver_docs/00-Index/MOC.md`](artemis_quiver_docs/00-Index/MOC.md) for the complete navigation map.
 
