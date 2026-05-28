@@ -6,6 +6,23 @@ last_updated: 2026-05-28
 
 # Changelog
 
+## [v2.3.0] - May 28, 2026
+
+### Features
+- **Follow-up Chat on Analysis Hub** — New chat section after analysis results for asking follow-up questions and generating side content (e.g. "Why do you want to work at this company?", salary negotiation advice, interview prep)
+- **`followUpChat()` service** — New function in `jobAnalysisService.ts` with a dedicated system prompt preserving the job application coach persona for coherent multi-turn conversations
+- **Persistent chat history** — `AnalysisSession.followUpMessages` stored per session, loaded on session switch, shared via context
+- **Quick-action suggestion pills** — 5 common follow-up scenarios: company motivation, interview skills, thank-you email, interviewer questions, culture summary
+- **3 new jobAnalysisService tests** — follow-up chat with history, empty history, and context passthrough
+
+### Files Modified
+- `src/app/types/analysis.ts` — Added `followUpMessages?: ChatMessage[]` to `AnalysisSession`
+- `src/app/services/jobAnalysisService.ts` — Added `followUpChat()` function + `FOLLOWUP_SYSTEM_PROMPT`
+- `src/app/context/AnalysisContext.tsx` — Added `followUpMessages`, `followUpLoading`, `sendFollowUpMessage()` state/actions
+- `src/app/pages/AnalysisHub.tsx` — Added follow-up chat UI section with message list, input, suggestion pills
+- `src/app/services/__tests__/jobAnalysisService.test.ts` — 3 new follow-up chat tests (8 total, up from 5)
+- `docs/90-Meta/CHANGELOG.md` — This entry
+
 ## [v2.2.0] - May 28, 2026
 
 ### Features

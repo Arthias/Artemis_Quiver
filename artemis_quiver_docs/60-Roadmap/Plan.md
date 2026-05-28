@@ -23,7 +23,7 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 3** | CV & Cover Letter Generation Services | **Done** |
 | **Sprint 4** | UI Polish & Testing Infrastructure | **Done** |
 | **Sprint 4b** | Prompt Engineering & Optimization Modes | **Done** |
-| **Sprint 5** | Feature Polish (Analysis chats & MD Previews) | **Not Started** |
+| **Sprint 5** | Feature Polish (Follow-up Chat + MD Preview) | **Done** |
 | **—** | Prompt Engineering & Optimization Modes | **Done** |
 
 ---
@@ -45,9 +45,19 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 - [x] **Scaffold testing infrastructure** — vitest, tsconfig strict mode, typecheck script
 - [x] **Write 46 tests** — 8 test files covering rendering engine, all 6 services, JSON parsing
 
-### Sprint 5 — Feature Polish (Backlog)
-- [ ] **Follow-up Chat on Job Analysis**: Add a chat interface to the Analysis Hub page to allow secondary questions on the parsed job posting.
-- [ ] **Markdown Render Preview on Profile page**: Integrate a fully-styled Markdown-to-HTML parser component (like `react-markdown`) on the Profile view instead of pure text wraps.
+### Sprint 5 — Feature Polish (Done)
+- [x] **Follow-up Chat on Job Analysis**: Add a chat interface to the Analysis Hub page to allow secondary questions on the parsed job posting.
+- [x] **Markdown Render Preview on Profile page**: Integrate `react-markdown` with `remark-gfm` on the Profile page so users see a formatted version when not in edit mode.
+
+### Sprint 5 Details
+- [x] Added `followUpMessages` to `AnalysisSession` type for per-session chat persistence
+- [x] Created `followUpChat()` service in `jobAnalysisService.ts` with follow-up-specific system prompt
+- [x] Added `followUpMessages`, `followUpLoading`, `sendFollowUpMessage()` to `AnalysisContext`
+- [x] Built chat UI in `AnalysisHub.tsx`: message list with user/assistant styling, input with Enter-to-send, 5 quick-action suggestion pills
+- [x] History persists across session switches and survives page reloads
+- [x] 3 new tests for follow-up chat (8 total in jobAnalysisService, 54 total across project)
+- [x] Installed `react-markdown` + `remark-gfm` for GitHub-flavored Markdown rendering
+- [x] Replaced raw `whitespace-pre-wrap` profile view with `<ReactMarkdown>` render, dark-mode compatible via `prose-invert`
 
 ---
 

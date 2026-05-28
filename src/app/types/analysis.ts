@@ -1,3 +1,5 @@
+import type { ChatMessage } from "./llm";
+
 export interface AnalysisResult {
   score: number;
   salaryRange: string;
@@ -13,4 +15,5 @@ export interface AnalysisSession {
   jobPosting: string;
   result: AnalysisResult;
   markdown: string;
+  followUpMessages?: ChatMessage[];
 }

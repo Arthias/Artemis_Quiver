@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { analyzeJobPosting, analysisToMarkdown } from "../jobAnalysisService";
+import { analyzeJobPosting, analysisToMarkdown, followUpChat } from "../jobAnalysisService";
 import type { AnalysisResult } from "../../types/analysis";
-import type { LlmConfig } from "../../types/llm";
+import type { ChatMessage, LlmConfig } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),
@@ -91,5 +91,50 @@ describe("analysisToMarkdown", () => {
     expect(md).toContain("Prepare for system design");
     expect(md).toContain("Add cloud skills");
     expect(md).toContain("Dear team...");
+  });
+});
+
+describe("followUpChat", () => {
+  beforeEach(() => {
+    vi.mocked(chatCompletion).mockReset();
+  });
+
+  it("should call LLM with follow-up system prompt and context", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue("Here is tailored advice...");
+
+    const messages: ChatMessage[] = [
+      { role: "user", content: "Why should I work here?" },
+    ];
+
+    const reply = await followUpChat(
+      "Software Engineer job at Google",
+      "## Profile\nExperienced developer",
+      messages,
+      mockConfig
+    );
+
+    expect(reply).toBe("Here is tailored advice...");
+    const calls = vi.mocked(chatCompletion).mock.calls;
+    const systemContent = calls[0][0][0]?.content ?? "";
+    expect(systemContent).toContain("job application coach");
+    expect(systemContent).toContain("follow-up");
+  });
+
+  it("should handle empty message history", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue("First follow-up response");
+
+    const reply = await followUpChat("Job posting", "Profile", [], mockConfig);
+    expect(reply).toBe("First follow-up response");
+  });
+
+  it("should include job posting and profile in the prompt", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue("Response");
+
+    await followUpChat("Senior React role", "Frontend profile", [], mockConfig);
+
+    const calls = vi.mocked(chatCompletion).mock.calls;
+    const userContent = calls[0][0].find(m => m.role === "user")?.content ?? "";
+    expect(userContent).toContain("Senior React role");
+    expect(userContent).toContain("Frontend profile");
   });
 });

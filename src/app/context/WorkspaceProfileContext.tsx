@@ -63,7 +63,6 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
 
   const persistActiveProfile = useCallback(() => {
     saveProfileData(manifest.activeProfileId, profileData);
-    applyTheme(profileData.settings.theme);
   }, [manifest.activeProfileId, profileData]);
 
   const touchLastUsed = useCallback(() => {

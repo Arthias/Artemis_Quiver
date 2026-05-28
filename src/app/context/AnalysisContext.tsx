@@ -7,8 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { analyzeJobPosting } from "../services/jobAnalysisService";
+import { analyzeJobPosting, followUpChat } from "../services/jobAnalysisService";
 import type { AnalysisResult, AnalysisSession } from "../types/analysis";
+import type { ChatMessage } from "../types/llm";
 import { useConfig } from "./ConfigContext";
 import { useProfile } from "./ProfileContext";
 import { useWorkspace } from "./WorkspaceProfileContext";
@@ -27,6 +28,9 @@ interface AnalysisContextValue {
   clearCurrent: () => void;
   loadSession: (id: string) => void;
   exportCurrentAnalysis: () => void;
+  followUpMessages: ChatMessage[];
+  followUpLoading: boolean;
+  sendFollowUpMessage: (text: string) => Promise<void>;
 }
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
@@ -44,6 +48,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [followUpMessages, setFollowUpMessages] = useState<ChatMessage[]>([]);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
 
   useEffect(() => {
     setDraftJobPosting(profileData.draftJobPosting);
@@ -52,6 +58,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCurrentMarkdown(null);
     setActiveSessionId(null);
     setError(null);
+    setFollowUpMessages([]);
   }, [activeProfileId]);
 
   const persistAnalysisState = useCallback(
@@ -93,6 +100,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setCurrentResult(result);
       setCurrentMarkdown(markdown);
       setActiveSessionId(session.id);
+      setFollowUpMessages([]);
       setSessions((prev) => {
         const next = [session, ...prev].slice(0, 50);
         persistAnalysisState(trimmed, next);
@@ -116,9 +124,57 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCurrentMarkdown(null);
     setActiveSessionId(null);
     setError(null);
+    setFollowUpMessages([]);
     setDraftJobPosting("");
     persistAnalysisState("", sessions);
   }, [sessions, persistAnalysisState]);
+
+  const persistFollowUp = useCallback(
+    (messages: ChatMessage[]) => {
+      if (!activeSessionId) return;
+      setSessions((prev) => {
+        const next = prev.map((s) =>
+          s.id === activeSessionId ? { ...s, followUpMessages: messages } : s
+        );
+        persistAnalysisState(draftJobPosting, next);
+        return next;
+      });
+    },
+    [activeSessionId, draftJobPosting, persistAnalysisState]
+  );
+
+  const sendFollowUpMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || followUpLoading || !draftJobPosting) return;
+
+      const userMsg: ChatMessage = { role: "user", content: text };
+      const updatedMessages = [...followUpMessages, userMsg];
+      setFollowUpMessages(updatedMessages);
+      setFollowUpLoading(true);
+      setError(null);
+
+      try {
+        const reply = await followUpChat(
+          draftJobPosting,
+          profile,
+          updatedMessages,
+          config
+        );
+        const assistantMsg: ChatMessage = { role: "assistant", content: reply };
+        const finalMessages = [...updatedMessages, assistantMsg];
+        setFollowUpMessages(finalMessages);
+        persistFollowUp(finalMessages);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Follow-up chat failed."
+        );
+        setFollowUpMessages(updatedMessages);
+      } finally {
+        setFollowUpLoading(false);
+      }
+    },
+    [followUpMessages, followUpLoading, draftJobPosting, profile, config, persistFollowUp]
+  );
 
   const loadSession = useCallback(
     (id: string) => {
@@ -129,6 +185,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setCurrentMarkdown(session.markdown);
       setActiveSessionId(id);
       setError(null);
+      setFollowUpMessages(session.followUpMessages ?? []);
       persistAnalysisState(session.jobPosting, sessions);
       touchLastUsed();
     },
@@ -155,6 +212,9 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       clearCurrent,
       loadSession,
       exportCurrentAnalysis,
+      followUpMessages,
+      followUpLoading,
+      sendFollowUpMessage,
     }),
     [
       draftJobPosting,
@@ -169,6 +229,9 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       clearCurrent,
       loadSession,
       exportCurrentAnalysis,
+      followUpMessages,
+      followUpLoading,
+      sendFollowUpMessage,
     ]
   );
 

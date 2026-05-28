@@ -120,6 +120,28 @@ This document describes the manual validation scenarios and criteria for testing
    1. Click **Export .md** in the header of the builder.
 * **Expected Result:** A browser file download is triggered, saving the file locally as `cv.md` or `cover-letter.md`.
 
+### Test Case 3.6: Follow-Up Chat Persistence
+* **Goal:** Verify follow-up messages persist when switching sessions.
+* **Steps:**
+   1. Run a job analysis.
+   2. Scroll to the Follow-up Questions section and type "Why would I be a good fit?".
+   3. Click Send and wait for the AI response.
+   4. Switch to a different session in the sidebar, then switch back.
+* **Expected Result:** The original question and AI response are still visible in the chat history when returning to the session.
+
+### Test Case 3.7: Follow-Up Chat Suggestions
+* **Goal:** Verify quick-action suggestion pills populate the input.
+* **Steps:**
+   1. Click any of the 5 suggestion pills (e.g. "Draft a follow-up thank-you email").
+* **Expected Result:** The input field is populated with the suggestion text. Pressing Enter sends it.
+
+### Test Case 3.8: Follow-Up Chat Context
+* **Goal:** Verify the LLM receives job posting + profile context in follow-ups.
+* **Steps:**
+   1. Paste a specific job posting (e.g. "Google PM role requiring cloud experience") and run analysis.
+   2. Ask "What skills should I highlight for this role?".
+* **Expected Result:** The AI response references specifics from the job posting (cloud experience) and the candidate profile — not generic advice.
+
 ---
 
 ## 4. Prompt Optimization Modes

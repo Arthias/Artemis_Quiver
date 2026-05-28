@@ -1,5 +1,5 @@
 import type { AnalysisResult } from "../types/analysis";
-import type { LlmConfig } from "../types/llm";
+import type { ChatMessage, LlmConfig } from "../types/llm";
 import { extractJsonObject } from "../utils/jsonParse";
 import { chatCompletion } from "./llmService";
 
@@ -107,4 +107,39 @@ export async function analyzeJobPosting(
   const parsed = validateAnalysisResult(extractJsonObject(content));
   const markdown = analysisToMarkdown(jobPosting, parsed);
   return { result: parsed, markdown };
+}
+
+const FOLLOWUP_SYSTEM_PROMPT = `You are a job application coach continuing a conversation about a specific job posting and candidate profile. Your previous analysis covered match score, interview tips, CV recommendations, and a cover letter draft.
+
+Now the user is asking follow-up questions or requesting side content. This could include:
+- "Why do you want to work at this company?" responses
+- Salary negotiation advice
+- Specific interview question prep
+- Company research questions
+- Referral outreach message drafts
+- Skill gap analysis
+- Culture fit questions
+
+Be practical, specific, and reference the actual job posting and profile. Keep responses concise (2-4 paragraphs unless the user asks for more detail).`;
+
+export async function followUpChat(
+  jobPosting: string,
+  profileMarkdown: string,
+  messages: ChatMessage[],
+  config: LlmConfig
+): Promise<string> {
+  const history = messages.length > 0
+    ? messages.map(m => `${m.role}: ${m.content}`).join("\n\n")
+    : "";
+
+  return chatCompletion(
+    [
+      { role: "system", content: FOLLOWUP_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}\n\n## Conversation so far\n\n${history || "No previous questions — this is the first follow-up."}`,
+      },
+    ],
+    config
+  );
 }

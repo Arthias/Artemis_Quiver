@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -251,8 +253,10 @@ export function Profile() {
                     className="min-h-[600px] font-mono text-sm resize-none bg-input-background border-border"
                   />
                 ) : (
-                  <div className="prose prose-sm max-w-none bg-muted/30 rounded-lg p-6">
-                    <div className="whitespace-pre-wrap">{profile}</div>
+                  <div className="prose prose-sm max-w-none dark:prose-invert bg-muted/30 rounded-lg p-6">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {profile}
+                    </ReactMarkdown>
                   </div>
                 )}
               </Card>

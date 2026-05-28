@@ -29,18 +29,23 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   const config = profileData.settings;
 
-  const updateConfig = useCallback(
-    (patch: Partial<ProfileSettings>) => {
-      updateSettings(patch);
-    },
-    [updateSettings]
-  );
-
-  const saveConfig = useCallback(() => {
+  const persist = useCallback(() => {
     persistActiveProfile();
     touchLastUsed();
     setLastSavedAt(new Date().toISOString());
   }, [persistActiveProfile, touchLastUsed]);
+
+  const updateConfig = useCallback(
+    (patch: Partial<ProfileSettings>) => {
+      updateSettings(patch);
+      persist();
+    },
+    [updateSettings, persist]
+  );
+
+  const saveConfig = useCallback(() => {
+    persist();
+  }, [persist]);
 
   const testLlmConnection = useCallback(async () => {
     setIsTesting(true);
