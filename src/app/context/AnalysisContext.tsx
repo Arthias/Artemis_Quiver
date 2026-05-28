@@ -52,7 +52,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCurrentMarkdown(null);
     setActiveSessionId(null);
     setError(null);
-  }, [activeProfileId, profileData.draftJobPosting, profileData.analysisSessions]);
+  }, [activeProfileId]);
 
   const persistAnalysisState = useCallback(
     (draft: string, nextSessions: AnalysisSession[]) => {

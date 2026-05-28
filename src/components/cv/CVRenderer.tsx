@@ -1,6 +1,6 @@
 import React from "react";
 import { renderCVToHTML } from "./renderingEngine";
-import type { CVContent } from "../types/cv";
+import type { CVContent } from "../../types/cv";
 
 /**
  * Props for the CVRenderer component

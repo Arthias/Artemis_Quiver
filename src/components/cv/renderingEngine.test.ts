@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderCVToHTML } from "./renderingEngine";
-import type { CVContent } from "../types/cv";
+import type { CVContent } from "../../types/cv";
 
 /**
  * Unit tests for the CV Rendering Engine.

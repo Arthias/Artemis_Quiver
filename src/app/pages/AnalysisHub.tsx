@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -9,19 +10,14 @@ import {
   Mail,
   ArrowRight,
   Download,
-  History,
   AlertCircle,
+  User,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAnalysis } from "../context/AnalysisContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 
 function matchLabel(score: number): string {
   if (score >= 80) return "Strong Match";
@@ -35,13 +31,11 @@ export function AnalysisHub() {
   const {
     draftJobPosting,
     setDraftJobPosting,
-    sessions,
     currentResult,
     analyzing,
     error,
     analyze,
     clearCurrent,
-    loadSession,
     exportCurrentAnalysis,
     activeSessionId,
   } = useAnalysis();
@@ -49,6 +43,7 @@ export function AnalysisHub() {
 
   const result = currentResult;
   const hasResult = result !== null;
+  const [promptExpanded, setPromptExpanded] = useState(false);
 
   return (
     <div className="h-full flex flex-col">
@@ -70,27 +65,7 @@ export function AnalysisHub() {
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-5xl mx-auto px-6 py-8">
-          {sessions.length > 0 && (
-            <Card className="p-4 mb-6">
-              <div className="flex items-center gap-3 flex-wrap">
-                <History className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Past analyses</span>
-                <Select onValueChange={loadSession}>
-                  <SelectTrigger className="w-[280px] bg-input-background">
-                    <SelectValue placeholder="Load a previous analysis" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessions.map((session) => (
-                      <SelectItem key={session.id} value={session.id}>
-                        {new Date(session.createdAt).toLocaleString()} —{" "}
-                        {session.result.score}% match
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </Card>
-          )}
+
 
           {!hasResult ? (
             <div className="space-y-4">
@@ -152,6 +127,30 @@ export function AnalysisHub() {
             </div>
           ) : (
             <div className="space-y-6">
+              <Card className="p-4">
+                <button
+                  type="button"
+                  onClick={() => setPromptExpanded(!promptExpanded)}
+                  className="w-full flex items-center gap-2 text-left"
+                >
+                  {promptExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <span className="text-sm font-medium">Analyzed Job Posting</span>
+                </button>
+                <div
+                  className={`overflow-auto transition-all ${
+                    promptExpanded ? "max-h-[500px] mt-3" : "max-h-20 mt-3"
+                  }`}
+                >
+                  <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-muted/30 rounded p-3">
+                    {draftJobPosting}
+                  </pre>
+                </div>
+              </Card>
+
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                   <h2 className="text-lg font-semibold">Match Analysis</h2>
@@ -236,23 +235,37 @@ export function AnalysisHub() {
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">CV Optimization</h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => {
-                      setHandoff({
-                        jobPosting: draftJobPosting,
-                        cvRecommendations: result.cvRecommendations,
-                        sourceSessionId: activeSessionId ?? undefined,
-                      });
-                      navigate("/cv-builder");
-                    }}
-                  >
-                    <FileText className="w-4 h-4" />
-                    Open CV Builder
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        navigate("/profile");
+                      }}
+                    >
+                      <User className="w-4 h-4" />
+                      Edit Profile
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        setHandoff({
+                          jobPosting: draftJobPosting,
+                          cvRecommendations: result.cvRecommendations,
+                          sourceSessionId: activeSessionId ?? undefined,
+                          autoGenerate: true,
+                        });
+                        navigate("/cv-builder");
+                      }}
+                    >
+                      <FileText className="w-4 h-4" />
+                      Generate CV with Recommendations
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 <ul className="space-y-3">
                   {result.cvRecommendations.map((rec, idx) => (

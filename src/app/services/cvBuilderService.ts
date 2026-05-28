@@ -1,6 +1,5 @@
 import type { LlmConfig } from "../types/llm";
 import { chatCompletion } from "./llmService";
-import { CVContentSchema, CVSectionSchema } from "../types/cv";
 
 // ============================================================================
 // SYSTEM PROMPTS for Structured JSON generation (NOT Markdown)

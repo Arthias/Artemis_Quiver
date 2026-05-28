@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -7,9 +7,9 @@ import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
-import { generateCv, editCv } from "../services/cvBuilderService";
+import { generateCv } from "../services/cvBuilderService";
 import type { CVContent, ThemeConfig } from "../types/cv";
-import { renderCVToHTML } from "../components/cv/renderingEngine";
+import { renderCVToHTML } from "../../components/cv/renderingEngine";
 import { extractJsonObject } from "../utils/jsonParse";
 
 const CV_SUGGESTIONS = [
@@ -37,11 +37,14 @@ export function CVBuilder() {
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const previewIframeRef = useRef<HTMLIFrameElement>(null);
+
   useEffect(() => {
     const handoff = consumeHandoff();
     if (!handoff) return;
     if (handoff.jobPosting) setJobDescription(handoff.jobPosting);
     if (handoff.cvRecommendations?.length) setCvRecommendations(handoff.cvRecommendations);
+    if (handoff.autoGenerate) generateCV();
   }, [consumeHandoff]);
 
   const generateCV = async () => {
@@ -143,27 +146,9 @@ export function CVBuilder() {
     }
   };
 
-  const printPDF = async () => { // NEW: Print to PDF via iframe
-    if (!cvContent) return;
-
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.style.width = "0px";
-    iframe.style.height = "0px";
-    iframe.id = "cv-print-iframe";
-    
-    // Load rendered HTML with current theme styling
-    const htmlString = renderCVToHTML(cvContent, themeConfig);
-    iframe.srcDoc = `<html><head>${htmlString}</head><body onload="window.print()"></body></html>`;
-    
-    document.body.appendChild(iframe);
-    
-    // Clean up after print dialog closes
-    iframe.onload = () => {
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
-    };
+  const printPDF = () => {
+    if (!cvContent || !previewIframeRef.current?.contentWindow) return;
+    previewIframeRef.current.contentWindow.print();
   };
 
   return (
@@ -296,60 +281,7 @@ export function CVBuilder() {
                       <Badge variant="outline" className="mt-0.5">3</Badge><span>Use chat panel to request modifications after generation.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">4</Badge><span>Export as PDF or Markdown when ready (PDF is preferred for professional printing).</span>
-                    </li>
-                  </ul>
-                  
-                  {/* Theme preview */}
-                  <Card className="p-3 mt-4 bg-card border-border">
-                    <h4 className="text-sm font-medium mb-2">Preview Themes (select above to change)</h4>
-                    {(() => {
-                      const renderBadge = () => themeConfig.templateId === "modern" && <>✓<Badge variant="outline" className="ml-auto w-3 h-3 rounded-full"></Badge></>;
-                      return (
-                        <div className="space-y-2">
-                          <div 
-                            className="flex items-center justify-between text-xs p-2 rounded bg-muted/50 border hover:border-blue-400 cursor-pointer transition-all"
-                            onClick={() => setThemeConfig(prev => ({...prev, templateId: "modern"}))}
-                          >
-                            <span>Modern</span>
-                            {renderBadge()}
-                          </div>
-                          <div 
-                            className="flex items-center justify-between text-xs p-2 rounded bg-muted/50 border hover:border-blue-400 cursor-pointer transition-all"
-                            onClick={() => setThemeConfig(prev => ({...prev, templateId: "classic"}))}
-                          >
-                            <span>Classic (Serif)</span>
-                            {themeConfig.templateId === "classic" && <>✓<Badge variant="outline" className="ml-auto w-3 h-3 rounded-full"></Badge></>}
-                          </div>
-                          <div 
-                            className="flex items-center justify-between text-xs p-2 rounded bg-muted/50 border hover:border-blue-400 cursor-pointer transition-all"
-                            onClick={() => setThemeConfig(prev => ({...prev, templateId: "minimal"}))}
-                          >
-                            <span>Minimal</span>
-                            {themeConfig.templateId === "minimal" && <>✓<Badge variant="outline" className="ml-auto w-3 h-3 rounded-full"></Badge></>}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </Card>
-                  
-                  {/* Print/Export hint */}
-                  <div className="text-xs text-muted-foreground bg-info p-3 mt-4 rounded border border-info">
-                    <span>💡</span><b className="font-semibold">Tip:</b> Use the PDF export button for printing. The CV will render cleanly in any browser with selected theme and color styling.
-                  </div>
-                </Card>
-
-                <Card className="p-6 bg-muted/30 border-dashed">
-                  <h3 className="font-medium mb-3 text-sm">CV Generation Tips</h3>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">1</Badge><span>Paste a job description to create a tailored CV that highlights relevant experience.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">2</Badge><span>Leave it empty to generate a general CV from your master profile.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Badge variant="outline" className="mt-0.5">3</Badge><span>Pick your preferred theme above before exporting PDF for professional look.</span>
+                      <Badge variant="outline" className="mt-0.5">4</Badge><span>Export as PDF or Markdown when ready.</span>
                     </li>
                   </ul>
                 </Card>
@@ -370,11 +302,11 @@ export function CVBuilder() {
                       <p className="text-sm text-destructive">Unable to render CV. Please refresh and try again.</p>
                     </Card>
                   ) : (
-                    // Use iframe for clean rendering with print functionality
-                    <iframe 
-                      srcDoc={`<!DOCTYPE html><head>${renderCVToHTML(cvContent, themeConfig).split('<body')[0]}</head><body>${renderCVToHTML(cvContent, themeConfig).replace(/<html[^>]*>/i,'').replace(/<\/html>/i,'')}</body></html>`}
-                      style={{ width: "100%", height: "80vh", border: "none", borderRadius: "4px" }}
-                      title="CV Preview - Click PDF for export"
+                    <iframe
+                      ref={previewIframeRef}
+                      srcDoc={renderCVToHTML(cvContent, themeConfig)}
+                      style={{ width: "100%", height: "80vh", border: "none", borderRadius: "4px", background: "#ffffff" }}
+                      title="CV Preview"
                     />
                   )}
                 </div>

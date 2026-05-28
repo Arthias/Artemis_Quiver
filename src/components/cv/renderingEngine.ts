@@ -13,17 +13,18 @@
    Configuration & Types
    ============================================================================ */
 
-import type { CVContent } from "../types/cv";
+import type { CVContent } from "../../types/cv";
 
 /* Escape HTML entities to prevent XSS attacks */
 const escapeHtml = (str: string): string => {
-  return str.replace(/[&<>"']/g, (c) => ({
+  const map: Record<string, string> = {
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#x27;'
-  })[c]);
+  };
+  return str.replace(/[&<>"']/g, (c) => map[c] ?? c);
 };
 
 /* Get header text for each section type */
@@ -65,7 +66,7 @@ export const renderCVToHTML = (content: CVContent, theme: { primaryColor: string
       styleRules = `
         @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap");
         * { font-family: 'Inter', sans-serif; }
-        body { max-width: 800px; margin: 0 auto; padding: 2rem; color: #1e293b; }
+        body { max-width: 800px; margin: 0 auto; padding: 2rem; color: #1e293b; background: #ffffff; }
         section { border-top: 1px solid #e2e8f0; padding-top: 1.5rem; }
         h2 { color: var(--primary-color) !important; margin-top: 1.5rem; font-weight: 600;}
         .skill-tag { display: inline-block; background-color: rgba(37, 99, 235, 0.1); 
@@ -77,7 +78,7 @@ export const renderCVToHTML = (content: CVContent, theme: { primaryColor: string
       styleRules = `
         @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&display=swap");
         * { font-family: 'Georgia', serif; }
-        body { margin: 2rem; color: #1a202c; font-size: 1rem; }
+        body { margin: 2rem; color: #1a202c; background: #ffffff; font-size: 1rem; }
         h1, h2 { font-family: 'Playfair Display', serif;}
         h2 { text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 1.5rem;}
         section { margin-bottom: 1.5rem; }
@@ -88,12 +89,13 @@ export const renderCVToHTML = (content: CVContent, theme: { primaryColor: string
       styleRules = `
         @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
         * { font-family: 'Inter', sans-serif; }
-        body { max-width: 800px; margin: auto; padding: 1.5rem; font-size: 0.9em; border: none;}
+        body { max-width: 800px; margin: auto; padding: 1.5rem; font-size: 0.9em; border: none; color: #1e293b; background: #ffffff;}
         h2 { font-weight: 600; color: #1e293b; margin-top: 1rem; }
       `.trim();
+      break;
       
     default:
-      styleRules = `body { max-width: 800px; margin: auto; padding: 1rem; } h2 { margin-top: 1rem; } .skill-tag { display: inline-block; background:#e5e7eb;padding:.2rem .75rem;border-radius:4px;}`.trim();
+      styleRules = `body { max-width: 800px; margin: auto; padding: 1rem; background: #ffffff; color: #1e293b; } h2 { margin-top: 1rem; } .skill-tag { display: inline-block; background:#e5e7eb;padding:.2rem .75rem;border-radius:4px;}`.trim();
   }
 
   /* ========================================================================
@@ -108,12 +110,11 @@ export const renderCVToHTML = (content: CVContent, theme: { primaryColor: string
   htmlParts.push(`<head><meta charset="utf-8"><title>CV - ${theme.templateId || 'preview'}</title>`);
   htmlParts.push(`<meta name="description" content="${escapeHtml("Resume and Skills")}" />`);
   
-  /* Inject CSS as HTML style element */
-  // Replace color variable in template with user-provided primary color
-  if (theme.primaryColor) {
-    const injectedStyles = escapeHtml(styleRules.replace('var(--primary-color)', theme.primaryColor));
-    htmlParts.push(`<style>${injectedStyles}</style>`);
-  }
+  const safeColor = typeof theme.primaryColor === "string" && /^#[0-9A-Fa-f]{6}$/.test(theme.primaryColor)
+    ? theme.primaryColor
+    : "#2563eb";
+  const injectedStyles = styleRules.replace('var(--primary-color)', safeColor);
+  htmlParts.push(`<style>${injectedStyles}</style>`);
   
   htmlParts.push('</head><body>');
   htmlParts.push('<div class="cv-content-wrapper">');
