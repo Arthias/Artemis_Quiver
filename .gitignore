@@ -32,6 +32,9 @@ Thumbs.db
 .claude/
 .cursor/
 *.tsbuildinfo
+.vscode-test/
+.cache/
+.prettierignore.tmp
 
 # Test & coverage
 coverage/
@@ -40,3 +43,10 @@ coverage/
 .cache/
 .vite/
 *.tgz
+
+# Temp files
+tmp/
+temp/
+.fseventsd/
+.Spotlight-V100/
+.Trashes/
