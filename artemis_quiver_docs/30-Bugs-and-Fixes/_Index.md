@@ -196,6 +196,83 @@ Invalid JSON structure generated. Please check console for details.
 
 ---
 
+## 2026-05-28: Session Sync & Analysis Hub Refinements (Session 2)
+
+### Issue #11: Sidebar session click sometimes shows prompt instead of results
+
+**Symptom:** Clicking a recent analysis in the sidebar would sometimes show the analysis results and other times show the editable prompt textarea.
+
+**Root Cause:** `AnalysisContext.tsx:48` — The `useEffect` had `profileData.draftJobPosting` and `profileData.analysisSessions` in its dependency array. The `loadSession()` function calls `persistAnalysisState()`, which updates `profileData.analysisSessions`, triggering the effect to reset `currentResult`, `currentMarkdown`, and `activeSessionId` back to `null`.
+
+**Fix Applied:** Changed dependency array from `[activeProfileId, profileData.draftJobPosting, profileData.analysisSessions]` to `[activeProfileId]`. Profile switches still reset correctly, but session operations within the same profile no longer get wiped.
+
+**Location:** `src/app/context/AnalysisContext.tsx:55`
+
+---
+
+### Issue #12: CV rendered with dark background in dark mode
+
+**Symptom:** When the app theme is set to dark, the CV preview iframe showed a dark background, making text unreadable.
+
+**Root Cause:** `renderingEngine.ts` set explicit text colors (`#1e293b`, `#1a202c`) but never set an explicit `background`. The iframe inherited parent context styling in some browsers.
+
+**Fix Applied:** Added `background: #ffffff` to `body` CSS in all three theme styles (modern, classic, minimal) and the default case.
+
+**Location:** `src/components/cv/renderingEngine.ts:68,81,93,96`
+
+---
+
+### Issue #13: Minimal theme CSS overridden by default case
+
+**Symptom:** Minimal theme rendered identical to the default fallback instead of its intended styling.
+
+**Root Cause:** Missing `break` statement after `case "minimal"` in the theme switch — execution fell through to the `default` case, overwriting `styleRules`.
+
+**Fix Applied:** Added `break;` after the minimal theme block.
+
+**Location:** `src/components/cv/renderingEngine.ts:94`
+
+---
+
+### Issue #14: CSS escaping broke font-family declarations
+
+**Symptom:** Font family strings in CSS (`'Inter', sans-serif`) were HTML-escaped to `&#x27;Inter&#x27;, sans-serif`, breaking font rendering in the iframe.
+
+**Root Cause:** `escapeHtml()` was applied to the entire CSS string before injection into `<style>` tag. This was intended to prevent XSS via `primaryColor` but it corrupted legitimate CSS syntax.
+
+**Fix Applied:** Replaced `escapeHtml(styleRules.replace(...))` with regex validation of `primaryColor` (`/^#[0-9A-Fa-f]{6}$/`). The CSS is now injected raw; only the color value is sanitized.
+
+**Location:** `src/components/cv/renderingEngine.ts:111-116`
+
+---
+
+### Issue #15: Redundant past analyses dropdown
+
+**Symptom:** Analysis Hub had both a sidebar "Recent Analyses" section and a page-level `<Select>` dropdown, both doing the same thing. If not perfectly aligned, clicking one would produce inconsistent state.
+
+**Fix Applied:** Removed the dropdown entirely. Session navigation is now exclusively via the sidebar.
+
+**Location:** `src/app/pages/AnalysisHub.tsx` (removed)
+
+---
+
+### Issue #16: Duplicate files scattered in wrong locations
+
+**Symptom:** After the CV builder refactor, 7 duplicate files were left in `src/app/types/cv/`, `src/app/components/cv/`, and `src/app/cv.ts`, causing import confusion and stale code.
+
+**Fix Applied:** Deleted all 7 duplicates. Canonical files remain at `src/components/cv/` and `src/types/`. Updated all import paths to point to canonical locations.
+
+**Files Deleted:**
+- `src/app/types/cv/CVRenderer.tsx`
+- `src/app/types/cv/renderingEngine.ts`
+- `src/app/types/cv/renderingEngine.test.ts`
+- `src/app/components/cv/CVRenderer.tsx`
+- `src/app/components/cv/renderingEngine.ts`
+- `src/app/components/cv/renderingEngine.test.ts`
+- `src/app/cv.ts`
+
+---
+
 ## Related Documentation
 
 - [[../00-Index/MOC|Map of Content]] — Project documentation index

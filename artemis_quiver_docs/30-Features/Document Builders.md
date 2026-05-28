@@ -39,8 +39,9 @@ Analysis Hub (Route: /)
 
 ### Pre-Generation Layout
 - Renders an input field for the **Job Description** (pre-populated by handoff, optional).
+- If `autoGenerate: true` is set in the handoff (e.g., from Analysis Hub's "Generate CV with Recommendations" button), CV generation starts automatically on mount.
 - The **Generate CV** trigger prompts the local model to build a structured CV JSON.
-- Theme configuration panel (color picker + template selector) appears after generation.
+- Theme configuration panel (color picker + template selector) appears only after generation.
 
 ### Post-Generation Split Screen
 - **Left Panel (Document View)**: Renders the generated CV in a themed iframe.
@@ -83,8 +84,8 @@ Analysis Hub (Route: /)
 | Path | Purpose |
 |------|---------|
 | `src/types/cv.ts` | Zod schema + TypeScript types for CV structure |
+| `src/types/cv.ts` | Zod schema + TypeScript types for CV structure (canonical) |
 | `src/app/types/cv.ts` | Barrel re-export for app-level imports |
 | `src/components/cv/renderingEngine.ts` | JSON → themed HTML converter (3 themes) |
-| `src/components/cv/CVRenderer.tsx` | React iframe component for PDF export |
 | `src/app/services/cvBuilderService.ts` | LLM integration + JSON normalization |
 | `src/app/utils/jsonParse.ts` | Markdown fence stripping for LLM JSON responses |

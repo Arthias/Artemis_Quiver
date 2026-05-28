@@ -61,28 +61,9 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 | Sidebar analysis history + New Analysis | Done |
 | Analysis → CV/CL builder handoff | Done |
 | Profile import + AI assistant | Done |
-| CV & CL builder AI + structured JSON generation | **Done** |
-| Themed PDF download (HTML rendering) | ✅ **Implemented** |
-
----
-
-## 📄 New: Themed PDF Export via HTML Rendering
-
-The CV Builder now supports professional PDF export with multiple themes:
-
-### Features Added:
-- ✅ Structured JSON CV format for reliable rendering
-- ✅ Three printable themes: Modern, Classic, Minimal
-- ✅ HTML-based rendering engine (`renderCVToHTML()`)
-- ✅ Print isolation via iframe (no app UI bleed)
-- ✅ XSS protection with HTML entity escaping
-- ✅ Theme-switching interface
-
-### Architecture Change:
-**Before:** LLM generated plain Markdown text → exported as `.md` file  
-**Now:** LLM generates structured JSON → rendered to themed HTML → printed as PDF
-
-See [`src/types/cv.ts`](./src/types/cv.ts) for the content schema and [`renderingEngine.ts`](./src/components/cv/renderingEngine.ts) for the rendering logic.
+| CV & CL builder AI + structured JSON generation | Done |
+| Themed PDF download (HTML rendering) | Done |
+| 46 automated tests (vitest) | Done |
 | Cloud API keys / login | Not planned |
 
 ## Routes
@@ -100,6 +81,7 @@ See [`src/types/cv.ts`](./src/types/cv.ts) for the content schema and [`renderin
 - **UI:** React 18, Vite, Tailwind CSS, shadcn/ui, React Router v7
 - **AI:** `fetch` to local LMStudio (OpenAI-compatible) or Ollama chat APIs
 - **Persistence:** `localStorage` via workspace manifest + per-profile blobs
+- **Testing:** vitest with jsdom (46 tests across 8 files)
 
 ## 📖 Internal Documentation & AI Agent Context
 

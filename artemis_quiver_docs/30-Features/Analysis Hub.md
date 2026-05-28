@@ -39,15 +39,21 @@ graph TD
 
 Located in [AnalysisHub.tsx](file:///F:/Dev/Artemis_Quiver/src/app/pages/AnalysisHub.tsx):
 
-### 1. Past Session Selector
-- Renders a `<Select>` dropdown displaying the candidate's last 50 analyses.
-- Selecting an item invokes `loadSession(id)`, loading past text, scoring, and cover letters from `localStorage` immediately.
+### 1. Session Navigation (Sidebar)
+Session loading is handled exclusively via the **sidebar's "Recent Analyses" section**. Clicking a past session calls `loadSession(id)` which restores the full analysis result (score, tips, recommendations, cover letter draft). There is no dropdown on the Analysis Hub page — the sidebar is the single source of truth for session selection.
 
-### 2. Job Input Field & Button
-- Renders a multi-line `<Textarea>` for job descriptions.
+### 2. Collapsible Prompt View
+When viewing a past analysis result, a **collapsible card** at the top shows the analyzed job posting text:
+- Default state: compressed (`max-h-20`, scrollable, mostly hidden)
+- Click to expand: shows full text up to `max-h-[500px]` with scrollbar
+- Click again to collapse
+- Text is read-only in a monospaced `<pre>` block
+
+### 3. Job Input Field & Button
+- When no result is loaded, a multi-line `<Textarea>` is shown for job descriptions.
 - The **Analyze Job Posting** button initiates the `analyze()` method from `AnalysisContext`.
 
-### 3. Match Score Circular Indicator
+### 4. Match Score Circular Indicator
 - Displays the match score (0–100%) dynamically inside an SVG circular progress meter.
 - Categorizes scores into badges:
   - `80% - 100%`: **Strong Match** (blue/green accent)
@@ -55,6 +61,8 @@ Located in [AnalysisHub.tsx](file:///F:/Dev/Artemis_Quiver/src/app/pages/Analysi
   - `40% - 59%`: **Moderate Match**
   - `0% - 39%`: **Stretch Role**
 
-### 4. CV & Cover Letter Handoff Triggers
-- **CV Optimization Card**: Lists the 3-5 suggestions for improving the resume. The "Open CV Builder" button saves the suggestions to `BuilderHandoffContext` and navigates the browser to `/cv-builder`.
-- **Cover Letter Card**: Renders the raw letter output. The "Edit in Builder" button transfers the letter draft to `BuilderHandoffContext` and redirects the user to `/cl-builder`.
+### 5. CV & Cover Letter Handoff Triggers
+- **CV Optimization Card**: Lists 3-5 suggestions for improving the resume. Two buttons:
+  - "Edit Profile" — navigates to `/profile` to update the master profile
+  - "Generate CV with Recommendations" — passes `jobPosting` + `cvRecommendations` + `autoGenerate: true` to CV Builder via `BuilderHandoffContext`, then navigates to `/cv-builder`. The CV Builder auto-generates the CV on mount.
+- **Cover Letter Card**: Renders the raw letter output. The "Edit in Builder" button transfers the letter draft to `BuilderHandoffContext` and redirects to `/cl-builder`.

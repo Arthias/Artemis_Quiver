@@ -21,13 +21,29 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 1** | Session History & Builder Handoffs | **Done** |
 | **Sprint 2** | Smart Profile Merging & Assistant Chats | **Done** |
 | **Sprint 3** | CV & Cover Letter Generation Services | **Done** |
-| **Sprint 4** | Optional Polish (Analysis chats & MD Previews) | **Not Started** |
+| **Sprint 4** | UI Polish & Testing Infrastructure | **Done** |
+| **Sprint 5** | Feature Polish (Analysis chats & MD Previews) | **Not Started** |
 
 ---
 
 ## 🏃 Active & Backlog Tasks
 
-### Sprint 4 — Polish (Backlog)
+### Sprint 4 — UI Polish & Testing Infrastructure (Done)
+- [x] **Remove redundant past analyses dropdown** — Session loading unified under sidebar "Recent Analyses"
+- [x] **Fix sidebar session sync bug** — `useEffect` dependency narrowed to `[activeProfileId]`
+- [x] **Add collapsible prompt view** — Analyze job posting shown as expandable read-only card
+- [x] **Two CV Optimization buttons** — "Edit Profile" + "Generate CV with Recommendations"
+- [x] **Auto-generate CV on handoff** — `autoGenerate: true` flag in `BuilderHandoff`
+- [x] **Fix CV dark background** — Explicit white background in rendering engine
+- [x] **Fix minimal theme CSS** — Added missing `break` in theme switch
+- [x] **Fix CSS injection** — Replaced `escapeHtml` with color validation
+- [x] **Print PDF via iframe ref** — Reuse existing preview iframe instead of creating new
+- [x] **Clean up 7 duplicate files** — Removed scattered copies from wrong directories
+- [x] **Restore 3 missing type files** — `workspace.ts`, `analysis.ts`, `llm.ts` restored
+- [x] **Scaffold testing infrastructure** — vitest, tsconfig strict mode, typecheck script
+- [x] **Write 46 tests** — 8 test files covering rendering engine, all 6 services, JSON parsing
+
+### Sprint 5 — Feature Polish (Backlog)
 - [ ] **Follow-up Chat on Job Analysis**: Add a chat interface to the Analysis Hub page to allow secondary questions on the parsed job posting.
 - [ ] **Markdown Render Preview on Profile page**: Integrate a fully-styled Markdown-to-HTML parser component (like `react-markdown`) on the Profile view instead of pure text wraps.
 
@@ -54,6 +70,14 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 ### Sprint 3 — Document Generation
 - [x] Implement [cvBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cvBuilderService.ts) and [clBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/clBuilderService.ts).
 - [x] Build split-screen editors with interactive modification chats and Markdown download streams.
+
+### Sprint 4 — UI Polish & Testing Infrastructure
+- [x] Fix session sync: narrowed `useEffect` deps to `[activeProfileId]`
+- [x] Remove redundant past analyses dropdown, add collapsible prompt view
+- [x] Add two CV Optimization buttons with auto-generate handoff
+- [x] Fix CV dark background, missing break, CSS escaping in rendering engine
+- [x] Clean up 7 duplicate files, restore 3 missing type files
+- [x] Scaffold testing infra: vitest, tsconfig strict mode, 46 tests
 
 ---
 
