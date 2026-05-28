@@ -6,6 +6,25 @@ last_updated: 2026-05-28
 
 # Changelog
 
+## [v2.2.0] - May 28, 2026
+
+### Features
+- **Prompt system overhaul** — Extracted all CV prompts into centralized `prompts.ts` with 10 specialized optimization modes: standard, summary-rewrite, bullet-optimize, ats-optimize, career-transition, audit, work-history-align, skills-section, headline, hiring-manager
+- **Intent classification** — `classifyEditIntent()` auto-detects optimization mode from user's free-text request via regex keyword matching
+- **`optimizeCv()` function** — New public API for targeted text-only optimizations (audit, summary, bullets, headline, etc.) alongside JSON-producing modes
+- **Enhanced CV generation prompt** — Added industry/role context, action-verb guidance, metrics emphasis, and anti-cliché rules to the base generation prompt
+- **5 new cvBuilderService tests** — Industry context passthrough, mode routing, non-JSON mode passthrough, `optimizeCv()` audit mode, all 9 non-standard modes iteration
+
+### Files Created
+- `src/app/services/prompts.ts` — Centralized prompt library with 10 optimization modes + intent classifier
+
+### Files Modified
+- `src/app/services/cvBuilderService.ts` — Refactored to use prompts module, added `GenerateCvOptions`, `optimizeCv()`, mode-based JSON/text routing
+- `src/app/services/__tests__/cvBuilderService.test.ts` — 5 new tests (11 total, up from 6)
+- `docs/20-APIs/AI Prompt Templates.md` — Full rewrite documenting all 10 optimization modes
+- `docs/90-Meta/CHANGELOG.md` — This entry
+- `docs/50-Testing/Test Cases.md` — Added prompt optimization test cases
+
 ## [v2.1.0] - May 28, 2026
 
 ### ✨ Features

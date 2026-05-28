@@ -1,54 +1,19 @@
 import type { LlmConfig } from "../types/llm";
 import { chatCompletion } from "./llmService";
-
-// ============================================================================
-// SYSTEM PROMPTS for Structured JSON generation (NOT Markdown)
-// ============================================================================
-
-/**
- * System prompt instructing LLM to generate structured JSON format
- * Uses Zod schema information for reliable output
- */
-const CV_GENERATE_SYSTEM = `You are an expert CV writer. Generate a professional CV in STRUCTURED JSON format from the candidate profile.
-
-IMPORTANT - You MUST return ONLY a valid JSON object. No markdown fences, no text outside the JSON.
-
-Each section in the "sections" array MUST have a "type" field that identifies the section kind.
-
-EXAMPLE of the exact format required:
-{
-  "sections": [
-    { "type": "summary", "content": "Professional summary text here" },
-    { "type": "contact", "email": "user@example.com", "phone": "+1 234 567 890", "linkedin": "https://linkedin.com/in/user", "website": "https://user.com" },
-    { "type": "skills", "skills": ["JavaScript", "Python", "React"] },
-    { "type": "experience", "experience": [{"role": "Senior Dev", "company": "Acme", "period": "2020-2023", "description": "Led development"}] },
-    { "type": "education", "education": [{"degree": "BSc Computer Science", "institution": "MIT", "period": "2012-2016"}] },
-    { "type": "certifications", "certifications": ["AWS Solutions Architect"] }
-  ]
-}
-
-SECTION TYPES:
-1. "summary" - object with "content" string
-2. "contact" - object with optional email, phone, linkedin, website, location strings
-3. "skills" - object with "skills" array of strings
-4. "experience" - object with "experience" array of {role, company, period, description}
-5. "education" - object with "education" array of {degree, institution, period}
-6. "certifications" - object with "certifications" array of strings
-
-RULES:
-- Be FACTUAL — only include information from the profile
-- Tailor emphasis to target job when a description is provided
-- Return ONLY the JSON object, no text/comments/formatting around it
-`;
-
-/**
- * System prompt for editing CV JSON structure
- */
-const CV_EDIT_SYSTEM = `You are an expert CV editor. Apply these requested changes to the CV and return only the revised VALID JSON object. Return only JSON — no markdown wrappers, text, or commentary.`;
+import {
+  cvGeneratePrompt,
+  cvEditPrompt,
+  selectPrompt,
+  type OptimizationMode,
+  type PromptContext,
+} from "./prompts";
 
 // ============================================================================
 // Normalization - handles LLMs that output key-based sections instead of type-based
 // ============================================================================
+
+// Modes that return full CV JSON (vs. text snippets or analysis)
+const JSON_MODES: OptimizationMode[] = ["standard", "ats-optimize", "career-transition"];
 
 const SECTION_TYPE_KEYS = ["summary", "contact", "skills", "experience", "education", "certifications"] as const;
 
@@ -90,31 +55,45 @@ function normalizeCvJson(rawJson: string): string {
 // Implementation Functions
 // ============================================================================
 
+export interface GenerateCvOptions {
+  mode?: OptimizationMode;
+  targetRole?: string;
+  industry?: string;
+  previousField?: string;
+  newField?: string;
+}
+
 export async function generateCv(
   profileMarkdown: string,
   jobDescription: string | undefined,
   cvRecommendations: string[] | undefined,
-  config: LlmConfig
+  config: LlmConfig,
+  options?: GenerateCvOptions
 ): Promise<string> {
-  
-  // Build contextual message with job description if provided
+  const mode = options?.mode ?? "standard";
+  const ctx: PromptContext = {
+    targetRole: options?.targetRole,
+    industry: options?.industry,
+    jobDescription,
+    recommendations: cvRecommendations,
+    previousField: options?.previousField,
+    newField: options?.newField,
+  };
+
+  const systemPrompt = selectPrompt(mode, undefined, ctx);
+
   const jobPart = typeof jobDescription === "string" && 
                   jobDescription.trim().length > 0 
                   ? `\n\n## Target job\n\n${jobDescription}` 
                   : "\n\n(No specific job — general CV from profile.)";
-  
-  // Add recommendations if any, prefixed with # markers for JSON parsing
+
   const recsPart = cvRecommendations?.length
     ? `\n\n## Analysis recommendations to emphasize\n\n${cvRecommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}`
     : "";
 
   const raw = await chatCompletion(
     [
-      { role: "system", content: CV_GENERATE_SYSTEM },
-      { 
-        role: "system", 
-        content: `\nAlways return valid JSON with "type" field in each section, matching the example format.` 
-      },
+      { role: "system", content: systemPrompt },
       {
         role: "user", 
         content: `## Candidate profile\n\n${profileMarkdown}${jobPart}${recsPart}`
@@ -122,29 +101,70 @@ export async function generateCv(
     ],
     config
   );
-  return normalizeCvJson(raw);
+
+  // Normalize as JSON for modes that produce full CVs; return raw text otherwise
+  return JSON_MODES.includes(mode) ? normalizeCvJson(raw) : raw;
 }
 
 export async function editCv(
-  currentCvJson: string, // Now receives JSON string instead of Markdown  
-  userRequest: string, // User's requested change request
-  profileMarkdown: string, // Master profile for reference
+  currentCvJson: string,
+  userRequest: string,
+  profileMarkdown: string,
   config: LlmConfig
 ): Promise<string> {
   return normalizeCvJson(
     await chatCompletion(
       [
-        { role: "system", content: CV_EDIT_SYSTEM },
-        { 
-          role: "system", 
-          content: `\nEach section MUST have a "type" field matching the example format.` 
-        },
+        { role: "system", content: cvEditPrompt(userRequest) },
         {
           role: "user", 
-          content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}\n\n## Requested change\n\n${userRequest}`
+          content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}`
         }
       ],
       config
     )
+  );
+}
+
+/**
+ * Targeted optimization that returns text (not JSON).
+ * Use for: summary-rewrite, bullet-optimize, audit, headline, hiring-manager,
+ *          work-history-align, skills-section
+ */
+export async function optimizeCv(
+  profileMarkdown: string,
+  mode: OptimizationMode,
+  config: LlmConfig,
+  context?: Partial<PromptContext>
+): Promise<string> {
+  const ctx: PromptContext = {
+    targetRole: context?.targetRole,
+    industry: context?.industry,
+    jobDescription: context?.jobDescription,
+    recommendations: context?.recommendations,
+    previousField: context?.previousField,
+    newField: context?.newField,
+  };
+
+  const systemPrompt = selectPrompt(mode, undefined, ctx);
+
+  const contextParts = [];
+  if (ctx.targetRole) contextParts.push(`\nTarget role: ${ctx.targetRole}`);
+  if (ctx.industry) contextParts.push(`Industry: ${ctx.industry}`);
+  if (ctx.previousField) contextParts.push(`Previous field: ${ctx.previousField}`);
+  if (ctx.newField) contextParts.push(`Target field: ${ctx.newField}`);
+  if (ctx.jobDescription) contextParts.push(`\n## Job description\n\n${ctx.jobDescription}`);
+
+  const contextBlock = contextParts.length > 0 ? `\n\n${contextParts.join("\n")}` : "";
+
+  return chatCompletion(
+    [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `## Candidate profile\n\n${profileMarkdown}${contextBlock}`,
+      },
+    ],
+    config
   );
 }

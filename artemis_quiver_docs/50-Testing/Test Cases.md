@@ -117,5 +117,39 @@ This document describes the manual validation scenarios and criteria for testing
 ### Test Case 3.5: Document Download
 * **Goal:** Confirm the markdown document exports.
 * **Steps:**
-  1. Click **Export .md** in the header of the builder.
+   1. Click **Export .md** in the header of the builder.
 * **Expected Result:** A browser file download is triggered, saving the file locally as `cv.md` or `cover-letter.md`.
+
+---
+
+## 4. Prompt Optimization Modes
+
+### Test Case 4.1: Standard CV Generation with Context
+* **Goal:** Verify generateCv accepts industry and target role context.
+* **Steps:**
+   1. Call `generateCv()` with `{ targetRole: "Senior Engineer", industry: "FinTech" }`.
+* **Expected Result:** The generated system prompt includes both the target role and industry context, and the CV JSON is well-formed.
+
+### Test Case 4.2: Summary Rewrite Mode
+* **Goal:** Verify summary-rewrite returns text (not JSON).
+* **Steps:**
+   1. Call `generateCv()` with `{ mode: "summary-rewrite", targetRole: "Designer" }`.
+* **Expected Result:** Return value is raw text (the summary rewrite), not a JSON object.
+
+### Test Case 4.3: CV Audit Mode
+* **Goal:** Verify optimizeCv in audit mode returns critique text.
+* **Steps:**
+   1. Call `optimizeCv()` with `mode: "audit"`, `targetRole: "PM"`, `industry: "SaaS"`.
+* **Expected Result:** Returns structured audit feedback covering vagueness, wordiness, impact, leadership, structure, tone, gaps.
+
+### Test Case 4.4: Career Transition Reframing
+* **Goal:** Verify the prompt includes previous/current field context.
+* **Steps:**
+   1. Call `optimizeCv()` with `mode: "career-transition"`, `previousField: "Marketing"`, `newField: "Product"`, `jobDescription: "Looking for a PM"`.
+* **Expected Result:** System prompt contains "Marketing" and "Product" context, and the response reframes experience for the new field.
+
+### Test Case 4.5: All Optimization Modes Execute
+* **Goal:** Verify no mode throws or fails unexpectedly.
+* **Steps:**
+   1. Call `optimizeCv()` with each of the 9 non-standard modes: summary-rewrite, bullet-optimize, ats-optimize, career-transition, audit, work-history-align, skills-section, headline, hiring-manager.
+* **Expected Result:** Each mode returns a non-empty string response without error.

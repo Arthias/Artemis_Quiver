@@ -22,7 +22,9 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 2** | Smart Profile Merging & Assistant Chats | **Done** |
 | **Sprint 3** | CV & Cover Letter Generation Services | **Done** |
 | **Sprint 4** | UI Polish & Testing Infrastructure | **Done** |
+| **Sprint 4b** | Prompt Engineering & Optimization Modes | **Done** |
 | **Sprint 5** | Feature Polish (Analysis chats & MD Previews) | **Not Started** |
+| **—** | Prompt Engineering & Optimization Modes | **Done** |
 
 ---
 
@@ -71,13 +73,24 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 - [x] Implement [cvBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cvBuilderService.ts) and [clBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/clBuilderService.ts).
 - [x] Build split-screen editors with interactive modification chats and Markdown download streams.
 
-### Sprint 4 — UI Polish & Testing Infrastructure
+### Sprint 4 — UI Polish & Testing Infrastructure (Done)
 - [x] Fix session sync: narrowed `useEffect` deps to `[activeProfileId]`
 - [x] Remove redundant past analyses dropdown, add collapsible prompt view
 - [x] Add two CV Optimization buttons with auto-generate handoff
 - [x] Fix CV dark background, missing break, CSS escaping in rendering engine
 - [x] Clean up 7 duplicate files, restore 3 missing type files
 - [x] Scaffold testing infra: vitest, tsconfig strict mode, 46 tests
+
+### Sprint 4b — Prompt Engineering & Optimization Modes (Done)
+- [x] Gap analysis: Audited current prompts against 10 expert CV optimization scenarios
+- [x] Created `src/app/services/prompts.ts` — Centralized prompt library with 10 specialized optimization modes
+- [x] Enhanced CV generation prompt with industry/role context, action-verb guidance, metrics emphasis, anti-cliché rules
+- [x] Added 9 new specialized prompt templates: summary-rewrite, bullet-optimize, ats-optimize, career-transition, audit, work-history-align, skills-section, headline, hiring-manager
+- [x] Added `classifyEditIntent()` — Auto-detects optimization mode from free-text user requests via regex
+- [x] Added `optimizeCv()` public API — Targeted text-only optimizations alongside JSON-producing modes
+- [x] Updated `cvBuilderService.ts` — Refactored to use prompts module, mode-based JSON/text routing, accepts `GenerateCvOptions`
+- [x] 5 new cvBuilderService tests (11 total, up from 6) covering context passthrough, mode routing, mode enumeration
+- [x] Updated docs: AI Prompt Templates (full rewrite), CHANGELOG, Test Cases, Plan
 
 ---
 
