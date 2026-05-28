@@ -1,7 +1,7 @@
 ---
 tags: [feature, cv-builder, cl-builder, document-builder]
 status: completed
-last_updated: 2026-05-22
+last_updated: 2026-05-28
 ---
 
 # 📝 Document Builders (CV & Cover Letter)

@@ -1,7 +1,8 @@
 ---
 tags: [index, MOC]
 status: completed
-last_updated: 2026-05-22
+last_updated: 2026-05-28
+---
 ---
 
 # 🏹 Artemis Quiver — Map of Content (MOC)
@@ -17,6 +18,7 @@ Welcome to the internal documentation vault for **Artemis Quiver** — a job hun
 
 ### 🏛️ 1. Architecture & State Flow
 Detailed guides on how the application components, providers, and local persistence interact.
+- [[30-Bugs-and-Fixes|🐛 Bug Fixes Log]] — Check this **first** before fixing any issues or implementing changes.
 - [[10-Architecture/Component Tree|React Route & Component Hierarchy]] — How pages and subcomponents are mapped.
 - [[10-Architecture/Context Providers|Context Providers & State Management]] — Manifests, active sessions, and builder handoffs.
 - [[10-Architecture/Local Storage|Local Storage & Eviction (LRU)]] — Data schemas and profile rotation rules.

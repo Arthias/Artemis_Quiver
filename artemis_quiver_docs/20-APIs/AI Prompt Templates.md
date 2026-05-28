@@ -1,7 +1,7 @@
 ---
 tags: [api, llm, prompt-engineering]
 status: completed
-last_updated: 2026-05-22
+last_updated: 2026-05-28
 ---
 
 # 📝 AI Prompt Templates & System Rules

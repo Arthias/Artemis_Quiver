@@ -1,7 +1,8 @@
 ---
 tags: [architecture, storage, persistence]
 status: completed
-last_updated: 2026-05-22
+last_updated: 2026-05-28
+---
 ---
 
 # 💾 Local Storage & Eviction (LRU) Architecture

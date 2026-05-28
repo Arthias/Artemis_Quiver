@@ -1,7 +1,7 @@
 ---
 tags: [api, llm, local]
 status: completed
-last_updated: 2026-05-22
+last_updated: 2026-05-28
 ---
 
 # 🔌 Local LLM Setup & Proxies

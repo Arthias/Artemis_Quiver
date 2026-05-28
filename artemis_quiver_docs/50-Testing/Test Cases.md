@@ -1,7 +1,7 @@
 ---
 tags: [testing, quality-assurance, test-cases]
 status: completed
-last_updated: 2026-05-22
+last_updated: 2026-05-28
 ---
 
 # 🧪 QA Test Scenarios & Manual Test Cases

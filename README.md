@@ -83,14 +83,26 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 
 ## 📖 Internal Documentation & AI Agent Context
 
-Artemis Quiver features a comprehensive internal documentation vault inside [artemis_quiver_docs/](artemis_quiver_docs/). This vault is an Obsidian-compatible notebook containing architecture maps, state details, prompt patterns, coding rules, manual test cases, and the sprint backlog.
+**🔔 IMPORTANT:** When reviewing code, fixing issues, or planning features — always check the bug fix log first!
+
+The internal documentation vault inside [artemis_quiver_docs/](artemis_quiver_docs/) is an Obsidian-compatible notebook containing architecture maps, state details, prompt patterns, coding rules, manual test cases, sprint backlog, **and bug fix logs**. It must be treated as the source of truth for all specifications.
 
 ### 🤖 AI Agent Instructions
-If you are an AI coding assistant, **read this readme for initial context, then proceed to the documentation vault**. The vault contains detailed specifications of the codebase and must be treated as the source of truth for planning and writing code.
-- **Root Map of Content:** [MOC.md](artemis_quiver_docs/00-Index/MOC.md) (Use this to find notes and pages).
-- **Development Roadmap & Backlog:** [Plan.md](artemis_quiver_docs/60-Roadmap/Plan.md) (The backlog/sprint checklist).
-- **Architecture Details:** See [Context Providers](artemis_quiver_docs/10-Architecture/Context%20Providers.md) and [Local Storage Schemas](artemis_quiver_docs/10-Architecture/Local%20Storage.md).
-- **Coding Guidelines:** Adhere to the rules in [Guidelines.md](artemis_quiver_docs/40-Development/Guidelines.md) and [Coding Standards.md](artemis_quiver_docs/40-Development/Coding%20Standards.md).
+1. Read `README.md` for project-wide overview and routes
+2. **Check `artemis_quiver_docs/60-Roadmap/Plan.md`** for upcoming features & backlog items  
+3. **Review `artemis_quiver_docs/CODFIXES.md`** ✅ before fixing any issues (prevents duplicate work)
+4. Consult relevant feature docs in vault (e.g., Analysis Hub, Document Builders) before making changes
+5. Update documentation regularly after fixing bugs or implementing features
+
+### 📍 Documentation Map
+- **Index & Navigation:** [[00-Index/MOC.md|artemis_quiver_docs/00-Index/]]
+- **Bug Fixes Log:** [[artemis_quiver_docs/CODFIXES.md|🐛 Bug Fix History]] (check before fixing issues!)
+- **Development Roadmap & Backlog:** [[60-Roadmap/Plan.md|artemis_quiver_docs/60-Roadmap/]]  
+- **Architecture Overview:** [[10-Architecture/Context%20Providers.md|Context Providers]] and [[10-Architecture/Local%20Storage.md|Local Storage]]
+- **Coding Rules & Standards:** [[40-Development/Guidelines.md|Guidelines]] and [[40-Development/Coding%20Standards.md|Coding Standards]]
+- **Test Cases & QA Scenarios:** [[50-Testing/Test%20Cases.md|Test]]
+
+See [`artemis_quiver_docs/00-Index/MOC.md`](artemis_quiver_docs/00-Index/MOC.md) for the complete navigation map.
 
 ## Risks
 
