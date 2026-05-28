@@ -14,7 +14,7 @@ export async function generateCv(
   cvRecommendations: string[] | undefined,
   config: LlmConfig
 ): Promise<string> {
-  const jobPart = jobDescription?.trim()
+  const jobPart = typeof jobDescription === "string" && jobDescription.trim().length > 0
     ? `\n\n## Target job\n\n${jobDescription}`
     : "\n\n(No specific job — general CV from profile.)";
   const recsPart =

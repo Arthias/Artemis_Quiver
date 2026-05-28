@@ -17,12 +17,12 @@ export async function generateCoverLetter(
   },
   config: LlmConfig
 ): Promise<string> {
-  const company = options.companyName?.trim() || "the company";
-  const role = options.position?.trim() || "the role";
-  const jobPart = options.jobDescription?.trim()
+  const company = typeof options.companyName === "string" && options.companyName.trim() ? options.companyName.trim() : "the company";
+  const role = typeof options.position === "string" && options.position.trim() ? options.position.trim() : "the role";
+  const jobPart = typeof options.jobDescription === "string" && options.jobDescription.trim().length > 0
     ? `\n\n## Job description\n\n${options.jobDescription}`
     : "";
-  const seedPart = options.seedDraft?.trim()
+  const seedPart = typeof options.seedDraft === "string" && options.seedDraft.trim().length > 0
     ? `\n\n## Draft to refine (from job analysis)\n\n${options.seedDraft}`
     : "";
 
