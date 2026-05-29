@@ -1,5 +1,7 @@
 import type { LlmConfig } from "../types/llm";
+import type { ChatMessage } from "../types/llm";
 import { chatCompletion } from "./llmService";
+import { AppError, ErrorCodes } from "../utils/errors";
 import {
   cvGeneratePrompt,
   cvEditPrompt,
@@ -8,13 +10,8 @@ import {
   type PromptContext,
 } from "./prompts";
 
-// ============================================================================
-// Normalization - handles LLMs that output key-based sections instead of type-based
-// ============================================================================
-
-// Modes that return full CV JSON (vs. text snippets or analysis)
 const JSON_MODES: OptimizationMode[] = ["standard", "ats-optimize", "career-transition"];
-
+const MAX_RETRIES = 3;
 const SECTION_TYPE_KEYS = ["summary", "contact", "skills", "experience", "education", "certifications"] as const;
 
 function normalizeSection(section: Record<string, unknown>): Record<string, unknown> {
@@ -43,17 +40,24 @@ function normalizeSection(section: Record<string, unknown>): Record<string, unkn
 }
 
 function normalizeCvJson(rawJson: string): string {
-  const parsed = JSON.parse(rawJson);
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch (e) {
+    throw new AppError(
+      ErrorCodes.CV_JSON_PARSE,
+      `Invalid JSON from model: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
   if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.sections)) {
-    throw new Error("Invalid CV structure: missing sections array");
+    throw new AppError(
+      ErrorCodes.CV_SCHEMA_INVALID,
+      "Invalid CV structure: missing sections array",
+    );
   }
   parsed.sections = parsed.sections.map(normalizeSection);
   return JSON.stringify(parsed);
 }
-
-// ============================================================================
-// Implementation Functions
-// ============================================================================
 
 export interface GenerateCvOptions {
   mode?: OptimizationMode;
@@ -63,14 +67,13 @@ export interface GenerateCvOptions {
   newField?: string;
 }
 
-export async function generateCv(
+function buildMessages(
   profileMarkdown: string,
   jobDescription: string | undefined,
   cvRecommendations: string[] | undefined,
-  config: LlmConfig,
-  options?: GenerateCvOptions
-): Promise<string> {
-  const mode = options?.mode ?? "standard";
+  mode: OptimizationMode,
+  options?: GenerateCvOptions,
+): ChatMessage[] {
   const ctx: PromptContext = {
     targetRole: options?.targetRole,
     industry: options?.industry,
@@ -82,28 +85,70 @@ export async function generateCv(
 
   const systemPrompt = selectPrompt(mode, undefined, ctx);
 
-  const jobPart = typeof jobDescription === "string" && 
-                  jobDescription.trim().length > 0 
-                  ? `\n\n## Target job\n\n${jobDescription}` 
-                  : "\n\n(No specific job — general CV from profile.)";
+  const jobPart = typeof jobDescription === "string" && jobDescription.trim().length > 0
+    ? `\n\n## Target job\n\n${jobDescription}`
+    : "\n\n(No specific job — general CV from profile.)";
 
   const recsPart = cvRecommendations?.length
     ? `\n\n## Analysis recommendations to emphasize\n\n${cvRecommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}`
     : "";
 
-  const raw = await chatCompletion(
-    [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user", 
-        content: `## Candidate profile\n\n${profileMarkdown}${jobPart}${recsPart}`
-      }
-    ],
-    config
-  );
+  return [
+    { role: "system", content: systemPrompt },
+    { role: "user" as const, content: `## Candidate profile\n\n${profileMarkdown}${jobPart}${recsPart}` },
+  ];
+}
 
-  // Normalize as JSON for modes that produce full CVs; return raw text otherwise
-  return JSON_MODES.includes(mode) ? normalizeCvJson(raw) : raw;
+export async function generateCv(
+  profileMarkdown: string,
+  jobDescription: string | undefined,
+  cvRecommendations: string[] | undefined,
+  config: LlmConfig,
+  options?: GenerateCvOptions
+): Promise<string> {
+  const mode = options?.mode ?? "standard";
+  const isJsonMode = JSON_MODES.includes(mode);
+
+  let lastRaw = "";
+  let lastErrorMessage = "";
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
+
+      // Attempt 3+: send corrective feedback with the model's broken output
+      if (attempt >= 2 && lastRaw) {
+        messages.push(
+          { role: "assistant", content: lastRaw },
+          { role: "user", content: `Fix the JSON formatting error above: ${lastErrorMessage}. Return ONLY valid JSON. No markdown fences.` }
+        );
+      }
+
+      const raw = await chatCompletion(messages, config);
+
+      if (!isJsonMode) return raw;
+
+      try {
+        return normalizeCvJson(raw);
+      } catch (normalizeErr) {
+        lastRaw = raw;
+        lastErrorMessage = normalizeErr instanceof Error ? normalizeErr.message : String(normalizeErr);
+        if (attempt < MAX_RETRIES) continue;
+        throw new AppError(
+          ErrorCodes.CV_GENERATION_FAILED,
+          `CV generation failed after ${MAX_RETRIES + 1} attempts.`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw new AppError(
+        ErrorCodes.LLM_API_FAILURE,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  throw new AppError(ErrorCodes.UNKNOWN, "CV generation failed unexpectedly.");
 }
 
 export async function editCv(
@@ -112,25 +157,48 @@ export async function editCv(
   profileMarkdown: string,
   config: LlmConfig
 ): Promise<string> {
-  return normalizeCvJson(
-    await chatCompletion(
-      [
+  let lastRaw = "";
+  let lastErrorMessage = "";
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const messages: ChatMessage[] = [
         { role: "system", content: cvEditPrompt(userRequest) },
-        {
-          role: "user", 
-          content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}`
-        }
-      ],
-      config
-    )
-  );
+        { role: "user", content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}` },
+      ];
+
+      if (attempt >= 2 && lastRaw) {
+        messages.push(
+          { role: "assistant", content: lastRaw },
+          { role: "user", content: `Fix the JSON error above: ${lastErrorMessage}. Return ONLY valid JSON.` }
+        );
+      }
+
+      const raw = await chatCompletion(messages, config);
+
+      try {
+        return normalizeCvJson(raw);
+      } catch (normalizeErr) {
+        lastRaw = raw;
+        lastErrorMessage = normalizeErr instanceof Error ? normalizeErr.message : String(normalizeErr);
+        if (attempt < MAX_RETRIES) continue;
+        throw new AppError(
+          ErrorCodes.CV_GENERATION_FAILED,
+          `CV edit failed after ${MAX_RETRIES + 1} attempts.`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw new AppError(
+        ErrorCodes.LLM_API_FAILURE,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  throw new AppError(ErrorCodes.UNKNOWN, "CV edit failed unexpectedly.");
 }
 
-/**
- * Targeted optimization that returns text (not JSON).
- * Use for: summary-rewrite, bullet-optimize, audit, headline, hiring-manager,
- *          work-history-align, skills-section
- */
 export async function optimizeCv(
   profileMarkdown: string,
   mode: OptimizationMode,
@@ -160,10 +228,7 @@ export async function optimizeCv(
   return chatCompletion(
     [
       { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `## Candidate profile\n\n${profileMarkdown}${contextBlock}`,
-      },
+      { role: "user", content: `## Candidate profile\n\n${profileMarkdown}${contextBlock}` },
     ],
     config
   );

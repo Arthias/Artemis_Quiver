@@ -1,4 +1,5 @@
 import type { ChatMessage, LlmConfig } from "../types/llm";
+import { AppError, ErrorCodes } from "../utils/errors";
 
 function normalizeBaseUrl(serverUrl: string): string {
   return serverUrl.replace(/\/+$/, "");
@@ -30,15 +31,16 @@ export async function chatCompletion(
 
       if (!response.ok) {
         const detail = await response.text().catch(() => "");
-        throw new Error(
-          `LMStudio request failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`
+        throw new AppError(
+          ErrorCodes.LLM_API_FAILURE,
+          `LMStudio request failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
         );
       }
 
       const data = await response.json();
       const content = data?.choices?.[0]?.message?.content;
       if (!content || typeof content !== "string") {
-        throw new Error("LMStudio returned an empty response.");
+        throw new AppError(ErrorCodes.LLM_EMPTY_RESPONSE, "LMStudio returned an empty response.");
       }
       return content;
     }
@@ -57,22 +59,29 @@ export async function chatCompletion(
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      throw new Error(
-        `Ollama request failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`
+      throw new AppError(
+        ErrorCodes.LLM_API_FAILURE,
+        `Ollama request failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
       );
     }
 
     const data = await response.json();
     const content = data?.message?.content;
     if (!content || typeof content !== "string") {
-      throw new Error("Ollama returned an empty response.");
+      throw new AppError(ErrorCodes.LLM_EMPTY_RESPONSE, "Ollama returned an empty response.");
     }
     return content;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Request timed out. Try a smaller job posting or check the LLM server.");
+      throw new AppError(ErrorCodes.LLM_TIMEOUT, `Request timed out after ${timeoutMs}ms`);
     }
-    throw error;
+
+    if (error instanceof TypeError && error.message === "fetch failed") {
+      throw new AppError(ErrorCodes.LLM_CONNECTION_REFUSED, error.message);
+    }
+
+    if (error instanceof AppError) throw error;
+    throw new AppError(ErrorCodes.UNKNOWN, error instanceof Error ? error.message : String(error));
   } finally {
     clearTimeout(timeout);
   }

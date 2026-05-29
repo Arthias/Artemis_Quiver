@@ -1,4 +1,5 @@
 import type { LlmConfig } from "../types/llm";
+import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 
 const CL_GENERATE_SYSTEM = `You are an expert cover letter writer. Write a professional business letter in plain text.
@@ -26,16 +27,21 @@ export async function generateCoverLetter(
     ? `\n\n## Draft to refine (from job analysis)\n\n${options.seedDraft}`
     : "";
 
-  return chatCompletion(
-    [
-      { role: "system", content: CL_GENERATE_SYSTEM },
-      {
-        role: "user",
-        content: `## Candidate profile\n\n${profileMarkdown}\n\n## Company: ${company}\n## Position: ${role}${jobPart}${seedPart}`,
-      },
-    ],
-    config
-  );
+  try {
+    return await chatCompletion(
+      [
+        { role: "system", content: CL_GENERATE_SYSTEM },
+        {
+          role: "user",
+          content: `## Candidate profile\n\n${profileMarkdown}\n\n## Company: ${company}\n## Position: ${role}${jobPart}${seedPart}`,
+        },
+      ],
+      config
+    );
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(ErrorCodes.CL_GENERATION_FAILED, err instanceof Error ? err.message : String(err));
+  }
 }
 
 export async function editCoverLetter(
@@ -44,14 +50,19 @@ export async function editCoverLetter(
   profileMarkdown: string,
   config: LlmConfig
 ): Promise<string> {
-  return chatCompletion(
-    [
-      { role: "system", content: CL_EDIT_SYSTEM },
-      {
-        role: "user",
-        content: `## Master profile\n\n${profileMarkdown}\n\n## Current letter\n\n${currentLetter}\n\n## Request\n\n${userRequest}`,
-      },
-    ],
-    config
-  );
+  try {
+    return await chatCompletion(
+      [
+        { role: "system", content: CL_EDIT_SYSTEM },
+        {
+          role: "user",
+          content: `## Master profile\n\n${profileMarkdown}\n\n## Current letter\n\n${currentLetter}\n\n## Request\n\n${userRequest}`,
+        },
+      ],
+      config
+    );
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(ErrorCodes.CL_EDIT_FAILED, err instanceof Error ? err.message : String(err));
+  }
 }

@@ -1,10 +1,61 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-05-28
+last_updated: 2026-05-29
 ---
 
 # Changelog
+
+## [v2.6.0] - May 29, 2026
+
+### Features
+- **Centralized Error Code System** — `ErrorCodes` constant object with registered `ERROR_CATALOG` replacing ad-hoc ErrorCode enum. Every error has a domain, severity, userMessage, retryable flag, and debug hint.
+- **Full Service Error Migration** — All service layers (`llmService`, `jobAnalysisService`, `clBuilderService`, `profileMergeService`, `profileChatService`) now throw `AppError` with domain-specific codes. `extractJsonObject` accepts optional `errorCode` parameter.
+- **Structured Logging** — New `errorLogger.ts` with `logAppError()` for structured console output and `withErrorLogging()` wrapper for async flows.
+- **Retry Button** — CVBuilder error card shows "Retry" button when error is retryable.
+- **User-Friendly Messages** — All page/context error catches display `err.userMessage` for AppError instances.
+
+### Files Created
+- `src/app/utils/errorLogger.ts` — Structured error logging middleware
+
+### Files Modified
+- `src/app/utils/errors.ts` — ERROR_CATALOG registry, ErrorCodes constant, ErrorDomain/ErrorSeverity enums, AppError.toJSON()
+- `src/app/utils/jsonParse.ts` — extractJsonObject accepts optional errorCode parameter
+- `src/app/services/llmService.ts` — Throws AppError for HTTP failures, empty responses, timeouts, connection refused
+- `src/app/services/jobAnalysisService.ts` — validateAnalysisResult throws AppError(ANALYSIS_FAILED)
+- `src/app/services/clBuilderService.ts` — Wraps LLM calls in CL_GENERATION_FAILED / CL_EDIT_FAILED AppError
+- `src/app/services/profileMergeService.ts` — Wraps LLM call in PROFILE_MERGE_FAILED AppError
+- `src/app/services/profileChatService.ts` — Wraps LLM call in PROFILE_CHAT_FAILED AppError
+- `src/app/context/AnalysisContext.tsx` — Shows userMessage for AppError instances
+- `src/app/pages/CVBuilder.tsx` — Retry button on retryable errors, logAppError integration
+- `src/app/pages/CLBuilder.tsx` — Shows userMessage for AppError in edit catch
+- `src/app/pages/Profile.tsx` — Shows userMessage for AppError in merge/chat catches
+
+## [v2.5.0] - May 29, 2026
+
+### Features
+- **CV Retry with Corrective Feedback** — CV generation and editing retry up to 3 times on JSON parse/schema errors. Attempts 3+ send corrective feedback alongside the model's broken output.
+- **Interactive CV Preview** — React-rendered preview with inline click-to-edit on every CV section.
+
+## [v2.4.0] - May 29, 2026
+
+### Features
+- **Interactive CV Preview** — Replaced static iframe with React-rendered interactive preview (`InteractiveCVPreview.tsx`) supporting inline click-to-edit on every section: name, title, contact, summary, skills, experience, education, certifications
+- **Enhanced CV Schema** — Added top-level `name`, `title`, `location` fields; `bullets[]` and `location` to experience items; `categories[]` to skills section for grouped skill display
+- **Professional CV Themes** — All three themes (Modern, Classic, Minimal) rewritten with print-optimized CSS (`page-break-inside: avoid`, `@media print`), proper typography hierarchy, and visual polish matching professional examples
+- **Inline Editing UX** — Name/title/contact fields are click-to-edit inline; summary uses textarea + Save/Cancel; experience/education items expand to form views; skills/certifications support add/remove. Changes flow into PDF export.
+- **Prompt Updates** — `CV_JSON_FORMAT` in prompts.ts updated with v3 schema example including name, title, bullets array, categorized skills
+
+### Files Created
+- `src/components/cv/InteractiveCVPreview.tsx` — Interactive preview with inline editing for all CV sections
+
+### Files Modified
+- `src/types/cv.ts` — Schema expanded with name, title, location, bullets, categories
+- `src/components/cv/renderingEngine.ts` — Full rewrite: professional themes, print CSS, bullet/category rendering
+- `src/app/services/prompts.ts` — Updated JSON format example with v3 schema
+- `src/app/pages/CVBuilder.tsx` — Replaced iframe with InteractiveCVPreview, hidden iframe for PDF print
+- `src/components/cv/renderingEngine.test.ts` — Updated test data with new schema fields, fixed assertions
+- `src/app/services/__tests__/cvBuilderService.test.ts` — Updated mock data with name/title/bullets
 
 ## [v2.3.0] - May 28, 2026
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -10,7 +10,10 @@ import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCv } from "../services/cvBuilderService";
 import type { CVContent, ThemeConfig } from "../types/cv";
 import { renderCVToHTML } from "../../components/cv/renderingEngine";
+import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
 import { extractJsonObject } from "../utils/jsonParse";
+import { AppError, ErrorCodes } from "../utils/errors";
+import { logAppError } from "../utils/errorLogger";
 
 const CV_SUGGESTIONS = [
   { title: "Add more metrics", hint: "Include quantifiable achievements", prompt: "Add more quantifiable metrics and measurable achievements throughout the CV." },
@@ -36,8 +39,10 @@ export function CVBuilder() {
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryableError, setRetryableError] = useState<AppError | null>(null);
 
-  const previewIframeRef = useRef<HTMLIFrameElement>(null);
+  const printIframeRef = useRef<HTMLIFrameElement>(null);
+  const [printHtml, setPrintHtml] = useState("");
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -69,7 +74,14 @@ export function CVBuilder() {
       setCvContent(parsedContent);
       setIsGenerated(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "CV generation failed.");
+      logAppError(err, { phase: "generateCV" });
+      if (err instanceof AppError) {
+        setError(err.userMessage);
+        setRetryableError(err.retryable ? err : null);
+      } else {
+        setError(err instanceof Error ? err.message : "CV generation failed.");
+        setRetryableError(null);
+      }
     } finally {
       setGenerating(false);
     }
@@ -139,17 +151,25 @@ export function CVBuilder() {
       // Parse message into suggestions to regenerate CV
       await generateCV();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not apply changes.");
+      setError(err instanceof AppError ? err.message : (err instanceof Error ? err.message : "Could not apply changes."));
       setChatMessage(text);
     } finally {
       setChatLoading(false);
     }
   };
 
-  const printPDF = () => {
-    if (!cvContent || !previewIframeRef.current?.contentWindow) return;
-    previewIframeRef.current.contentWindow.print();
-  };
+  const printPDF = useCallback(() => {
+    if (!cvContent) return;
+    const html = renderCVToHTML(cvContent, themeConfig);
+    setPrintHtml(html);
+    requestAnimationFrame(() => {
+      const iframe = printIframeRef.current;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+    });
+  }, [cvContent, themeConfig]);
 
   return (
     <div className="h-full flex flex-col">
@@ -219,9 +239,21 @@ export function CVBuilder() {
         {/* Left Panel: Generation & Editor */}
         <div className="flex-1 border-r border-border overflow-auto">
           <div className="p-6">
-            {error && ( // Error display, not white screen anymore
-              <Card className="p-3 mb-4 text-sm text-destructive border-destructive/50">
-                {error}
+            {error && (
+              <Card className="p-3 mb-4 text-sm border-destructive/50 bg-destructive/5">
+                <div className="flex items-start gap-2">
+                  <pre className="whitespace-pre-wrap font-sans text-destructive flex-1">{error}</pre>
+                  {retryableError && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10"
+                      onClick={() => { setError(null); setRetryableError(null); generateCV(); }}
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </div>
               </Card>
             )}
 
@@ -287,31 +319,34 @@ export function CVBuilder() {
                 </Card>
               </div>
 
-            ) : ( // Generated - Show CV in iframe and chat panel
+              ) : ( // Generated - Show interactive CV preview and chat panel
               <div className="max-w-4xl mx-auto h-full flex flex-col">
-                {/* CV Preview Pane */}
-                <div className={`flex-1 bg-muted/30 border rounded-lg p-4 overflow-auto mb-4 flex items-center justify-center ${generating ? "animate-pulse" : ""}`}>
-                  {!isGenerated ? (
-                    // Not generated yet, show loading state
-                    <div className="text-muted-foreground text-center">
-                      <p className="mb-2">Generate a CV to see the preview</p>
+                {/* Interactive CV Preview Pane */}
+                <div className={`flex-1 overflow-auto mb-4 ${generating ? "animate-pulse" : ""}`}>
+                  {!cvContent ? (
+                    <div className="flex items-center justify-center h-64 text-muted-foreground">
+                      <p>Generate a CV to see the preview</p>
                     </div>
-                  ) : (!cvContent || isGenerated && error) ? (
-                    // Generated but error or null content
+                  ) : error ? (
                     <Card className="p-4 bg-destructive/10 border-destructive/50">
                       <p className="text-sm text-destructive">Unable to render CV. Please refresh and try again.</p>
                     </Card>
                   ) : (
-                    <iframe
-                      ref={previewIframeRef}
-                      srcDoc={renderCVToHTML(cvContent, themeConfig)}
-                      style={{ width: "100%", height: "80vh", border: "none", borderRadius: "4px", background: "#ffffff" }}
-                      title="CV Preview"
+                    <InteractiveCVPreview
+                      content={cvContent}
+                      onContentChange={setCvContent}
+                      accentColor={themeConfig.primaryColor}
                     />
                   )}
                 </div>
 
-                {/* Chat/Editor Panel (collapsed for MVP, could be expanded later) */} // Keep simple for v2
+                {/* Hidden iframe for PDF printing */}
+                <iframe
+                  ref={printIframeRef}
+                  srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
+                  style={{ position: "absolute", width: 0, height: 0, border: "none" }}
+                  title="Print frame"
+                />
               </div>
             )}
           </div>

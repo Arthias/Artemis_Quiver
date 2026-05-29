@@ -10,6 +10,7 @@ import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCoverLetter, editCoverLetter } from "../services/clBuilderService";
 import { downloadMarkdown } from "../utils/download";
+import { AppError, ErrorCodes } from "../utils/errors";
 
 const CL_SUGGESTIONS = [
   { title: "Make it more formal", hint: "Corporate tone", prompt: "Make the tone more formal and professional for a corporate setting." },
@@ -65,7 +66,11 @@ export function CLBuilder() {
       setLetterContent(content.trim());
       setIsGenerated(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cover letter generation failed.");
+      if (err instanceof AppError) {
+        setError(err.userMessage);
+      } else {
+        setError(err instanceof Error ? err.message : "Cover letter generation failed.");
+      }
     } finally {
       setGenerating(false);
     }
@@ -87,7 +92,7 @@ export function CLBuilder() {
       const updated = await editCoverLetter(letterContent, text, profile, config);
       setLetterContent(updated.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not apply changes.");
+      setError(err instanceof AppError ? err.userMessage : (err instanceof Error ? err.message : "Could not apply changes."));
       setChatMessage(text);
     } finally {
       setChatLoading(false);
@@ -125,7 +130,7 @@ export function CLBuilder() {
           <div className="p-6">
             {error && (
               <Card className="p-3 mb-4 text-sm text-destructive border-destructive/50">
-                {error}
+                <pre className="whitespace-pre-wrap font-sans">{error}</pre>
               </Card>
             )}
             {!isGenerated ? (

@@ -37,6 +37,7 @@ Always check before fixing issues or implementing changes.
 - [[../30-Features/Profile Workspace|Profile Workspace]]
 - [[../30-Features/Document Builders|CV & Cover Letter Builders]]
 - [[../30-Features/CV Builder Themed PDF Export|CV Builder: Themed PDF Export]]
+- [[../30-Features/Error Handling & Error Codes|Error Handling & Error Codes]]
 
 ### 🛠️ 4. Development & Coding Guidelines
 - [[../40-Development/_Index|Development Overview]]
