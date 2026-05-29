@@ -1,7 +1,7 @@
 ---
 tags: [feature, cv-builder, cl-builder, document-builder]
 status: completed
-last_updated: 2026-05-28
+last_updated: 2026-05-29
 ---
 
 # 📝 Document Builders (CV & Cover Letter)
@@ -29,13 +29,13 @@ Analysis Hub (Route: /)
 - **File:** [CVBuilder.tsx](file:///F:/Dev/Artemis_Quiver/src/app/pages/CVBuilder.tsx)
 - **Service Integration:** [cvBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cvBuilderService.ts)
 
-### Architecture (v2 — Structured JSON + Themed HTML)
-- LLM generates **structured JSON** (Zod-validated schema) instead of raw Markdown
-- JSON is normalized via `normalizeCvJson()` — handles both `{"type":"summary","content":"..."}` and `{"summary":"..."}` formats
-- `renderCVToHTML()` converts JSON to themed HTML (Modern / Classic / Minimal)
-- PDF export via iframe printing (clean isolation from app UI)
+### Architecture (v3 — Interactive Preview + Inline Editing)
+- LLM generates **structured JSON** (Zod-validated schema) with top-level name/title/location fields
+- JSON rendered as an **interactive React preview** ([InteractiveCVPreview.tsx](file:///F:/Dev/Artemis_Quiver/src/components/cv/InteractiveCVPreview.tsx)) with click-to-edit inline editing on every section
+- `renderCVToHTML()` converts JSON to themed HTML (Modern / Classic / Minimal) for PDF export
+- PDF export via hidden iframe printing (clean isolation from app UI)
 
-**Schema:** `src/types/cv.ts` — 6 section types: summary, contact, skills, experience, education, certifications
+**Schema:** `src/types/cv.ts` — Top-level: `name`, `title`, `location` + 6 section types: summary, contact, skills, experience, education, certifications. Experience items support `bullets[]` and `location`. Skills support `categories[]`.
 
 ### Pre-Generation Layout
 - Renders an input field for the **Job Description** (pre-populated by handoff, optional).
@@ -43,15 +43,22 @@ Analysis Hub (Route: /)
 - The **Generate CV** trigger prompts the local model to build a structured CV JSON.
 - Theme configuration panel (color picker + template selector) appears only after generation.
 
-### Post-Generation Split Screen
-- **Left Panel (Document View)**: Renders the generated CV in a themed iframe.
+### Post-Generation Interactive Preview
+- **Left Panel (Document View)**: Renders an interactive CV preview built with React components. Every field is editable inline:
+  - **Name / Title / Contact**: Click any field (name, title, email, phone, location, LinkedIn) to edit inline
+  - **Professional Summary**: Click to edit in a textarea with Save/Cancel
+  - **Work Experience**: Each item is clickable to edit role, company, period, location, and bullet points (one per line). Add/remove items.
+  - **Skills**: Click to edit tag list or grid. Add/remove individual skills.
+  - **Education**: Each item is clickable to edit degree, institution, period. Add/remove items.
+  - **Certifications**: Click to edit individual items. Add/remove entries.
+  - Changes update the `cvContent` state live and persist to PDF export.
 - **Right Panel (AI Refinement Assistant)**:
   - **Quick Suggestions**: Quick-click suggestion buttons for rapid alterations:
     - *Add more metrics* (Measurable achievements)
     - *Shorten experience* (Consolidate sentences)
     - *Reorder sections* (Prioritize core roles)
     - *Change formatting* (Formatting adjustments)
-  - Export button for `.md` (legacy) and PDF via browser print dialog.
+  - Export button for `.md` (legacy) and PDF via hidden iframe print dialog.
 
 ---
 
@@ -76,16 +83,18 @@ Analysis Hub (Route: /)
 
 ## 📤 Exports
 
-- **CV Builder**: PDF export via browser print dialog (themed HTML rendered in isolated iframe). Legacy `.md` export also available.
+- **CV Builder**: PDF export via hidden iframe printing (themed HTML rendered from `renderCVToHTML`). Legacy `.md` export also available.
 - **Cover Letter Builder**: `.md` file download via [download.ts](file:///F:/Dev/Artemis_Quiver/src/app/utils/download.ts).
 
 ## 📁 Key Files
 
 | Path | Purpose |
 |------|---------|
-| `src/types/cv.ts` | Zod schema + TypeScript types for CV structure |
-| `src/types/cv.ts` | Zod schema + TypeScript types for CV structure (canonical) |
+| `src/types/cv.ts` | Zod schema + TypeScript types for CV structure (name, title, sections, bullets, categories) |
 | `src/app/types/cv.ts` | Barrel re-export for app-level imports |
-| `src/components/cv/renderingEngine.ts` | JSON → themed HTML converter (3 themes) |
-| `src/app/services/cvBuilderService.ts` | LLM integration + JSON normalization |
+| `src/components/cv/renderingEngine.ts` | JSON → themed HTML converter (3 themes, print CSS) |
+| `src/components/cv/InteractiveCVPreview.tsx` | React interactive preview with inline editing for all sections |
+| `src/app/services/cvBuilderService.ts` | LLM integration + JSON normalization + retry with corrective feedback |
+| `src/app/services/prompts.ts` | Prompt templates with v3 schema (name, title, bullets, categories) |
 | `src/app/utils/jsonParse.ts` | Markdown fence stripping for LLM JSON responses |
+| `src/app/utils/errors.ts` | `AppError` class + `ErrorCode` enum for categorized error handling |

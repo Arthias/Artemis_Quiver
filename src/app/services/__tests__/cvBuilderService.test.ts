@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { generateCv, editCv, optimizeCv } from "../cvBuilderService";
 import type { LlmConfig } from "../../types/llm";
+import { AppError, ErrorCodes } from "../../utils/errors";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),
@@ -17,10 +18,12 @@ const mockConfig: LlmConfig = {
 };
 
 const validCvJson = JSON.stringify({
+  name: "Test User",
+  title: "Software Engineer",
   sections: [
     { type: "summary", content: "Experienced developer" },
     { type: "skills", skills: ["React", "TypeScript"] },
-    { type: "experience", experience: [{ role: "Dev", company: "Co", period: "2020-2023", description: "Built stuff" }] },
+    { type: "experience", experience: [{ role: "Dev", company: "Co", period: "2020-2023", location: "Remote", bullets: ["Built stuff"] }] },
   ],
 });
 
@@ -47,14 +50,47 @@ describe("generateCv", () => {
     expect(parsed.sections).toHaveLength(3);
   });
 
-  it("should throw on malformed JSON response", async () => {
+  it("should retry 4 times on malformed JSON then throw AppError", async () => {
     vi.mocked(chatCompletion).mockResolvedValue("not json");
 
-    await expect(generateCv("# Profile", "Job", [], mockConfig)).rejects.toThrow();
+    await expect(generateCv("# Profile", "Job", [], mockConfig)).rejects.toThrow(AppError);
+    expect(vi.mocked(chatCompletion)).toHaveBeenCalledTimes(4);
+  });
+
+  it("should succeed on 2nd attempt after initial JSON failure", async () => {
+    vi.mocked(chatCompletion)
+      .mockResolvedValueOnce("bad json")
+      .mockResolvedValueOnce(validCvJson);
+
+    const result = await generateCv("# Profile", "Job", [], mockConfig);
+    const parsed = JSON.parse(result);
+    expect(parsed.sections).toHaveLength(3);
+    expect(vi.mocked(chatCompletion)).toHaveBeenCalledTimes(2);
+  });
+
+  it("should include corrective feedback on 3rd attempt", async () => {
+    vi.mocked(chatCompletion)
+      .mockResolvedValueOnce("bad json")
+      .mockResolvedValueOnce("bad json again")
+      .mockResolvedValueOnce(validCvJson);
+
+    const result = await generateCv("# Profile", "Job", [], mockConfig);
+    const parsed = JSON.parse(result);
+    expect(parsed.sections).toHaveLength(3);
+
+    const calls = vi.mocked(chatCompletion).mock.calls;
+    // 3rd call (index 2) should have corrective feedback
+    const thirdCallMessages = calls[2][0];
+    const userRoles = thirdCallMessages.filter((m: any) => m.role === "user");
+    expect(userRoles.length).toBeGreaterThanOrEqual(2);
+    const lastUser = userRoles[userRoles.length - 1].content ?? "";
+    expect(lastUser).toContain("Fix the JSON formatting error");
   });
 
   it("should normalize key-based sections to type-based", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+      name: "Test User",
+      title: "Engineer",
       sections: [
         { summary: "Lead dev with 10 years" },
         { skills: ["Go", "Kubernetes"] },
@@ -63,6 +99,7 @@ describe("generateCv", () => {
 
     const result = await generateCv("# Profile", "Job", [], mockConfig);
     const parsed = JSON.parse(result);
+    expect(parsed.name).toBe("Test User");
     expect(parsed.sections[0].type).toBe("summary");
     expect(parsed.sections[0].content).toBe("Lead dev with 10 years");
     expect(parsed.sections[1].type).toBe("skills");
@@ -118,6 +155,13 @@ describe("editCv", () => {
     const result = await editCv(validCvJson, "Make it shorter", "# Profile", mockConfig);
     const parsed = JSON.parse(result);
     expect(parsed.sections).toBeDefined();
+  });
+
+  it("should retry on malformed JSON and throw AppError", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue("bad json");
+
+    await expect(editCv(validCvJson, "Make it shorter", "# Profile", mockConfig)).rejects.toThrow(AppError);
+    expect(vi.mocked(chatCompletion)).toHaveBeenCalledTimes(4);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { LlmConfig } from "../types/llm";
+import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 
 const MERGE_SYSTEM_PROMPT = `You are a career profile editor. Merge uploaded text into an existing Markdown profile.
@@ -13,15 +14,20 @@ export async function mergeProfileFromUpload(
   uploadedText: string,
   config: LlmConfig
 ): Promise<string> {
-  const content = await chatCompletion(
-    [
-      { role: "system", content: MERGE_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `## Current profile\n\n${currentProfile}\n\n## Uploaded content\n\n${uploadedText}`,
-      },
-    ],
-    config
-  );
-  return content.trim();
+  try {
+    const content = await chatCompletion(
+      [
+        { role: "system", content: MERGE_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `## Current profile\n\n${currentProfile}\n\n## Uploaded content\n\n${uploadedText}`,
+        },
+      ],
+      config
+    );
+    return content.trim();
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(ErrorCodes.PROFILE_MERGE_FAILED, err instanceof Error ? err.message : String(err));
+  }
 }

@@ -35,26 +35,36 @@ Each section in the "sections" array MUST have a "type" field.
 
 EXAMPLE:
 {
+  "name": "Jane Doe",
+  "title": "Senior Software Engineer | Full-Stack Architect",
+  "location": "San Francisco, CA",
   "sections": [
     { "type": "summary", "content": "Professional summary text here" },
-    { "type": "contact", "email": "user@example.com", "phone": "+1 234 567 890", "linkedin": "https://linkedin.com/in/user", "website": "https://user.com" },
-    { "type": "skills", "skills": ["JavaScript", "Python", "React"] },
-    { "type": "experience", "experience": [{"role": "Senior Dev", "company": "Acme", "period": "2020-2023", "description": "Led development"}] },
-    { "type": "education", "education": [{"degree": "BSc Computer Science", "institution": "MIT", "period": "2012-2016"}] },
+    { "type": "contact", "email": "user@example.com", "phone": "+1 234 567 890", "linkedin": "https://linkedin.com/in/user", "website": "https://user.com", "location": "San Francisco, CA" },
+    { "type": "skills", "skills": ["JavaScript", "Python", "React"], "categories": [{"name": "Languages", "items": ["JavaScript", "Python"]}, {"name": "Frameworks", "items": ["React", "Node.js"]}] },
+    { "type": "experience", "experience": [{"role": "Senior Dev", "company": "Acme", "period": "2020-2023", "location": "Remote", "bullets": ["Led a team of 5 engineers, delivering 12 features on schedule", "Reduced deployment time by 40% with CI/CD automation", "Architected microservices serving 2M+ users"]}] },
+    { "type": "education", "education": [{"degree": "BSc Computer Science", "institution": "MIT", "period": "2012-2016", "location": "Cambridge, MA"}] },
     { "type": "certifications", "certifications": ["AWS Solutions Architect"] }
   ]
 }
 
+TOP-LEVEL FIELDS:
+1. "name" — candidate full name (required)
+2. "title" — professional headline / role (required)
+3. "location" — primary location (optional)
+
 SECTION TYPES:
 1. "summary" — object with "content" string
 2. "contact" — object with optional email, phone, linkedin, website, location strings
-3. "skills" — object with "skills" array of strings
-4. "experience" — object with "experience" array of {role, company, period, description}
-5. "education" — object with "education" array of {degree, institution, period}
+3. "skills" — object with "skills" array OR "categories" array of {name, items[]}
+4. "experience" — object with "experience" array of {role, company, period, location?, bullets[]}
+5. "education" — object with "education" array of {degree, institution, period, location?}
 6. "certifications" — object with "certifications" array of strings
 
 RULES:
 - Be FACTUAL — only include information from the profile
+- Prefer "bullets" array for experience descriptions (one achievement per bullet) over a single description string
+- Categorize skills when possible using the "categories" field
 - Return ONLY the JSON object, no text/comments/formatting around it`;
 
 export function cvGeneratePrompt(ctx: PromptContext): string {

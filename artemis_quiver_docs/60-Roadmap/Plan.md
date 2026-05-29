@@ -8,8 +8,8 @@ last_updated: 2026-05-28
 
 This document maps out the roadmap, completed milestones, and pending backlog items for Artemis Quiver.
 
-> [!NOTE] CV Builder Upgrade Complete
-> The CV Builder now generates JSON output and supports themed PDF export via HTML rendering with 3 theme options (Modern, Classic, Minimal). See [[../30-Features/CV Builder Themed PDF Export|CV Builder Feature Doc]] for details.
+> [!NOTE] CV Builder v3 — Interactive Preview + Error Resilience
+> The CV Builder features an interactive React preview with inline editing on all sections, plus a categorized error handling system (`AppError` / `ErrorCode`) with automatic retry (up to 3 attempts) and corrective feedback to the LLM on parse failures. See [[../30-Features/Document Builders|Document Builders]] for details.
 
 ---
 

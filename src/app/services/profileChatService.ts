@@ -1,4 +1,5 @@
 import type { ChatMessage, LlmConfig } from "../types/llm";
+import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 
 const PROFILE_CHAT_SYSTEM = `You are a career coach helping refine a candidate's Markdown master profile.
@@ -12,13 +13,18 @@ export async function profileChat(
   profileMarkdown: string,
   config: LlmConfig
 ): Promise<string> {
-  return chatCompletion(
-    [
-      { role: "system", content: `${PROFILE_CHAT_SYSTEM}\n\n## Current profile\n\n${profileMarkdown}` },
-      ...messages,
-    ],
-    config
-  );
+  try {
+    return await chatCompletion(
+      [
+        { role: "system", content: `${PROFILE_CHAT_SYSTEM}\n\n## Current profile\n\n${profileMarkdown}` },
+        ...messages,
+      ],
+      config
+    );
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(ErrorCodes.PROFILE_CHAT_FAILED, err instanceof Error ? err.message : String(err));
+  }
 }
 
 export function extractUpdatedProfile(reply: string): string | null {

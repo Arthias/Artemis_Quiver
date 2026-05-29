@@ -1,5 +1,6 @@
 import type { AnalysisResult } from "../types/analysis";
 import type { ChatMessage, LlmConfig } from "../types/llm";
+import { AppError, ErrorCodes } from "../utils/errors";
 import { extractJsonObject } from "../utils/jsonParse";
 import { chatCompletion } from "./llmService";
 
@@ -18,13 +19,13 @@ Provide 3-5 tips and 3-5 cvRecommendations. Be specific to the job and profile.`
 
 function validateAnalysisResult(data: unknown): AnalysisResult {
   if (!data || typeof data !== "object") {
-    throw new Error("Invalid analysis response shape.");
+    throw new AppError(ErrorCodes.ANALYSIS_FAILED, "Invalid analysis response shape.");
   }
 
   const obj = data as Record<string, unknown>;
   const score = Number(obj.score);
   if (!Number.isFinite(score) || score < 0 || score > 100) {
-    throw new Error("Analysis response missing a valid score (0-100).");
+    throw new AppError(ErrorCodes.ANALYSIS_FAILED, "Analysis response missing a valid score (0-100).");
   }
 
   const salaryRange = String(obj.salaryRange ?? "Not estimated");
@@ -36,7 +37,7 @@ function validateAnalysisResult(data: unknown): AnalysisResult {
   const summary = obj.summary != null ? String(obj.summary) : undefined;
 
   if (!tips.length || !cvRecommendations.length || !coverLetterDraft) {
-    throw new Error("Analysis response is missing required fields.");
+    throw new AppError(ErrorCodes.ANALYSIS_FAILED, "Analysis response is missing required fields.");
   }
 
   return {
@@ -104,7 +105,7 @@ export async function analyzeJobPosting(
     config
   );
 
-  const parsed = validateAnalysisResult(extractJsonObject(content));
+  const parsed = validateAnalysisResult(extractJsonObject(content, ErrorCodes.ANALYSIS_FAILED));
   const markdown = analysisToMarkdown(jobPosting, parsed);
   return { result: parsed, markdown };
 }

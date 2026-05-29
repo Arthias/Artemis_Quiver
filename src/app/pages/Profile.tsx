@@ -7,6 +7,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { User, Download, Save, Sparkles, FileText, Upload, Loader2 } from "lucide-react";
+import { AppError } from "../utils/errors";
 import { useProfile } from "../context/ProfileContext";
 import { useConfig } from "../context/ConfigContext";
 import { useWorkspace } from "../context/WorkspaceProfileContext";
@@ -73,7 +74,7 @@ export function Profile() {
       const merged = await mergeProfileFromUpload(profile, text, config);
       setMergePreview(merged);
     } catch (err) {
-      setChatError(err instanceof Error ? err.message : "Merge failed.");
+      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Merge failed.");
     } finally {
       setMerging(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -103,7 +104,7 @@ export function Profile() {
       const assistantMsg: ChatMessage = { role: "assistant", content: reply };
       persistChat([...nextMessages, assistantMsg]);
     } catch (err) {
-      setChatError(err instanceof Error ? err.message : "Chat failed.");
+      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Chat failed.");
     } finally {
       setChatLoading(false);
     }

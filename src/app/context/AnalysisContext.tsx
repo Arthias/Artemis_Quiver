@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AppError } from "../utils/errors";
 import { analyzeJobPosting, followUpChat } from "../services/jobAnalysisService";
 import type { AnalysisResult, AnalysisSession } from "../types/analysis";
 import type { ChatMessage } from "../types/llm";
@@ -108,8 +109,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       });
       touchLastUsed();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Analysis failed. Check LLM settings.";
+      const message = err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Analysis failed. Check LLM settings.";
       setError(message);
       setCurrentResult(null);
       setCurrentMarkdown(null);
@@ -165,9 +165,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         setFollowUpMessages(finalMessages);
         persistFollowUp(finalMessages);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Follow-up chat failed."
-        );
+        setError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Follow-up chat failed.");
         setFollowUpMessages(updatedMessages);
       } finally {
         setFollowUpLoading(false);
