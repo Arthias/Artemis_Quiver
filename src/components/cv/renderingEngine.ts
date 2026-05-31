@@ -1,4 +1,6 @@
 import type { CVContent } from "../../types/cv";
+import type { CLContent } from "../../types/cl";
+import type { ThemeConfig } from "../../types/cv";
 
 const escapeHtml = (str: string): string => {
   const map: Record<string, string> = {
@@ -246,4 +248,128 @@ export const renderCVToHTML = (
   htmlParts.push('</div></body></html>');
 
   return htmlParts.join('\n');
+};
+
+export const renderCLToHTML = (
+  content: CLContent,
+  theme: ThemeConfig
+): string => {
+  const themeId = theme.templateId || "modern";
+  const pc = safeColor(theme.primaryColor);
+
+  const printStyles = `
+    @media print {
+      body { background: #fff !important; color: #000 !important; font-size: 10.5pt !important; }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; }
+      a { text-decoration: none !important; color: inherit !important; }
+    }
+  `;
+
+  const commonStyles = `
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+    body { margin: 0; padding: 0; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .cl-sheet { max-width: 700px; margin: 2rem auto; padding: 2.5rem 3rem; background: #fff; }
+    .cl-paragraph { margin-bottom: 1rem; text-align: justify; }
+    @media print { .cl-sheet { box-shadow: none; margin: 0; max-width: 100%; padding: 0.5in; } }
+  `;
+
+  let themeStyles = "";
+  switch (themeId) {
+    case "modern":
+      themeStyles = `
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+        body { font-family: 'Inter', -apple-system, sans-serif; color: #1e293b; background: #f8fafc; font-size: 10.5pt; }
+        .cl-sheet { box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; }
+        .cl-sender-name { font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0; }
+        .cl-sender-title { font-size: 0.85rem; color: ${pc}; margin: 0.1rem 0 0 0; }
+        .cl-header-block { margin-bottom: 1.5rem; }
+        .cl-recipient-block { margin-bottom: 1rem; font-size: 0.9rem; color: #475569; }
+        .cl-subject { font-weight: 600; color: #0f172a; margin-bottom: 0.75rem; font-size: 0.9rem; }
+        .cl-salutation { margin-bottom: 1rem; font-size: 0.95rem; }
+        .cl-body { font-size: 0.9rem; color: #334155; }
+        .cl-closing { margin-top: 1.5rem; font-size: 0.9rem; }
+      `.trim();
+      break;
+    case "classic":
+      themeStyles = `
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap");
+        body { font-family: 'Georgia', 'Times New Roman', serif; color: #1a202c; background: #faf9f7; font-size: 11pt; }
+        .cl-sheet { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .cl-sender-name { font-size: 1.5rem; font-weight: 700; font-family: 'Playfair Display', serif; color: #1a202c; margin: 0; }
+        .cl-sender-title { font-size: 0.9rem; color: ${pc}; font-style: italic; margin: 0.1rem 0 0 0; }
+        .cl-header-block { margin-bottom: 1.5rem; }
+        .cl-recipient-block { margin-bottom: 1rem; font-size: 0.95rem; color: #4a5568; }
+        .cl-subject { font-weight: 600; color: #1a202c; margin-bottom: 0.75rem; font-size: 0.95rem; }
+        .cl-salutation { margin-bottom: 1rem; font-size: 1rem; }
+        .cl-body { font-size: 0.95rem; color: #2d3748; }
+        .cl-closing { margin-top: 1.5rem; font-size: 0.95rem; }
+      `.trim();
+      break;
+    case "minimal":
+      themeStyles = `
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+        body { font-family: 'Inter', -apple-system, sans-serif; color: #1e293b; background: #fff; font-size: 10pt; }
+        .cl-sheet { box-shadow: none; border: none; padding: 2rem 2.5rem; }
+        .cl-sender-name { font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0; }
+        .cl-sender-title { font-size: 0.8rem; color: #64748b; margin: 0.1rem 0 0 0; }
+        .cl-header-block { margin-bottom: 1.5rem; }
+        .cl-recipient-block { margin-bottom: 1rem; font-size: 0.85rem; color: #64748b; }
+        .cl-subject { font-weight: 600; color: #0f172a; margin-bottom: 0.75rem; font-size: 0.85rem; }
+        .cl-salutation { margin-bottom: 1rem; font-size: 0.9rem; }
+        .cl-body { font-size: 0.85rem; color: #475569; }
+        .cl-closing { margin-top: 1.5rem; font-size: 0.85rem; }
+      `.trim();
+      break;
+  }
+
+  const parts: string[] = [];
+  parts.push('<!DOCTYPE html>');
+  parts.push('<html lang="en">');
+  parts.push(`<head><meta charset="utf-8"><title>Cover Letter - ${escapeHtml(content.senderName)}</title>`);
+  parts.push(`<style>${printStyles}${commonStyles}${themeStyles}</style>`);
+  parts.push('</head><body>');
+  parts.push('<div class="cl-sheet">');
+
+  // Sender header
+  parts.push('<div class="cl-header-block">');
+  parts.push(`<p class="cl-sender-name">${escapeHtml(content.senderName)}</p>`);
+  if (content.senderTitle) parts.push(`<p class="cl-sender-title">${escapeHtml(content.senderTitle)}</p>`);
+  if (content.date) parts.push(`<p style="font-size:0.85rem;color:#94a3b8;margin:0.25rem 0 0 0;">${escapeHtml(content.date)}</p>`);
+  parts.push('</div>');
+
+  // Recipient block
+  if (content.recipientName || content.companyName) {
+    parts.push('<div class="cl-recipient-block">');
+    if (content.recipientName) parts.push(`<p style="margin:0;">${escapeHtml(content.recipientName)}</p>`);
+    if (content.companyName) parts.push(`<p style="margin:0;">${escapeHtml(content.companyName)}</p>`);
+    if (content.companyLocation) parts.push(`<p style="margin:0;">${escapeHtml(content.companyLocation)}</p>`);
+    parts.push('</div>');
+  }
+
+  // Subject line
+  if (content.subject) {
+    parts.push(`<p class="cl-subject">Re: ${escapeHtml(content.subject)}</p>`);
+  }
+
+  // Salutation
+  if (content.salutation) {
+    parts.push(`<p class="cl-salutation">${escapeHtml(content.salutation)}</p>`);
+  }
+
+  // Body paragraphs
+  parts.push('<div class="cl-body">');
+  for (const p of content.bodyParagraphs) {
+    parts.push(`<p class="cl-paragraph">${escapeHtml(p)}</p>`);
+  }
+  parts.push('</div>');
+
+  // Closing
+  if (content.closing) {
+    parts.push(`<p class="cl-closing">${escapeHtml(content.closing)}</p>`);
+  }
+  parts.push(`<p>${escapeHtml(content.senderName)}</p>`);
+
+  parts.push('</div></body></html>');
+  return parts.join('\n');
 };

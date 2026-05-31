@@ -339,6 +339,90 @@ export function selectPrompt(
 }
 
 // ============================================================================
+// Cover Letter Builder Prompts
+// ============================================================================
+
+export const CL_JSON_FORMAT = `You MUST return ONLY a valid JSON object. No markdown fences, no text outside the JSON.
+
+EXAMPLE:
+{
+  "senderName": "Jane Doe",
+  "senderTitle": "Senior Software Engineer",
+  "date": "May 29, 2026",
+  "recipientName": "Hiring Manager",
+  "companyName": "Acme Corp",
+  "companyLocation": "San Francisco, CA",
+  "position": "Senior Engineer",
+  "subject": "Application for Senior Engineer Position",
+  "salutation": "Dear Hiring Manager,",
+  "bodyParagraphs": [
+    "I am writing to express my strong interest in the Senior Engineer position at Acme Corp. With 8 years of experience in full-stack development, I have honed skills in React, Node.js, and cloud architecture that align closely with the requirements of this role.",
+    "In my current role at TechCo, I led a team of 5 engineers delivering 12 major features on schedule. I reduced deployment time by 40% through CI/CD automation and architected microservices serving 2M+ users.",
+    "I would welcome the opportunity to discuss how my technical leadership and product instincts can drive impact at Acme Corp."
+  ],
+  "closing": "Sincerely,"
+}
+
+TOP-LEVEL FIELDS:
+1. "senderName" — your full name (required)
+2. "senderTitle" — your professional title (optional)
+3. "date" — letter date string (optional)
+4. "recipientName" — hiring manager name if known (optional, default "Hiring Manager")
+5. "companyName" — target company (optional)
+6. "companyLocation" — company city, state (optional)
+7. "position" — target position title (optional)
+8. "subject" — Re: subject line (optional)
+9. "salutation" — greeting line (required, e.g. "Dear Hiring Manager,")
+10. "bodyParagraphs" — array of paragraph strings (required, at least 1)
+11. "closing" — sign-off (required, e.g. "Sincerely,")
+
+RULES:
+- Be FACTUAL — only include information from the candidate profile
+- Write 3-4 paragraphs: opening (role interest + fit), middle (key achievements), closing (enthusiasm + call to action)
+- Use professional business letter tone
+- Return ONLY the JSON object, no text/comments/formatting around it`;
+
+export function clGeneratePrompt(
+  company: string,
+  role: string,
+  hasJobDescription: boolean,
+): string {
+  const parts: string[] = [
+    "You are an expert cover letter writer and career coach.",
+  ];
+
+  if (hasJobDescription) {
+    parts.push("The candidate has provided a job description below. Tailor the cover letter to that specific role, mirroring key requirements and showing how the candidate's experience addresses them.");
+  }
+
+  parts.push(`
+WRITING GUIDELINES:
+- Opening paragraph: State the role you're applying for, express enthusiasm, and give a 1-sentence overview of why you're a strong fit.
+- Middle paragraphs (1-2): Highlight 2-3 specific achievements or experiences from the profile that directly map to job requirements. Use metrics where possible.
+- Closing paragraph: Reiterate enthusiasm, mention desire for an interview, and thank the reader.
+- Tone: Professional, confident, specific. Avoid clichés like "I am writing to apply" (instead, lead with enthusiasm and fit).
+- If no job description is provided, write a general but compelling letter highlighting the candidate's strongest attributes.
+
+${CL_JSON_FORMAT}`);
+
+  return parts.join("\n");
+}
+
+export function clEditPrompt(userRequest: string): string {
+  return `You are a cover letter editor. Apply the user's requested changes to the cover letter JSON below.
+
+User request: "${userRequest}"
+
+RULES:
+- Preserve all fields unless the user explicitly asks to change them
+- Modify only the bodyParagraphs unless otherwise requested
+- Keep the same tone unless asked to change it
+- Return ONLY valid JSON, no text outside
+
+${CL_JSON_FORMAT}`;
+}
+
+// ============================================================================
 // Intent classification — heuristic to auto-detect optimization mode
 // from a user's free-text edit request
 // ============================================================================
