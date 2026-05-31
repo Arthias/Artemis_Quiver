@@ -1,16 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
-import { Mail, Download, Sparkles, Wand2 } from "lucide-react";
-import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
+import { Mail, Download, Sparkles, Wand2, Copy, Check } from "lucide-react";
+import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
-import { generateCoverLetter, editCoverLetter } from "../services/clBuilderService";
+import { generateCoverLetter, editCoverLetter, parseClJson } from "../services/clBuilderService";
+import type { CLContent } from "../../types/cl";
+import { CLContentSchema } from "../../types/cl";
+import { renderCLToHTML } from "../../components/cv/renderingEngine";
+import { InteractiveCLPreview } from "../../components/cv/InteractiveCLPreview";
 import { downloadMarkdown } from "../utils/download";
 import { AppError, ErrorCodes } from "../utils/errors";
+import { logAppError } from "../utils/errorLogger";
+import { parsePlainTextToCLContent } from "../utils/clParser";
 
 const CL_SUGGESTIONS = [
   { title: "Make it more formal", hint: "Corporate tone", prompt: "Make the tone more formal and professional for a corporate setting." },
@@ -20,6 +26,15 @@ const CL_SUGGESTIONS = [
   { title: "Focus on tech stack", hint: "Mention technologies", prompt: "Highlight relevant technical skills and stack from the profile." },
 ];
 
+function defaultCLContent(): CLContent {
+  return {
+    senderName: "",
+    salutation: "Dear Hiring Manager,",
+    bodyParagraphs: [""],
+    closing: "Sincerely,",
+  };
+}
+
 export function CLBuilder() {
   const { config } = useConfig();
   const { profile } = useProfile();
@@ -28,45 +43,54 @@ export function CLBuilder() {
   const [jobDescription, setJobDescription] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [position, setPosition] = useState("");
-  const [letterContent, setLetterContent] = useState("");
   const [seedDraft, setSeedDraft] = useState<string | undefined>();
+  const [clContent, setClContent] = useState<CLContent | null>(null);
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryableError, setRetryableError] = useState<AppError | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const [themeConfig, setThemeConfig] = useState({
+    primaryColor: "#2563eb",
+    templateId: "modern" as "modern" | "classic" | "minimal",
+  });
+  const printIframeRef = useRef<HTMLIFrameElement>(null);
+  const [printHtml, setPrintHtml] = useState("");
 
   useEffect(() => {
     const handoff = consumeHandoff();
     if (!handoff) return;
     if (handoff.jobPosting) setJobDescription(handoff.jobPosting);
-    if (handoff.coverLetterDraft) {
-      setSeedDraft(handoff.coverLetterDraft);
-      setLetterContent(handoff.coverLetterDraft);
-      setIsGenerated(true);
-    }
     if (handoff.companyName) setCompanyName(handoff.companyName);
     if (handoff.position) setPosition(handoff.position);
+    if (handoff.coverLetterDraft) {
+      setSeedDraft(handoff.coverLetterDraft);
+      setClContent(parsePlainTextToCLContent(handoff.coverLetterDraft));
+      setIsGenerated(true);
+    }
   }, [consumeHandoff]);
 
   const generateLetter = async () => {
     setGenerating(true);
     setError(null);
+    setRetryableError(null);
     try {
       const content = await generateCoverLetter(
         profile,
-        {
-          jobDescription: jobDescription || undefined,
-          companyName,
-          position,
-          seedDraft,
-        },
+        { jobDescription: jobDescription || undefined, companyName, position, seedDraft },
         config
       );
-      setLetterContent(content.trim());
+      const parsed = JSON.parse(content) as CLContent;
+      const validated = CLContentSchema.parse(parsed);
+      setClContent(validated);
       setIsGenerated(true);
     } catch (err) {
+      logAppError(err, { phase: "generateCoverLetter" });
       if (err instanceof AppError) {
+        setRetryableError(err.retryable ? err : null);
         setError(err.userMessage);
       } else {
         setError(err instanceof Error ? err.message : "Cover letter generation failed.");
@@ -76,21 +100,26 @@ export function CLBuilder() {
     }
   };
 
-  const downloadMarkdownExport = () => {
-    downloadMarkdown("cover-letter.md", letterContent);
+  const retry = () => {
+    setError(null);
+    setRetryableError(null);
+    generateLetter();
   };
 
   const handleChatSubmit = async (message?: string) => {
     const text = (message ?? chatMessage).trim();
-    if (!text || chatLoading) return;
+    if (!text || chatLoading || !clContent) return;
 
     setChatLoading(true);
     setError(null);
     setChatMessage("");
 
     try {
-      const updated = await editCoverLetter(letterContent, text, profile, config);
-      setLetterContent(updated.trim());
+      const currentJson = JSON.stringify(clContent);
+      const updated = await editCoverLetter(currentJson, text, profile, config);
+      const parsed = JSON.parse(updated) as CLContent;
+      const validated = CLContentSchema.parse(parsed);
+      setClContent(validated);
     } catch (err) {
       setError(err instanceof AppError ? err.userMessage : (err instanceof Error ? err.message : "Could not apply changes."));
       setChatMessage(text);
@@ -98,6 +127,68 @@ export function CLBuilder() {
       setChatLoading(false);
     }
   };
+
+  const exportAsMarkdown = () => {
+    if (!clContent) return;
+    const md = [
+      `# Cover Letter: ${clContent.position ?? "Application"}`,
+      "",
+      clContent.senderName,
+      clContent.senderTitle,
+      clContent.date,
+      "",
+      clContent.recipientName ? `To: ${clContent.recipientName}` : "",
+      clContent.companyName ? `Company: ${clContent.companyName}` : "",
+      "",
+      clContent.subject ? `## ${clContent.subject}` : "",
+      "",
+      clContent.salutation,
+      "",
+      ...clContent.bodyParagraphs,
+      "",
+      clContent.closing,
+      clContent.senderName,
+    ].filter(Boolean).join("\n");
+    downloadMarkdown("cover-letter.md", md);
+  };
+
+  const copyPlainText = useCallback(() => {
+    if (!clContent) return;
+    const text = [
+      clContent.senderName,
+      clContent.senderTitle,
+      clContent.date,
+      "",
+      clContent.recipientName ? `To: ${clContent.recipientName}` : "",
+      clContent.companyName ? `Company: ${clContent.companyName}` : "",
+      "",
+      clContent.subject ? `Re: ${clContent.subject}` : "",
+      "",
+      clContent.salutation,
+      "",
+      ...clContent.bodyParagraphs,
+      "",
+      clContent.closing,
+      clContent.senderName,
+    ].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [clContent]);
+
+  const printPDF = useCallback(() => {
+    if (!clContent) return;
+    const html = renderCLToHTML(clContent, themeConfig);
+    setPrintHtml(html);
+    requestAnimationFrame(() => {
+      const iframe = printIframeRef.current;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+    });
+  }, [clContent, themeConfig]);
 
   return (
     <div className="h-full flex flex-col">
@@ -115,13 +206,52 @@ export function CLBuilder() {
                 </p>
               </div>
             </div>
-            {isGenerated && (
-              <Button onClick={downloadMarkdownExport} className="gap-2" variant="outline">
-                <Download className="w-4 h-4" />
-                Export .md
-              </Button>
+            {isGenerated && clContent && (
+              <div className="flex gap-2">
+                <Button onClick={copyPlainText} variant="outline" className="gap-2" size="sm">
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "Copied!" : "Copy text"}
+                </Button>
+                <Button onClick={exportAsMarkdown} variant="outline" className="gap-2" size="sm">
+                  <Download className="w-4 h-4" />
+                  Export .md
+                </Button>
+                <Button onClick={printPDF} className="gap-2 bg-gradient-to-r from-blue-600 to-cyan-600" size="sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
+                  Print / PDF
+                </Button>
+              </div>
             )}
           </div>
+
+          {isGenerated && clContent && (
+            <Card className="p-3 mt-3 bg-muted/50 border-dashed">
+              <div className="text-sm font-medium mb-2">Theme Configuration</div>
+              <div className="flex items-center gap-4">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Theme</label>
+                  <select
+                    value={themeConfig.templateId}
+                    onChange={(e) => setThemeConfig(prev => ({ ...prev, templateId: e.target.value as any }))}
+                    className="text-sm border rounded px-2 py-1"
+                  >
+                    <option value="modern">Modern</option>
+                    <option value="classic">Classic (Serif)</option>
+                    <option value="minimal">Minimal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Primary Color</label>
+                  <input
+                    type="color"
+                    value={themeConfig.primaryColor}
+                    onChange={(e) => setThemeConfig(prev => ({ ...prev, primaryColor: e.target.value }))}
+                    className="w-8 h-8 border rounded cursor-pointer p-0"
+                  />
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -129,10 +259,23 @@ export function CLBuilder() {
         <div className="flex-1 border-r border-border overflow-auto">
           <div className="p-6">
             {error && (
-              <Card className="p-3 mb-4 text-sm text-destructive border-destructive/50">
-                <pre className="whitespace-pre-wrap font-sans">{error}</pre>
+              <Card className="p-3 mb-4 text-sm border-destructive/50 bg-destructive/5">
+                <div className="flex items-start gap-2">
+                  <pre className="whitespace-pre-wrap font-sans text-destructive flex-1">{error}</pre>
+                  {retryableError && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10"
+                      onClick={retry}
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </div>
               </Card>
             )}
+
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
                 <Card className="p-6">
@@ -140,9 +283,7 @@ export function CLBuilder() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Company Name (Optional)
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Company Name (Optional)</label>
                         <Input
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
@@ -151,9 +292,7 @@ export function CLBuilder() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Position (Optional)
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Position (Optional)</label>
                         <Input
                           value={position}
                           onChange={(e) => setPosition(e.target.value)}
@@ -164,9 +303,7 @@ export function CLBuilder() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Job Description (Optional)
-                      </label>
+                      <label className="block text-sm font-medium mb-2">Job Description (Optional)</label>
                       <Textarea
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
@@ -178,7 +315,7 @@ export function CLBuilder() {
                     <Button
                       onClick={generateLetter}
                       disabled={generating}
-                      className="w-full gap-2"
+                      className="w-full gap-2 bg-gradient-to-r from-blue-600 to-cyan-600"
                       size="lg"
                     >
                       {generating ? (
@@ -197,12 +334,22 @@ export function CLBuilder() {
                 </Card>
               </div>
             ) : (
-              <div className="max-w-3xl mx-auto">
-                <Card className="p-8 bg-white dark:bg-card">
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                    {letterContent}
-                  </pre>
-                </Card>
+              <div className="max-w-4xl mx-auto h-full flex flex-col">
+                <div className="flex-1 overflow-auto mb-4">
+                  {clContent && (
+                    <InteractiveCLPreview
+                      content={clContent}
+                      onContentChange={setClContent}
+                      accentColor={themeConfig.primaryColor}
+                    />
+                  )}
+                </div>
+                <iframe
+                  ref={printIframeRef}
+                  srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
+                  style={{ position: "absolute", width: 0, height: 0, border: "none" }}
+                  title="Print frame"
+                />
               </div>
             )}
           </div>
@@ -215,9 +362,7 @@ export function CLBuilder() {
                 <Sparkles className="w-5 h-5 text-blue-600" />
                 <h3 className="font-semibold">AI Assistant</h3>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Request modifications to your cover letter
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Request modifications to your cover letter</p>
             </div>
 
             <div className="flex-1 overflow-auto p-4">

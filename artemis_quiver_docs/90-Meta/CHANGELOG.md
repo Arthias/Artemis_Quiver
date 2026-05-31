@@ -6,6 +6,28 @@ last_updated: 2026-05-29
 
 # Changelog
 
+## [v2.7.0] - May 29, 2026
+
+### Features
+- **Cover Letter Builder Overhaul** — Replaced plain-text markdown with structured JSON schema (CLContent), matching the CV Builder pattern
+- **Structured JSON Schema** — New `src/types/cl.ts` with Zod `CLContentSchema` (senderName, salutation, bodyParagraphs[], closing, recipient info, subject line)
+- **Interactive Preview** — New `InteractiveCLPreview.tsx` with inline click-to-edit on every field: salutation, paragraphs, closing, sender/recipient info, subject line
+- **Themed HTML/PDF Export** — New `renderCLToHTML()` in renderingEngine.ts supporting Modern, Classic (Serif), and Minimal themes with print-optimized CSS
+- **Retry with Corrective Feedback** — `clBuilderService.ts` now retries up to 3 times with JSON normalization and corrective LLM feedback on attempts 3+
+- **Copy Plain Text** — New "Copy text" button copies plain-text version to clipboard (for application form textboxes)
+- **Multi-format Export** — Export as .md, copy as plain text, or print/PDF with theme support
+
+### Files Created
+- `src/types/cl.ts` — CLContent Zod schema & type
+- `src/components/cv/InteractiveCLPreview.tsx` — Interactive cover letter editor
+
+### Files Modified
+- `src/components/cv/renderingEngine.ts` — Added renderCLToHTML() with 3 themes
+- `src/app/services/prompts.ts` — Added CL_JSON_FORMAT, clGeneratePrompt, clEditPrompt
+- `src/app/services/clBuilderService.ts` — Rewritten with JSON normalization, parseClJson, retry loop (matching cvBuilderService pattern)
+- `src/app/pages/CLBuilder.tsx` — Complete rewrite: structured JSON state, InteractiveCLPreview, theme config, Print/PDF, copy plain text, retry button
+- `src/app/services/__tests__/clBuilderService.test.ts` — Updated to test JSON responses
+
 ## [v2.6.0] - May 29, 2026
 
 ### Features
