@@ -59,12 +59,28 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 | Up to 3 workspace profiles + switcher modal | Done |
 | Per-profile settings + light/dark theme | Done |
 | Sidebar analysis history + New Analysis | Done |
-| Analysis → CV/CL builder handoff | Done |
 | Profile import + AI assistant | Done |
+| Analysis → CV/CL builder handoff | Done |
 | CV & CL builder AI + structured JSON generation | Done |
 | Themed PDF download (HTML rendering) | Done |
-| 46 automated tests (vitest) | Done |
-| Cloud API keys / login | Not planned |
+| Follow-up chat on analysis results | Done |
+| 10 prompt optimization modes (prompts.ts) | Done |
+| Centralized error codes + retry strategies | Done |
+| 54 automated tests (vitest) | Done |
+
+## Roadmap
+
+| Feature | Sprint | Status |
+|---------|--------|--------|
+| IndexedDB migration (Dexie.js) | 6 | **Planned** |
+| URL→Markdown job import (Jina Reader) | 7 | **Planned** |
+| Bookmarklet for DOM extraction | 7 | **Planned** |
+| Application Kanban (pipeline tracker) | 8 | **Planned** |
+| Email fetch for status checking | 8 | **Planned** |
+| Outreach message generator | 9 | **Planned** |
+| Cloud LLM fallback (OpenAI/Anthropic) | 10 | **Planned** |
+| Interview simulator (STAR + technical) | 11 | **Future** |
+| Desktop app (Tauri) + buy-once license | 12 | **Future** |
 
 ## Routes
 

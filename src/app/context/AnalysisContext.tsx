@@ -15,6 +15,7 @@ import { useConfig } from "./ConfigContext";
 import { useProfile } from "./ProfileContext";
 import { useWorkspace } from "./WorkspaceProfileContext";
 import { downloadMarkdown } from "../utils/download";
+import { getSessions, saveSession } from "../db";
 
 interface AnalysisContextValue {
   draftJobPosting: string;
@@ -39,11 +40,11 @@ const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const { config } = useConfig();
   const { profile } = useProfile();
-  const { activeProfileId, profileData, updateProfileData, persistActiveProfile, touchLastUsed } =
+  const { activeProfileId, profileData, updateProfileData, touchLastUsed } =
     useWorkspace();
 
   const [draftJobPosting, setDraftJobPosting] = useState(profileData.draftJobPosting);
-  const [sessions, setSessions] = useState<AnalysisSession[]>(profileData.analysisSessions);
+  const [sessions, setSessions] = useState<AnalysisSession[]>([]);
   const [currentResult, setCurrentResult] = useState<AnalysisResult | null>(null);
   const [currentMarkdown, setCurrentMarkdown] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -52,33 +53,27 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [followUpMessages, setFollowUpMessages] = useState<ChatMessage[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
+  // Load sessions asynchronously from IndexedDB when profile changes
   useEffect(() => {
+    async function load() {
+      const userSessions = await getSessions(activeProfileId);
+      setSessions(userSessions);
+    }
     setDraftJobPosting(profileData.draftJobPosting);
-    setSessions(profileData.analysisSessions);
     setCurrentResult(null);
     setCurrentMarkdown(null);
     setActiveSessionId(null);
     setError(null);
     setFollowUpMessages([]);
-  }, [activeProfileId]);
-
-  const persistAnalysisState = useCallback(
-    (draft: string, nextSessions: AnalysisSession[]) => {
-      updateProfileData({
-        draftJobPosting: draft,
-        analysisSessions: nextSessions,
-      });
-      persistActiveProfile();
-    },
-    [updateProfileData, persistActiveProfile]
-  );
+    load();
+  }, [activeProfileId, profileData.draftJobPosting]);
 
   const persistDraft = useCallback(
     (value: string) => {
       setDraftJobPosting(value);
-      persistAnalysisState(value, sessions);
+      updateProfileData({ draftJobPosting: value });
     },
-    [sessions, persistAnalysisState]
+    [updateProfileData]
   );
 
   const analyze = useCallback(async () => {
@@ -102,12 +97,20 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setCurrentMarkdown(markdown);
       setActiveSessionId(session.id);
       setFollowUpMessages([]);
-      setSessions((prev) => {
-        const next = [session, ...prev].slice(0, 50);
-        persistAnalysisState(trimmed, next);
-        return next;
+      
+      // Save session to IndexedDB
+      await saveSession({
+        id: session.id,
+        profileId: activeProfileId,
+        createdAt: session.createdAt,
+        jobPosting: session.jobPosting,
+        result: session.result,
+        markdown: session.markdown,
+        followUpMessages: [],
       });
-      touchLastUsed();
+
+      setSessions((prev) => [session, ...prev]);
+      await touchLastUsed();
     } catch (err) {
       const message = err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Analysis failed. Check LLM settings.";
       setError(message);
@@ -117,7 +120,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     } finally {
       setAnalyzing(false);
     }
-  }, [draftJobPosting, profile, config, persistAnalysisState, touchLastUsed]);
+  }, [draftJobPosting, profile, config, activeProfileId, touchLastUsed]);
 
   const clearCurrent = useCallback(() => {
     setCurrentResult(null);
@@ -126,21 +129,34 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setError(null);
     setFollowUpMessages([]);
     setDraftJobPosting("");
-    persistAnalysisState("", sessions);
-  }, [sessions, persistAnalysisState]);
+    updateProfileData({ draftJobPosting: "" });
+  }, [updateProfileData]);
 
   const persistFollowUp = useCallback(
-    (messages: ChatMessage[]) => {
+    async (messages: ChatMessage[]) => {
       if (!activeSessionId) return;
+      
       setSessions((prev) => {
-        const next = prev.map((s) =>
-          s.id === activeSessionId ? { ...s, followUpMessages: messages } : s
-        );
-        persistAnalysisState(draftJobPosting, next);
+        const next = prev.map((s) => {
+          if (s.id === activeSessionId) {
+            const updated = { ...s, followUpMessages: messages };
+            saveSession({
+              id: updated.id,
+              profileId: activeProfileId,
+              createdAt: updated.createdAt,
+              jobPosting: updated.jobPosting,
+              result: updated.result,
+              markdown: updated.markdown,
+              followUpMessages: messages,
+            });
+            return updated;
+          }
+          return s;
+        });
         return next;
       });
     },
-    [activeSessionId, draftJobPosting, persistAnalysisState]
+    [activeSessionId, activeProfileId]
   );
 
   const sendFollowUpMessage = useCallback(
@@ -163,7 +179,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         const assistantMsg: ChatMessage = { role: "assistant", content: reply };
         const finalMessages = [...updatedMessages, assistantMsg];
         setFollowUpMessages(finalMessages);
-        persistFollowUp(finalMessages);
+        await persistFollowUp(finalMessages);
       } catch (err) {
         setError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Follow-up chat failed.");
         setFollowUpMessages(updatedMessages);
@@ -184,10 +200,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setActiveSessionId(id);
       setError(null);
       setFollowUpMessages(session.followUpMessages ?? []);
-      persistAnalysisState(session.jobPosting, sessions);
+      updateProfileData({ draftJobPosting: session.jobPosting });
       touchLastUsed();
     },
-    [sessions, persistAnalysisState, touchLastUsed]
+    [sessions, updateProfileData, touchLastUsed]
   );
 
   const exportCurrentAnalysis = useCallback(() => {

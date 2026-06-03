@@ -1,12 +1,15 @@
 ---
 tags: [roadmap, planning, backlog]
-status: completed  
-last_updated: 2026-05-28
+status: planning  
+last_updated: 2026-06-03
 ---
 
 # Development Plan & Sprint Backlog
 
 This document maps out the roadmap, completed milestones, and pending backlog items for Artemis Quiver.
+
+> [!NOTE] Strategy shift — Local-first suite, not SaaS
+> Artemis Quiver is evolving from a pure MVP into a **local-first job hunting suite**: downloadable, private, buy-once. No cloud dependency, no subscription. See debates in `90-Meta/`. The roadmap below reflects this direction.
 
 > [!NOTE] CV Builder v3 — Interactive Preview + Error Resilience
 > The CV Builder features an interactive React preview with inline editing on all sections, plus a categorized error handling system (`AppError` / `ErrorCode`) with automatic retry (up to 3 attempts) and corrective feedback to the LLM on parse failures. See [[../30-Features/Document Builders|Document Builders]] for details.
@@ -24,7 +27,13 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 4** | UI Polish & Testing Infrastructure | **Done** |
 | **Sprint 4b** | Prompt Engineering & Optimization Modes | **Done** |
 | **Sprint 5** | Feature Polish (Follow-up Chat + MD Preview) | **Done** |
-| **—** | Prompt Engineering & Optimization Modes | **Done** |
+| **Sprint 6** | Local Database — IndexedDB Migration | **Planned** |
+| **Sprint 7** | URL Input — Frictionless Job Import | **Planned** |
+| **Sprint 8** | Application Kanban — Pipeline Tracker | **Planned** |
+| **Sprint 9** | Outreach Generator — Cold Messages | **Planned** |
+| **Sprint 10** | Cloud LLM Fallback — API Key Support | **Planned** |
+| **Sprint 11** | Interview Simulator — STAR + Technical | **Future** |
+| **Sprint 12** | Desktop App — Tauri Wrap & Monetize | **Future** |
 
 ---
 
@@ -61,7 +70,229 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 
 ---
 
-## 🗃️ Sprint History & Code Changes
+## 🎯 Future Sprints
+
+### Sprint 6 — Local Database: IndexedDB Migration
+Replaces localStorage with Dexie.js (IndexedDB wrapper) for scalable local persistence.
+
+**Goal:** Remove the 5MB localStorage ceiling, enable relational queries, and support future features (Kanban, interview history, templates).
+
+**Tasks:**
+- [ ] Install Dexie.js (`dexie` + `dexie-react-hooks`)
+- [ ] Design schema: `profiles`, `analysisSessions`, `applications`, `interviewSessions`, `templates`
+- [ ] Create `src/app/db/schema.ts` — Dexie DB class with versioned schema
+- [ ] Create `src/app/db/profileRepo.ts` — CRUD for profiles (replaces `workspaceStorage.ts`)
+- [ ] Create `src/app/db/sessionRepo.ts` — CRUD for analysis sessions
+- [ ] Create `src/app/db/applicationRepo.ts` — CRUD for job applications (Kanban)
+- [ ] Create `src/app/db/migrations.ts` — Schema versioning and data migration logic
+- [ ] Create `src/app/db/interviewRepo.ts` — Interview session storage (future Sprint 11)
+- [ ] Create `src/app/db/templateRepo.ts` — Outreach templates storage (future Sprint 9)
+- [ ] Create barrel export `src/app/db/index.ts`
+- [ ] Migration utility: `localStorage → IndexedDB` one-shot on first launch
+- [ ] Replace `WorkspaceProfileContext` localStorage ops with Dexie calls
+- [ ] Replace `AnalysisContext` localStorage ops with Dexie calls
+- [ ] Remove `workspaceStorage.ts` (or gut it to use Dexie under the hood)
+- [ ] Add loading states while IndexedDB async ops resolve
+- [ ] Test: profile create/switch/edit persist across reloads
+- [ ] Test: analysis sessions survive at 50+ sessions
+- [ ] Test: migration from existing localStorage data
+- [ ] Test: IndexedDB quota handling (graceful warning near limit)
+
+**Key Files to Create:**
+- `src/app/db/schema.ts`
+- `src/app/db/profileRepo.ts`
+- `src/app/db/sessionRepo.ts`
+- `src/app/db/applicationRepo.ts`
+- `src/app/db/migrations.ts`
+- `src/app/db/interviewRepo.ts`
+- `src/app/db/templateRepo.ts`
+- `src/app/db/index.ts`
+
+---
+
+### Sprint 7 — Frictionless Job Import (URL → Markdown)
+Eliminates the copy-paste friction for importing job postings.
+
+**Goal:** User pastes a URL, app fetches the job posting as clean markdown.
+
+**Tasks:**
+- [ ] Create `src/app/services/jobFetchService.ts` — URL→Markdown via Jina Reader API (`https://r.jina.ai/<url>`)
+- [ ] Add URL input field next to existing textarea in Analysis Hub
+- [ ] Auto-detect paste: if input looks like a URL, trigger fetch
+- [ ] Loading state while fetching + error handling for bad URLs / rate limits
+- [ ] Fallback: if fetch fails, show textarea for manual paste
+- [ ] Bookmarklet generator: inline script users drag to bookmarks bar
+- [ ] Bookmarklet code: extracts visible text from current page, sends to `localhost:5173/api/import` via beacon/navigator.sendBeacon
+- [ ] Create dev endpoint `POST /api/import` in Vite proxy/mock handler
+- [ ] Cache fetched results in IndexedDB (avoid re-fetching same URL)
+- [ ] Optional proxy binary (Go/Rust): `artemis-fetcher` standalone, serves `localhost:3791/fetch?url=...`
+- [ ] Test: fetch real LinkedIn/Indeed URLs, verify markdown output
+- [ ] Test: fallback gracefully on blocked domains (e.g. company career pages)
+- [ ] Test: bookmarklet extraction fidelity
+
+**Key Files to Create:**
+- `src/app/services/jobFetchService.ts`
+- `src/app/utils/bookmarklet.ts`
+
+**Dependencies:** Sprint 6 (IndexedDB for URL cache)
+
+---
+
+### Sprint 8 — Application Kanban (Pipeline Tracker)
+Visual pipeline for tracking job applications through the hiring stages.
+
+**Goal:** Users manage their full job hunt pipeline — from saved → applied → interviewing → offer → closed.
+
+**Tasks:**
+- [ ] Define `Application` type in `src/app/types/application.ts`:
+  - `id`, `company`, `role`, `url`, `status`, `notes`, `timeline[]` (status changes + dates)
+  - `linkedSessionId?` (optional link to analysis session)
+  - `contactName?`, `contactEmail?`, `nextFollowUp?`
+- [ ] Wire up via `ApplicationContext.tsx` with Dexie CRUD
+- [ ] Build KanbanBoard component (column layout, react-dnd drag & drop)
+- [ ] Columns: Saved → Applied → Phone Screen → Interview → Offer → Rejected → Accepted
+- [ ] Card component: company, role, date, status badge, quick actions
+- [ ] Click card → expand detail panel: full info, notes, timeline, linked analysis
+- [ ] Create application from Analysis Hub: "Save to pipeline" button after analysis
+- [ ] Manual create: "Add Application" button with company/role/URL fields
+- [ ] Auto-fill from job fetch: when user fetches a URL, pre-fill the create form
+- [ ] **Bonus: Email fetch for status checking:**
+  - Create `src/app/services/emailFetchService.ts` — IMAP/Gmail API connector
+  - Config UI per profile: IMAP server/credentials or Google OAuth
+  - Scan inbox for job-related emails (by company/role keywords)
+  - Auto-update Kanban status (e.g., "Interview scheduled" email → move to Interview column)
+  - Flag emails for manual review when confidence is low
+  - Security note: credentials stored locally in IndexedDB, never sent to cloud
+- [ ] New route: `/pipeline`
+- [ ] Sidebar navigation entry: "Pipeline"
+- [ ] Test: drag & drop column transitions
+- [ ] Test: application CRUD (create, edit, archive, delete)
+- [ ] Test: linking application to analysis session
+- [ ] Test: email fetch parsing (mock IMAP responses)
+
+**Key Files to Create:**
+- `src/app/types/application.ts`
+- `src/app/context/ApplicationContext.tsx`
+- `src/app/components/pipeline/KanbanBoard.tsx`
+- `src/app/components/pipeline/KanbanColumn.tsx`
+- `src/app/components/pipeline/ApplicationCard.tsx`
+- `src/app/components/pipeline/ApplicationDetail.tsx`
+- `src/app/pages/Pipeline.tsx`
+- `src/app/services/emailFetchService.ts`
+
+**Dependencies:** Sprint 6 (IndexedDB), Sprint 7 (URL→App auto-create)
+
+---
+
+### Sprint 9 — Outreach Generator
+Generate personalized cold messages for LinkedIn, email, and follow-ups.
+
+**Goal:** One-click generation of outreach messages based on profile + job context.
+
+**Tasks:**
+- [ ] Create `src/app/services/outreachService.ts`:
+  - `linkedInMessage(profile, jobContext, style)` — cold message for recruiter
+  - `coldEmail(profile, jobContext, style)` — email to hiring manager
+  - `followUpMessage(context, stage)` — post-interview thank-you / status check
+  - Style variants: technical-focus, culture-focus, short-pitch
+- [ ] Write prompt templates in `prompts.ts` for each message type
+- [ ] Add "Outreach" tab/panel in Analysis Hub after analysis completes
+- [ ] Quick-select style via buttons (Technical, Cultural, Short)
+- [ ] Copy-to-clipboard + "Open in LinkedIn" link
+- [ ] Save generated messages to application (Sprint 8) timeline
+- [ ] Template editor: user can save custom templates per profile
+- [ ] Test: generated messages reference actual profile skills + job requirements
+- [ ] Test: style variants produce distinctly different tones
+- [ ] Test: saved messages persist in IndexedDB
+
+**Key Files to Create:**
+- `src/app/services/outreachService.ts`
+
+**Dependencies:** Sprint 8 (application timeline, template storage)
+
+---
+
+### Sprint 10 — Cloud LLM Fallback
+Support cloud LLM providers so users without local models can use the app.
+
+**Goal:** OpenAI / Anthropic API key configuration as fallback when local LLM is unavailable.
+
+**Tasks:**
+- [ ] Add provider options to Config: `Local (LMStudio/Ollama)`, `OpenAI`, `Anthropic`
+- [ ] API key input fields (masked, stored in IndexedDB, never logged)
+- [ ] Create `src/app/services/cloudLlmService.ts`:
+  - `openaiChatCompletion(messages, opts)` — calls `/v1/chat/completions`
+  - `anthropicChatCompletion(messages, opts)` — calls `/v1/messages`
+- [ ] Create unified `LlmRouter` in `llmService.ts`:
+  - Try local first → if timeout/connection refused → fall back to cloud
+  - Configurable: local-only, cloud-only, local→cloud fallback
+- [ ] Test connection for cloud providers
+- [ ] Token usage tracking (optional, for user awareness)
+- [ ] Warning banner on Analysis Hub when falling back to cloud ("Using OpenAI — data leaves your machine")
+- [ ] Test: provider switching mid-session
+- [ ] Test: local → cloud fallback chain
+- [ ] Test: API key validation (bad key → clear error, not cryptic 401)
+
+**Key Files to Create:**
+- `src/app/services/cloudLlmService.ts`
+
+**Dependencies:** Sprint 6 (IndexedDB for secure key storage)
+
+---
+
+### Sprint 11 — Interview Simulator (v2 target)
+Interactive mock interviews with structured STAR feedback.
+
+**Goal:** Text-based interview practice against a job, with actionable feedback.
+
+**Tasks:**
+- [ ] New route: `/interview`
+- [ ] Create `src/app/services/interviewService.ts`:
+  - `generateBehavioralQuestion(jobContext)` — role-specific behavioral prompts
+  - `generateTechnicalQuestion(role, skills)` — role-specific technical questions
+  - `evaluateSTAR(answer, question)` — score answer against STAR rubric
+  - `generateFeedback(session)` — full session report
+- [ ] Interview modes: Behavioral (STAR), Technical, Mixed, Cultural Fit
+- [ ] Chat-style UI: question → user types answer → feedback → next question
+- [ ] Session persistence: save interview history to IndexedDB
+- [ ] Final report: strengths, weaknesses, STAR compliance score, suggested improvements
+- [ ] Question bank seeded by profile skills + job requirements
+- [ ] Test: STAR evaluation consistency
+- [ ] Test: technical question relevance to listed skills
+- [ ] Test: session save/restore
+
+**Key Files to Create:**
+- `src/app/pages/Interview.tsx`
+- `src/app/services/interviewService.ts`
+- `src/app/context/InterviewContext.tsx`
+
+**Dependencies:** Sprint 6 (IndexedDB), Sprint 8 (pipeline → interview linking)
+
+---
+
+### Sprint 12 — Desktop App & Monetization
+Package as downloadable desktop app with one-time purchase.
+
+**Goal:** Users download and install Artemis Quiver as a native app. Monetize via buy-once license.
+
+**Tasks:**
+- [ ] Choose wrapper: **Tauri** (Rust, smaller binary, better perf) vs Electron (larger ecosystem)
+- [ ] Scaffold Tauri/Electron project
+- [ ] Port Vite dev config to Tauri/Electron build pipeline
+- [ ] Native file system access (for exports, profile imports)
+- [ ] Auto-update mechanism (Tauri updater or electron-updater)
+- [ ] License key validation (simple offline check or Gumroad API)
+- [ ] Landing page: `artemis-quiver.dev` — features, screenshots, demo video
+- [ ] Gumroad / LemonSqueezy product page — $19 one-time
+- [ ] Trial mode: 14-day full-featured trial, then lock behind license
+- [ ] Distribution: Windows (MSI), macOS (DMG), Linux (AppImage)
+- [ ] Test: install from fresh download on all 3 platforms
+- [ ] Test: auto-update from v1 → v2 (schema migration on upgrade)
+- [ ] Test: offline functionality (no internet = full access with local LLM)
+
+**Dependencies:** All previous sprints (stable feature set before packaging)
+
+---
 
 ### Sprint 0 — Multi-profile Setup
 - [x] Create [workspace.ts](file:///F:/Dev/Artemis_Quiver/src/app/types/workspace.ts) schemas.
@@ -116,3 +347,10 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | [profileChatService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/profileChatService.ts) | Prompts local models to suggest segment edits. |
 | [cvBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cvBuilderService.ts) | Orchestrates CV generation and inline edit prompts. |
 | [clBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/clBuilderService.ts) | Orchestrates Cover Letter generation and inline edit prompts. |
+| [jobFetchService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/jobFetchService.ts) | URL→Markdown via Jina Reader API, bookmarklet, proxy binary. |
+| [ApplicationContext.tsx](file:///F:/Dev/Artemis_Quiver/src/app/context/ApplicationContext.tsx) | Kanban pipeline state management with Dexie CRUD. |
+| [outreachService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/outreachService.ts) | Cold message generation for LinkedIn, email, follow-ups. |
+| [cloudLlmService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cloudLlmService.ts) | OpenAI/Anthropic API integration with fallback routing. |
+| [interviewService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/interviewService.ts) | Mock interview Q&A + STAR evaluation + feedback reports. |
+| [emailFetchService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/emailFetchService.ts) | IMAP/Gmail connector for auto-status from inbox. |
+| `src/app/db/` (dir) | Dexie database layer: schema, repos, migrations. |
