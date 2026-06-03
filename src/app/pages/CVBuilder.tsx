@@ -43,6 +43,7 @@ export function CVBuilder() {
 
   const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [printHtml, setPrintHtml] = useState("");
+  const printPendingRef = useRef(false);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -53,24 +54,21 @@ export function CVBuilder() {
   }, [consumeHandoff]);
 
   const generateCV = async () => {
-    setGenerating(true); // Show loading spinner
+    setGenerating(true);
     setError(null);
     try {
-      const content = await generateCv( // Generate structured JSON, not Markdown text
+      const content = await generateCv(
         profile,
         jobDescription || undefined,
         cvRecommendations,
         config
       );
-      
-      // Parse the generated JSON string into an object
       let parsedContent: CVContent;
       try {
         parsedContent = extractJsonObject(content) as CVContent;
       } catch (parseError) {
         throw new Error(`Invalid JSON structure generated. Please check console for details.`);
       }
-      
       setCvContent(parsedContent);
       setIsGenerated(true);
     } catch (err) {
@@ -87,14 +85,12 @@ export function CVBuilder() {
     }
   };
 
-  const downloadMarkdownExport = () => { // Still export Markdown for legacy purposes
+  const downloadMarkdownExport = () => {
     if (!cvContent) return;
-    
-    // Create a simple markdown representation from structured JSON
     const mdSections: string[] = [];
     cvContent.sections.forEach(section => {
       switch (section.type) {
-        case "summary": 
+        case "summary":
           mdSections.push(`## ${section.content || ""}`);
           break;
         case "contact":
@@ -129,8 +125,6 @@ export function CVBuilder() {
           break;
       }
     });
-
-    // Download the markdown
     const blob = new Blob([mdSections.join("\n\n")], { type: "text/markdown" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -141,14 +135,10 @@ export function CVBuilder() {
   const handleChatSubmit = async (message?: string) => {
     const text = (message ?? chatMessage).trim();
     if (!text || chatLoading) return;
-
     setChatLoading(true);
     setError(null);
     setChatMessage("");
-
-    // For MVP, we'll just regenerate the entire CV with the request - this is simpler than editCv for JSON
     try {
-      // Parse message into suggestions to regenerate CV
       await generateCV();
     } catch (err) {
       setError(err instanceof AppError ? err.message : (err instanceof Error ? err.message : "Could not apply changes."));
@@ -158,17 +148,19 @@ export function CVBuilder() {
     }
   };
 
+  const handleIframeLoad = useCallback(() => {
+    if (printPendingRef.current && printIframeRef.current?.contentWindow) {
+      printPendingRef.current = false;
+      printIframeRef.current.contentWindow.focus();
+      printIframeRef.current.contentWindow.print();
+    }
+  }, []);
+
   const printPDF = useCallback(() => {
     if (!cvContent) return;
     const html = renderCVToHTML(cvContent, themeConfig);
+    printPendingRef.current = true;
     setPrintHtml(html);
-    requestAnimationFrame(() => {
-      const iframe = printIframeRef.current;
-      if (iframe?.contentWindow) {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      }
-    });
   }, [cvContent, themeConfig]);
 
   return (
@@ -212,7 +204,7 @@ export function CVBuilder() {
                   <select 
                     value={themeConfig.templateId || "modern"}
                     onChange={(e) => setThemeConfig(prev => ({...prev, templateId: e.target.value as any}))}
-                    className="text-sm border rounded px-2 py-1"
+                    className="text-sm border rounded px-2 py-1 bg-background text-foreground"
                   >
                     <option value="modern">Modern</option>
                     <option value="classic">Classic (Serif)</option>
@@ -336,6 +328,7 @@ export function CVBuilder() {
                       content={cvContent}
                       onContentChange={setCvContent}
                       accentColor={themeConfig.primaryColor}
+                      templateId={themeConfig.templateId}
                     />
                   )}
                 </div>
@@ -344,6 +337,7 @@ export function CVBuilder() {
                 <iframe
                   ref={printIframeRef}
                   srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
+                  onLoad={handleIframeLoad}
                   style={{ position: "absolute", width: 0, height: 0, border: "none" }}
                   title="Print frame"
                 />
