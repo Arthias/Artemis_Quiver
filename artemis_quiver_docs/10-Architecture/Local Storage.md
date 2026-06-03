@@ -1,129 +1,72 @@
 ---
-tags: [architecture, storage, persistence]
+tags: [architecture, storage, database, persistence]
 status: completed
-last_updated: 2026-05-28
+last_updated: 2026-06-03
 ---
 
-# 💾 Local Storage & Eviction (LRU) Architecture
+# 💾 Database & Storage Architecture
 
-Artemis Quiver operates entirely client-side, storing user data, themes, settings, and analysis histories in the browser's `localStorage`. This note describes the local storage data schema, the migration logic from legacy single-profile storage, and the Least Recently Used (LRU) workspace eviction mechanism.
-
----
-
-## 🔑 Key Keys & Storage Structure
-
-Data is stored under two primary key structures defined in [defaults.ts](file:///F:/Dev/Artemis_Quiver/src/app/config/defaults.ts):
-
-1. **`artemis-workspace`**: Contains the global manifest of all profiles and specifies which profile is active.
-2. **`artemis-profile-data-[UUID]`**: Contains the full workspace payload of a single workspace profile.
+Artemis Quiver operates entirely client-side, storing user data, themes, settings, and analysis histories in the browser's `IndexedDB` database. It utilizes **Dexie.js** as a lightweight, developer-friendly wrapper to execute database queries and manage schema versions.
 
 ---
 
-## 📊 Data Schemas
+## 🏗️ Database Tables & Schemas
 
-### 1. Global Workspace Manifest
+The database name is `ArtemisQuiverDB`. Under [schema.ts](file:///f:/Dev/Artemis_Quiver/src/app/db/schema.ts), it defines three primary tables:
 
-- **Key:** `artemis-workspace`
-- **TypeScript Interface:** `WorkspaceManifest` (in [workspace.ts](file:///F:/Dev/Artemis_Quiver/src/app/types/workspace.ts))
-- **Schema Example:**
-```json
-{
-  "activeProfileId": "7329faea-4122-48bd-b7bb-99fce970fa4b",
-  "profiles": [
-    {
-      "id": "7329faea-4122-48bd-b7bb-99fce970fa4b",
-      "name": "Software Engineering Profile",
-      "createdAt": "2026-05-22T12:00:00.000Z",
-      "lastUsedAt": "2026-05-22T13:30:00.000Z",
-      "lastModifiedAt": "2026-05-22T13:20:00.000Z"
-    },
-    {
-      "id": "cd0b61be-c3be-4977-9dfd-85fae4612301",
-      "name": "Product Management Profile",
-      "createdAt": "2026-05-22T12:15:00.000Z",
-      "lastUsedAt": "2026-05-22T12:15:00.000Z",
-      "lastModifiedAt": "2026-05-22T12:15:00.000Z"
-    }
-  ]
-}
-```
+### 1. `profiles`
+- **Key Path:** `id` (UUID string)
+- **Indexes:** `name`, `lastUsedAt`
+- **TypeScript Interface:** `ProfileRecord`
+- **Stores:** 
+  - `id`: Profile identifier
+  - `name`: User-defined profile name
+  - `createdAt` / `lastUsedAt` / `lastModifiedAt`: Activity timestamps
+  - `profileMarkdown`: The user's professional master profile (markdown text)
+  - `settings`: Per-profile settings (LLM parameters, color themes, theme mode)
+  - `draftJobPosting`: Last draft entered on the Analysis Hub
+  - `profileChat`: Per-profile AI Assistant chat logs
 
-### 2. Workspace Profile Data Blob
+### 2. `analysisSessions`
+- **Key Path:** `id` (UUID string)
+- **Indexes:** `profileId` (relational index), `createdAt`
+- **TypeScript Interface:** `AnalysisSessionRecord`
+- **Stores:**
+  - `id`: Session identifier
+  - `profileId`: Owner profile identifier (allows queries via `.where("profileId").equals(activeProfileId)`)
+  - `createdAt`: Generation timestamp
+  - `jobPosting`: The original job posting text
+  - `result`: Score, salary range, ATS recommendations, and cover letter draft (structured JSON)
+  - `markdown`: Human-readable full analysis markdown report
+  - `followUpMessages`: Log of follow-up chat messages on the results page
 
-- **Key:** `artemis-profile-data-[UUID]`
-- **TypeScript Interface:** `ProfileWorkspaceData`
-- **Schema Example:**
-```json
-{
-  "profileMarkdown": "# Professional Profile\n\n## Overview\n...",
-  "settings": {
-    "provider": "lmstudio",
-    "serverUrl": "/api/lmstudio",
-    "model": "google/gemma-4-e2b",
-    "temperature": 0.7,
-    "autoSaveProfile": true,
-    "theme": "dark"
-  },
-  "analysisSessions": [
-    {
-      "id": "0dfa1bd4-9467-4560-84c4-f2a893cb62ba",
-      "createdAt": "2026-05-22T13:00:00.000Z",
-      "jobPosting": "Looking for React dev...",
-      "result": {
-        "matchPercentage": 85,
-        "recommendations": "Highlight TypeScript experience...",
-        "salaryRange": "$110,000 - $130,000",
-        "interviewTips": "Be prepared to talk about React Router...",
-        "cvFocus": "Add AWS certifications...",
-        "coverLetterSuggestions": "Tailor intro to match startup vibes..."
-      },
-      "markdown": "# Analysis Result\n\n### Scoring\n..."
-    }
-  ],
-  "draftJobPosting": "Looking for React dev...",
-  "profileChat": [
-    {
-      "role": "user",
-      "content": "Improve my overview section."
-    },
-    {
-      "role": "assistant",
-      "content": "Here is a revision..."
-    }
-  ]
-}
-```
+### 3. `metadata`
+- **Key Path:** `key` (string)
+- **Stores:** Key-value configurations for app-level state (e.g. `activeProfileId` key representing the active workspace profile).
 
 ---
 
-## 🔄 Migration of Legacy Data
+## 🔄 One-Shot Migration & Self-Healing
 
-On initial startup, Artemis Quiver checks for legacy, single-profile storage keys:
-- `artemis-profile`
-- `artemis-llm-config`
-- `artemis-analysis-sessions`
-- `artemis-draft-job-posting`
+On app launch, the persistence layer checks if database profiles exist. If not, it executes a migration helper under [migrations.ts](file:///f:/Dev/Artemis_Quiver/src/app/db/migrations.ts):
 
-If any exist:
-1. A new workspace profile metadata block is created with the name **"Default"**.
-2. Legacy values are loaded, merged into a single `ProfileWorkspaceData` structure, and written to `artemis-profile-data-[UUID]`.
-3. A new global manifest is initialized with this active profile.
-4. All legacy single-profile keys are deleted from `localStorage` to clean up the browser space.
+1. **Workspace Manifest Check:** Reads `localStorage` for `artemis-workspace` (containing a list of profiles and active ID). If found, it creates individual `profiles` and separates `analysisSessions` to write them relational-style into IndexedDB.
+2. **Legacy Data Fallback:** If no manifest exists, it checks for older single-profile keys (`artemis-profile`, `artemis-llm-config`, etc.), structures them as a `"Default"` profile, and migrates them.
+3. **Storage Cleanup:** Deletes corresponding `localStorage` keys only after successful DB writes to prevent sync corruption.
+4. **Self-Healing Recovery:** If profiles are present in IndexedDB but the `activeProfileId` is missing or corrupt in `metadata`, the system automatically selects the most recently used profile and restores a valid active session.
 
 ---
 
-## 🧹 Profile Limit & LRU Eviction
+## 🧹 Workspace Limit (LRU Eviction)
 
-To protect browser `localStorage` limits (usually 5MB), Artemis Quiver enforces a **maximum of 3 profiles** (`MAX_WORKSPACE_PROFILES = 3`).
+To match the local-first design boundaries, Artemis Quiver enforces a **maximum of 3 profiles** (`MAX_WORKSPACE_PROFILES = 3`).
 
-### Eviction Flow (in [WorkspaceProfileContext.tsx](file:///F:/Dev/Artemis_Quiver/src/app/context/WorkspaceProfileContext.tsx)):
-
-When a user attempts to create a 4th workspace profile:
-1. The profiles array is cloned and sorted by `lastUsedAt` timestamp in ascending order.
-2. The profile with the oldest `lastUsedAt` is chosen as the eviction candidate.
-3. The data blob (`artemis-profile-data-[EVICTED_ID]`) is removed from `localStorage`.
-4. The global manifest updates, omitting the evicted metadata block.
-5. The new profile is created and activated.
+### Eviction Flow (in [WorkspaceProfileContext.tsx](file:///f:/Dev/Artemis_Quiver/src/app/context/WorkspaceProfileContext.tsx)):
+When a user creates a 4th workspace profile:
+1. Profiles are queried and sorted by `lastUsedAt` ascending.
+2. The oldest profile is selected.
+3. The selected profile record and all its associated analysis sessions are permanently deleted from IndexedDB tables.
+4. The manifest is rebuilt, and the new profile is created.
 
 > [!WARNING]
-> Eviction permanently deletes the profile data from local storage. Remind users to export their profile markdown files if they have valuable configurations they want to keep.
+> Eviction permanently deletes the profile and its history. Users should export their master profile markdown files if they have valuable configurations they want to keep.

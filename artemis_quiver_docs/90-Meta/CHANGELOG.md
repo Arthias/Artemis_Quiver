@@ -1,10 +1,53 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-05-29
+last_updated: 2026-06-03
 ---
 
 # Changelog
+
+## [v2.9.0] - June 3, 2026
+
+### Features
+- **IndexedDB Storage (Dexie.js)** — Migrated the client persistence layer from size-limited `localStorage` to IndexedDB using Dexie.js. Decoupled `analysisSessions` from the profile blobs to support database indexing, speed up session-switches, and enable future relational pipeline and tracker integrations.
+- **Asynchronous Multi-profile Setup & Switcher** — Refactored `WorkspaceProfileContext` and profile/settings updates to manage state asynchronously via Dexie repositories.
+- **One-shot Migration with Self-healing** — Implemented an automatic database migration routine that reads, maps, and imports multi-profile manifests and legacy single-profile localStorage keys on startup. Includes self-healing database checking to auto-repair missing or corrupt active profile indicators.
+- **Robust Database Unit Testing** — Added `fake-indexeddb` and created a test suite exercising profile CRUD, session logging, and localStorage migrations.
+- **Universal window.matchMedia Check** — Hardened theme initializers to prevent crashes in node/vitest/jsdom testing environments when matching dark mode settings.
+
+### Files Created
+- `src/app/db/schema.ts` — IndexedDB database setup
+- `src/app/db/profileRepo.ts` — Profile repositories
+- `src/app/db/sessionRepo.ts` — Analysis session repositories
+- `src/app/db/migrations.ts` — Data migration logic
+- `src/app/db/index.ts` — Barrel exporter
+- `src/app/db/__tests__/db.test.ts` — Unit test suite for DB layer
+
+### Files Modified
+- `src/app/context/WorkspaceProfileContext.tsx` — Dexie DB integration, async workspace loading UI
+- `src/app/context/AnalysisContext.tsx` — Decoupled session state & Dexie session updates
+- `src/app/components/workspace/ProfileSwitcherModal.tsx` — Async switcher handlers
+- `src/app/utils/theme.ts` — Safe window.matchMedia check
+- `README.md` — Sprint 6 checklist, Tech Stack details
+- `artemis_quiver_docs/60-Roadmap/Plan.md` — Roadmap Sprint 6 Done
+
+## [v2.8.0] - June 3, 2026
+
+### Features
+- **Live Theme Application** — Themes now apply to interactive previews (not just PDF export). Created `src/components/cv/cvThemes.ts` with `getCVTheme()` returning CSS tokens for Modern, Classic, Minimal. Both `InteractiveCVPreview` and `InteractiveCLPreview` accept `templateId` prop and apply font, color, spacing, card styles live.
+- **Skills Category Editing** — Rewrote `SkillsView` with local editing state. Categories and flat skills are flattened into a single editable list on edit. Each row has: text input, category checkbox, up/down reorder buttons, native drag-and-drop reordering, and remove. On save, items with checkbox rebuild into `categories[]` or flat `skills[]`.
+- **CV Builder Chat Input** — Replaced placeholder comment with functional chat input (Textarea + Apply button, Submit-on-Enter) matching CLBuilder pattern.
+- **PDF Export Race Condition Fix** — Replaced `requestAnimationFrame` with iframe `onLoad` handler + `printPendingRef` so first-click print always shows latest content.
+
+### Files Created
+- `src/components/cv/cvThemes.ts` — CVTheme interface + getCVTheme() for 3 themes
+
+### Files Modified
+- `src/components/cv/InteractiveCVPreview.tsx` — templateId prop, theme styles, rewritten SkillsView with category editing, drag-reorder
+- `src/components/cv/InteractiveCLPreview.tsx` — templateId prop, theme styles
+- `src/app/pages/CVBuilder.tsx` — templateId pass-through, PDF onLoad pattern, chat input UI
+- `src/app/pages/CLBuilder.tsx` — templateId pass-through, PDF onLoad pattern
+- `README.md` — Updated MVP table, builder descriptions, test count
 
 ## [v2.7.0] - May 29, 2026
 

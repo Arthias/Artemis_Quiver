@@ -27,7 +27,7 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 4** | UI Polish & Testing Infrastructure | **Done** |
 | **Sprint 4b** | Prompt Engineering & Optimization Modes | **Done** |
 | **Sprint 5** | Feature Polish (Follow-up Chat + MD Preview) | **Done** |
-| **Sprint 6** | Local Database — IndexedDB Migration | **Planned** |
+| **Sprint 6** | Local Database — IndexedDB Migration | **Done** |
 | **Sprint 7** | URL Input — Frictionless Job Import | **Planned** |
 | **Sprint 8** | Application Kanban — Pipeline Tracker | **Planned** |
 | **Sprint 9** | Outreach Generator — Cold Messages | **Planned** |
@@ -72,31 +72,26 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 
 ## 🎯 Future Sprints
 
-### Sprint 6 — Local Database: IndexedDB Migration
+### Sprint 6 — Local Database: IndexedDB Migration (Done)
 Replaces localStorage with Dexie.js (IndexedDB wrapper) for scalable local persistence.
 
 **Goal:** Remove the 5MB localStorage ceiling, enable relational queries, and support future features (Kanban, interview history, templates).
 
 **Tasks:**
-- [ ] Install Dexie.js (`dexie` + `dexie-react-hooks`)
-- [ ] Design schema: `profiles`, `analysisSessions`, `applications`, `interviewSessions`, `templates`
-- [ ] Create `src/app/db/schema.ts` — Dexie DB class with versioned schema
-- [ ] Create `src/app/db/profileRepo.ts` — CRUD for profiles (replaces `workspaceStorage.ts`)
-- [ ] Create `src/app/db/sessionRepo.ts` — CRUD for analysis sessions
-- [ ] Create `src/app/db/applicationRepo.ts` — CRUD for job applications (Kanban)
-- [ ] Create `src/app/db/migrations.ts` — Schema versioning and data migration logic
-- [ ] Create `src/app/db/interviewRepo.ts` — Interview session storage (future Sprint 11)
-- [ ] Create `src/app/db/templateRepo.ts` — Outreach templates storage (future Sprint 9)
-- [ ] Create barrel export `src/app/db/index.ts`
-- [ ] Migration utility: `localStorage → IndexedDB` one-shot on first launch
-- [ ] Replace `WorkspaceProfileContext` localStorage ops with Dexie calls
-- [ ] Replace `AnalysisContext` localStorage ops with Dexie calls
-- [ ] Remove `workspaceStorage.ts` (or gut it to use Dexie under the hood)
-- [ ] Add loading states while IndexedDB async ops resolve
-- [ ] Test: profile create/switch/edit persist across reloads
-- [ ] Test: analysis sessions survive at 50+ sessions
-- [ ] Test: migration from existing localStorage data
-- [ ] Test: IndexedDB quota handling (graceful warning near limit)
+- [x] Install Dexie.js (`dexie` + `dexie-react-hooks`)
+- [x] Design schema: `profiles`, `analysisSessions`, `metadata` (future placeholders ready for `applications`, `interviewSessions`, `templates`)
+- [x] Create `src/app/db/schema.ts` — Dexie DB class with versioned schema
+- [x] Create `src/app/db/profileRepo.ts` — CRUD for profiles (replaces `workspaceStorage.ts` functionality)
+- [x] Create `src/app/db/sessionRepo.ts` — CRUD for analysis sessions
+- [x] Create barrel export `src/app/db/index.ts`
+- [x] Migration utility: `localStorage → IndexedDB` one-shot on first launch with self-healing checks
+- [x] Replace `WorkspaceProfileContext` localStorage ops with Dexie calls
+- [x] Replace `AnalysisContext` localStorage ops with Dexie calls
+- [x] Add loading states while IndexedDB async ops resolve (Workspace Loader)
+- [x] Test: profile create/switch/edit persist across reloads
+- [x] Test: analysis sessions survive at 50+ sessions
+- [x] Test: migration from existing localStorage data
+- [x] Test: window.matchMedia mock safety in test environment
 
 **Key Files to Create:**
 - `src/app/db/schema.ts`
