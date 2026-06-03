@@ -370,16 +370,32 @@ export function CVBuilder() {
                   <p className="text-xs text-muted-foreground">{s.hint}</p>
                 </Card>
               ))}
-              
-              {/* Empty state (optional, show if no suggestions) */}
-              {!cvContent && isGenerated && ( // Shouldn't happen but just in case
-                <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded">
-                  <p>CV ready! Click any suggestion above to modify it or wait for PDF export.</p>
-                </div>
-              )}
             </div>
 
-            {/* Chat input area */} // For future implementation, keep simple for MVP
+            <div className="p-4 border-t border-border">
+              <Textarea
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleChatSubmit();
+                  }
+                }}
+                placeholder="Request changes..."
+                className="resize-none bg-input-background border-border text-sm"
+                rows={3}
+                disabled={chatLoading}
+              />
+              <Button
+                onClick={() => handleChatSubmit()}
+                disabled={!chatMessage.trim() || chatLoading}
+                className="w-full mt-2"
+                size="sm"
+              >
+                {chatLoading ? "Applying..." : "Apply Changes"}
+              </Button>
+            </div>
           </div>
         )}
       </div>

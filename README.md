@@ -25,8 +25,8 @@ Up to **3 local profiles**, each with its own master profile, LLM settings, them
 
 ### Builders
 
-- **CV Builder** — generate from profile + optional job description; chat to edit; export `.md`
-- **Cover Letter Builder** — tailored letter with company/role fields; chat to edit; export `.md`
+- **CV Builder** — generate from profile + optional job description; interactive inline editing on every section (name, title, contact, summary, experience with bullets, skills with categories, education, certifications); 3 themes with color picker; AI chat for modifications; export as themed PDF or `.md`
+- **Cover Letter Builder** — tailored letter with company/role fields; structured JSON with paragraph editing; 3 themes with color picker; AI chat for modifications; export as themed PDF, `.md`, or copy plain text for application forms
 - Open from Analysis Hub with job context pre-filled
 
 ### Settings
@@ -62,17 +62,22 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 | Profile import + AI assistant | Done |
 | Analysis → CV/CL builder handoff | Done |
 | CV & CL builder AI + structured JSON generation | Done |
-| Themed PDF download (HTML rendering) | Done |
+| Interactive inline CV editing (all sections) | Done |
+| Interactive inline CL editing (structured JSON) | Done |
+| 3 themes (Modern, Classic, Minimal) + color picker | Done |
+| Themed PDF export (CV & CL) | Done |
+| Skills with category editing + drag reorder | Done |
 | Follow-up chat on analysis results | Done |
+| CV/CL builder AI chat for modifications | Done |
 | 10 prompt optimization modes (prompts.ts) | Done |
 | Centralized error codes + retry strategies | Done |
-| 54 automated tests (vitest) | Done |
+| 62 automated tests (vitest) | Done |
 
 ## Roadmap
 
 | Feature | Sprint | Status |
 |---------|--------|--------|
-| IndexedDB migration (Dexie.js) | 6 | **Planned** |
+| IndexedDB migration (Dexie.js) | 6 | Done |
 | URL→Markdown job import (Jina Reader) | 7 | **Planned** |
 | Bookmarklet for DOM extraction | 7 | **Planned** |
 | Application Kanban (pipeline tracker) | 8 | **Planned** |
@@ -96,8 +101,8 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 
 - **UI:** React 18, Vite, Tailwind CSS, shadcn/ui, React Router v7
 - **AI:** `fetch` to local LMStudio (OpenAI-compatible) or Ollama chat APIs
-- **Persistence:** `localStorage` via workspace manifest + per-profile blobs
-- **Testing:** vitest with jsdom (46 tests across 8 files)
+- **Persistence:** `IndexedDB` via Dexie.js (with automatic migration from `localStorage` on first load)
+- **Testing:** vitest with jsdom (62 tests across 9 files)
 
 ## 📖 Internal Documentation & AI Agent Context
 
