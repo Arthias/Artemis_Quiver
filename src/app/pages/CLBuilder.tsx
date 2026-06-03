@@ -59,6 +59,7 @@ export function CLBuilder() {
   });
   const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [printHtml, setPrintHtml] = useState("");
+  const printPendingRef = useRef(false);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -109,11 +110,9 @@ export function CLBuilder() {
   const handleChatSubmit = async (message?: string) => {
     const text = (message ?? chatMessage).trim();
     if (!text || chatLoading || !clContent) return;
-
     setChatLoading(true);
     setError(null);
     setChatMessage("");
-
     try {
       const currentJson = JSON.stringify(clContent);
       const updated = await editCoverLetter(currentJson, text, profile, config);
@@ -177,17 +176,19 @@ export function CLBuilder() {
     });
   }, [clContent]);
 
+  const handleIframeLoad = useCallback(() => {
+    if (printPendingRef.current && printIframeRef.current?.contentWindow) {
+      printPendingRef.current = false;
+      printIframeRef.current.contentWindow.focus();
+      printIframeRef.current.contentWindow.print();
+    }
+  }, []);
+
   const printPDF = useCallback(() => {
     if (!clContent) return;
     const html = renderCLToHTML(clContent, themeConfig);
+    printPendingRef.current = true;
     setPrintHtml(html);
-    requestAnimationFrame(() => {
-      const iframe = printIframeRef.current;
-      if (iframe?.contentWindow) {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      }
-    });
   }, [clContent, themeConfig]);
 
   return (
@@ -233,7 +234,7 @@ export function CLBuilder() {
                   <select
                     value={themeConfig.templateId}
                     onChange={(e) => setThemeConfig(prev => ({ ...prev, templateId: e.target.value as any }))}
-                    className="text-sm border rounded px-2 py-1"
+                    className="text-sm border rounded px-2 py-1 bg-background text-foreground"
                   >
                     <option value="modern">Modern</option>
                     <option value="classic">Classic (Serif)</option>
@@ -341,12 +342,14 @@ export function CLBuilder() {
                       content={clContent}
                       onContentChange={setClContent}
                       accentColor={themeConfig.primaryColor}
+                      templateId={themeConfig.templateId}
                     />
                   )}
                 </div>
                 <iframe
                   ref={printIframeRef}
                   srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
+                  onLoad={handleIframeLoad}
                   style={{ position: "absolute", width: 0, height: 0, border: "none" }}
                   title="Print frame"
                 />

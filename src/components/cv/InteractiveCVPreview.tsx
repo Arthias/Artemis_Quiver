@@ -1,16 +1,18 @@
 import { useState, useCallback } from "react";
 import type { CVContent, CVSection } from "../../types/cv";
 import { Pencil, Plus, X, Check } from "lucide-react";
+import { getCVTheme, type CVTheme } from "./cvThemes";
 
 interface InteractiveCVPreviewProps {
   content: CVContent;
   onContentChange: (content: CVContent) => void;
   accentColor?: string;
+  templateId?: string;
 }
 
-function InlineInput({ value, onSave, className, placeholder }: {
+function InlineInput({ value, onSave, className, placeholder, style }: {
   value: string; onSave: (v: string) => void;
-  className?: string; placeholder?: string;
+  className?: string; placeholder?: string; style?: React.CSSProperties;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -25,6 +27,7 @@ function InlineInput({ value, onSave, className, placeholder }: {
         autoFocus
         className={`bg-white border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
         placeholder={placeholder}
+        style={style}
       />
     );
   }
@@ -34,6 +37,7 @@ function InlineInput({ value, onSave, className, placeholder }: {
       onClick={() => setEditing(true)}
       className={`cursor-pointer rounded px-1 -mx-1 hover:bg-gray-100 transition-colors ${className ?? ""}`}
       title="Click to edit"
+      style={style}
     >
       {value}
     </span>
@@ -87,7 +91,8 @@ function InlineTextarea({ value, onSave, className }: {
   );
 }
 
-export function InteractiveCVPreview({ content, onContentChange, accentColor = "#2563eb" }: InteractiveCVPreviewProps) {
+export function InteractiveCVPreview({ content, onContentChange, accentColor = "#2563eb", templateId = "modern" }: InteractiveCVPreviewProps) {
+  const theme: CVTheme = getCVTheme(templateId, accentColor);
   const contact = content.sections.find(s => s.type === "contact") as Extract<CVSection, { type: "contact" }> | undefined;
   const summary = content.sections.find(s => s.type === "summary") as Extract<CVSection, { type: "summary" }> | undefined;
   const skills = content.sections.find(s => s.type === "skills") as Extract<CVSection, { type: "skills" }> | undefined;
@@ -119,30 +124,10 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
     ));
   }, [updateSection]);
 
-  const addSkill = useCallback(() => {
-    updateSection(sections => sections.map(s => {
-      if (s.type !== "skills") return s;
-      const flat = s.skills ?? [];
-      return { ...s, skills: [...flat, ""] } as CVSection;
-    }));
-  }, [updateSection]);
-
-  const removeSkill = useCallback((idx: number) => {
-    updateSection(sections => sections.map(s => {
-      if (s.type !== "skills") return s;
-      const flat = s.skills ?? [];
-      return { ...s, skills: flat.filter((_, i) => i !== idx) } as CVSection;
-    }));
-  }, [updateSection]);
-
-  const updateSkill = useCallback((idx: number, val: string) => {
-    updateSection(sections => sections.map(s => {
-      if (s.type !== "skills") return s;
-      const flat = s.skills ?? [];
-      const next = [...flat];
-      next[idx] = val;
-      return { ...s, skills: next } as CVSection;
-    }));
+  const updateSkillsSection = useCallback((section: Extract<CVSection, { type: "skills" }>) => {
+    updateSection(sections => sections.map(s =>
+      s.type === "skills" ? section : s
+    ));
   }, [updateSection]);
 
   const updateExperienceItem = useCallback((idx: number, item: Record<string, any>) => {
@@ -216,10 +201,10 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
     }));
   }, [updateSection]);
 
-  const renderDivider = () => <hr className="border-gray-200 my-6" />;
+  const renderDivider = () => <hr style={theme.divider} />;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="rounded-lg border border-gray-200 shadow-sm" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
       <div className="p-8 md:p-10">
         {/* Header */}
         <div className="mb-6">
@@ -228,41 +213,41 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
               <InlineInput
                 value={content.name}
                 onSave={updateName}
-                className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight"
-                placeholder="Your Name"
+                className="" placeholder="Your Name"
+                style={theme.name}
               />
               <div className="mt-1">
                 <InlineInput
                   value={content.title}
                   onSave={updateTitle}
-                  className="text-lg text-blue-700 font-semibold"
-                  placeholder="Professional Title"
+                  className="" placeholder="Professional Title"
+                  style={theme.title}
                 />
               </div>
             </div>
 
-            <div className="text-sm text-gray-600 space-y-1.5 md:text-right flex-shrink-0">
+            <div className="space-y-1.5 md:text-right flex-shrink-0" style={theme.muted}>
               {contact?.location && (
                 <div className="flex items-center md:justify-end gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: theme.contactIcon.color }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   <InlineInput value={contact.location} onSave={v => updateContactField("location", v)} placeholder="Location" />
                 </div>
               )}
               {contact?.email && (
                 <div className="flex items-center md:justify-end gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: theme.contactIcon.color }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                   <InlineInput value={contact.email} onSave={v => updateContactField("email", v)} placeholder="email@example.com" />
                 </div>
               )}
               {contact?.phone && (
                 <div className="flex items-center md:justify-end gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: theme.contactIcon.color }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                   <InlineInput value={contact.phone} onSave={v => updateContactField("phone", v)} placeholder="+1 234 567 890" />
                 </div>
               )}
               {contact?.linkedin && (
                 <div className="flex items-center md:justify-end gap-1.5">
-                  <svg className="w-3.5 h-3.5 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" style={{ color: theme.contactIcon.color }}><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
                   <InlineInput value={contact.linkedin} onSave={v => updateContactField("linkedin", v)} placeholder="linkedin.com/in/..." />
                 </div>
               )}
@@ -275,7 +260,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
         {/* Professional Summary */}
         {summary && (
           <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: accentColor }}>Professional Summary</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={theme.sectionTitle}>Professional Summary</h2>
             <InlineTextarea value={summary.content} onSave={updateSummary} />
           </section>
         )}
@@ -283,7 +268,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
         {/* Experience */}
         {experience && experience.experience && experience.experience.length > 0 && (
           <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: accentColor }}>Professional Experience</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>Professional Experience</h2>
             <div className="space-y-5">
               {experience.experience.map((exp, idx) => (
                 <ExperienceItemCard
@@ -294,7 +279,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
                 />
               ))}
             </div>
-            <button onClick={addExperienceItem} className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            <button onClick={addExperienceItem} className="mt-3 inline-flex items-center gap-1 text-xs font-medium" style={{ color: theme.title.color || accentColor }}>
               <Plus className="w-3.5 h-3.5" /> Add experience
             </button>
           </section>
@@ -303,14 +288,13 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
         {/* Skills */}
         {skills && (
           <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: accentColor }}>
+            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>
               {skills.categories ? "Technical Proficiencies" : "Skills"}
             </h2>
             <SkillsView
               skills={skills}
-              onAddSkill={addSkill}
-              onRemoveSkill={removeSkill}
-              onUpdateSkill={updateSkill}
+              onUpdateSkillsSection={updateSkillsSection}
+              theme={theme}
             />
           </section>
         )}
@@ -318,7 +302,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
         {/* Education */}
         {education && education.education && education.education.length > 0 && (
           <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: accentColor }}>Education</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>Education</h2>
             <div className="space-y-4">
               {education.education.map((edu, idx) => (
                 <EducationItemCard
@@ -338,7 +322,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
         {/* Certifications */}
         {certifications && certifications.certifications && certifications.certifications.length > 0 && (
           <section>
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: accentColor }}>Certifications</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>Certifications</h2>
             <ul className="space-y-2">
               {certifications.certifications.map((cert, idx) => (
                 <li key={idx} className="flex items-center gap-2 group">
@@ -513,29 +497,155 @@ function EducationItemCard({ item, onUpdate, onRemove }: {
   );
 }
 
-function SkillsView({ skills, onAddSkill, onRemoveSkill, onUpdateSkill }: {
+function SkillsView({ skills, onUpdateSkillsSection, theme }: {
   skills: Extract<CVSection, { type: "skills" }>;
-  onAddSkill: () => void;
-  onRemoveSkill: (idx: number) => void;
-  onUpdateSkill: (idx: number, val: string) => void;
+  onUpdateSkillsSection: (section: Extract<CVSection, { type: "skills" }>) => void;
+  theme?: CVTheme;
 }) {
   const [editing, setEditing] = useState(false);
+  const [items, setItems] = useState<Array<{ name: string; isCategory: boolean }>>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const startEditing = () => {
+    const flat: Array<{ name: string; isCategory: boolean }> = [];
+    if (skills.categories) {
+      for (const cat of skills.categories) {
+        flat.push({ name: cat.name, isCategory: true });
+        for (const item of cat.items) {
+          flat.push({ name: item, isCategory: false });
+        }
+      }
+    } else if (skills.skills) {
+      for (const s of skills.skills) {
+        flat.push({ name: s, isCategory: false });
+      }
+    }
+    setItems(flat.length > 0 ? flat : [{ name: "", isCategory: false }]);
+    setEditing(true);
+  };
+
+  const saveEditing = () => {
+    const cats: Array<{ name: string; items: string[] }> = [];
+    let currentCat: { name: string; items: string[] } | null = null;
+    for (const item of items) {
+      if (item.isCategory) {
+        currentCat = { name: item.name, items: [] };
+        cats.push(currentCat);
+      } else if (currentCat) {
+        if (item.name) currentCat.items.push(item.name);
+      }
+    }
+    if (cats.length === 0) {
+      onUpdateSkillsSection({
+        ...skills,
+        skills: items.map(i => i.name).filter(Boolean),
+        categories: undefined,
+      });
+    } else {
+      onUpdateSkillsSection({
+        ...skills,
+        categories: cats,
+        skills: undefined,
+      });
+    }
+    setEditing(false);
+  };
+
+  const updateItem = (idx: number, name: string) => {
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, name } : item));
+  };
+
+  const toggleCategory = (idx: number) => {
+    setItems(prev => prev.map((item, i) => i === idx ? { ...item, isCategory: !item.isCategory } : item));
+  };
+
+  const addItem = () => {
+    setItems(prev => [...prev, { name: "", isCategory: false }]);
+  };
+
+  const removeItem = (idx: number) => {
+    setItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const moveItem = (idx: number, direction: -1 | 1) => {
+    const target = idx + direction;
+    if (target < 0 || target >= items.length) return;
+    setItems(prev => {
+      const next = [...prev];
+      const a = next[idx]!;
+      const b = next[target]!;
+      next[idx] = b;
+      next[target] = a;
+      return next;
+    });
+  };
+
+  const handleDragStart = (idx: number) => {
+    setDragIdx(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const from = dragIdx;
+    setDragIdx(idx);
+    setItems(prev => {
+      const next = [...prev];
+      const [removed] = next.splice(from, 1);
+      if (!removed) return prev;
+      next.splice(idx, 0, removed);
+      return next;
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+  };
 
   if (editing) {
-    const flat = skills.skills ?? [];
     return (
-      <div className="space-y-3">
-        {flat.map((s, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input value={s} onChange={e => onUpdateSkill(i, e.target.value)} className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Skill name" />
-            <button onClick={() => onRemoveSkill(i)} className="text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+      <div className="space-y-2">
+        {items.map((item, i) => (
+          <div
+            key={i}
+            draggable
+            onDragStart={() => handleDragStart(i)}
+            onDragOver={e => handleDragOver(e, i)}
+            onDragEnd={handleDragEnd}
+            className={`flex items-center gap-2 p-1.5 rounded ${dragIdx === i ? "opacity-50" : ""} ${item.isCategory ? "bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-200 dark:ring-blue-800" : "hover:bg-gray-50 dark:hover:bg-gray-800/30"}`}
+          >
+            <span className="cursor-grab text-gray-400 hover:text-gray-600 shrink-0" title="Drag to reorder">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={() => moveItem(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-gray-600 disabled:opacity-20 p-0.5"><svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6"/></svg></button>
+              <button onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} className="text-gray-400 hover:text-gray-600 disabled:opacity-20 p-0.5"><svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg></button>
+            </div>
+            <input
+              value={item.name}
+              onChange={e => updateItem(i, e.target.value)}
+              className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm text-gray-900 bg-white"
+              placeholder={item.isCategory ? "Category name" : "Skill name"}
+            />
+            <label className="flex items-center gap-1 text-xs text-gray-500 shrink-0 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={item.isCategory}
+                onChange={() => toggleCategory(i)}
+                className="rounded"
+              />
+              Category
+            </label>
+            <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 shrink-0 p-0.5">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         ))}
-        <div className="flex gap-2">
-          <button onClick={onAddSkill} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+        <div className="flex gap-2 pt-1">
+          <button onClick={addItem} className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: theme?.title.color ?? "#2563eb" }}>
             <Plus className="w-3 h-3" /> Add skill
           </button>
-          <button onClick={() => setEditing(false)} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 ml-auto">
+          <button onClick={saveEditing} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 ml-auto">
             <Check className="w-3 h-3" /> Done
           </button>
         </div>
@@ -550,16 +660,16 @@ function SkillsView({ skills, onAddSkill, onRemoveSkill, onUpdateSkill }: {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
           {cats.map((cat, i) => (
             <div key={i}>
-              <h3 className="font-semibold text-gray-900 text-xs uppercase tracking-wide mb-1.5">{cat.name}</h3>
+              <h3 className="font-semibold text-xs uppercase tracking-wide mb-1.5" style={{ color: theme?.sectionTitle.color }}>{cat.name}</h3>
               <div className="flex flex-wrap gap-1.5">
                 {cat.items.map((item, j) => (
-                  <span key={j} className="inline-block bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">{item}</span>
+                  <span key={j} className="inline-block px-2 py-0.5 rounded text-xs" style={{ background: theme?.tag.background, color: theme?.tag.color }}>{item}</span>
                 ))}
               </div>
             </div>
           ))}
         </div>
-        <button onClick={() => setEditing(true)} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600">
+        <button onClick={startEditing} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600">
           <Pencil className="w-3 h-3" />
         </button>
       </div>
@@ -571,10 +681,10 @@ function SkillsView({ skills, onAddSkill, onRemoveSkill, onUpdateSkill }: {
       <div className="group relative">
         <div className="flex flex-wrap gap-2">
           {skills.skills.map((s, i) => (
-            <span key={i} className="inline-block text-sm text-gray-700 bg-gray-100 px-2.5 py-1 rounded">{s}</span>
+            <span key={i} className="inline-block text-sm px-2.5 py-1 rounded" style={{ background: theme?.tag.background, color: theme?.tag.color }}>{s}</span>
           ))}
         </div>
-        <button onClick={() => setEditing(true)} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600">
+        <button onClick={startEditing} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600">
           <Pencil className="w-3 h-3" />
         </button>
       </div>
@@ -583,8 +693,8 @@ function SkillsView({ skills, onAddSkill, onRemoveSkill, onUpdateSkill }: {
 
   return (
     <div className="group relative">
-      <p className="text-sm text-gray-400 italic">No skills listed</p>
-      <button onClick={() => setEditing(true)} className="text-xs text-blue-600 hover:text-blue-800">Add skills</button>
+      <p className="text-sm italic" style={{ color: theme?.muted.color ?? "#9ca3af" }}>No skills listed</p>
+      <button onClick={startEditing} className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: theme?.title.color ?? "#2563eb" }}>Add skills</button>
     </div>
   );
 }

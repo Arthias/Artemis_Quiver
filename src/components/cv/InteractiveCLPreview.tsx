@@ -1,16 +1,18 @@
 import { useState, useCallback } from "react";
 import type { CLContent } from "../../types/cl";
 import { Pencil, Plus, X, Check } from "lucide-react";
+import { getCVTheme, type CVTheme } from "./cvThemes";
 
 interface InteractiveCLPreviewProps {
   content: CLContent;
   onContentChange: (content: CLContent) => void;
   accentColor?: string;
+  templateId?: string;
 }
 
-function InlineInput({ value, onSave, className, placeholder }: {
+function InlineInput({ value, onSave, className, placeholder, style }: {
   value: string; onSave: (v: string) => void;
-  className?: string; placeholder?: string;
+  className?: string; placeholder?: string; style?: React.CSSProperties;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -25,6 +27,7 @@ function InlineInput({ value, onSave, className, placeholder }: {
         autoFocus
         className={`bg-white border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
         placeholder={placeholder}
+        style={style}
       />
     );
   }
@@ -34,6 +37,7 @@ function InlineInput({ value, onSave, className, placeholder }: {
       onClick={() => setEditing(true)}
       className={`cursor-pointer rounded px-1 -mx-1 hover:bg-gray-100 transition-colors ${className ?? ""}`}
       title="Click to edit"
+      style={style}
     >
       {value}
     </span>
@@ -73,7 +77,7 @@ function InlineTextarea({ value, onSave, className }: {
       onClick={() => setEditing(true)}
       className="cursor-pointer group relative rounded-md p-2 -m-2 hover:bg-gray-50 transition-colors"
     >
-      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{value}</p>
+      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap" style={{ fontSize: "0.85rem", lineHeight: 1.6 }}>{value}</p>
       <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400">
         <Pencil className="w-3.5 h-3.5" />
       </span>
@@ -81,7 +85,13 @@ function InlineTextarea({ value, onSave, className }: {
   );
 }
 
-export function InteractiveCLPreview({ content, onContentChange, accentColor = "#2563eb" }: InteractiveCLPreviewProps) {
+function CLThemeDivider({ theme }: { theme: CVTheme }) {
+  return <hr style={theme.divider} />;
+}
+
+export function InteractiveCLPreview({ content, onContentChange, accentColor = "#2563eb", templateId = "modern" }: InteractiveCLPreviewProps) {
+  const theme: CVTheme = getCVTheme(templateId, accentColor);
+
   const updateField = useCallback(<K extends keyof CLContent>(field: K, value: CLContent[K]) => {
     onContentChange({ ...content, [field]: value });
   }, [content, onContentChange]);
@@ -103,39 +113,35 @@ export function InteractiveCLPreview({ content, onContentChange, accentColor = "
     });
   }, [content, onContentChange]);
 
-  const switchThemeColor = accentColor;
-
-  const renderDivider = () => <hr className="border-gray-200 my-6" />;
-
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl mx-auto" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="rounded-lg border border-gray-200 shadow-sm max-w-3xl mx-auto" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
       <div className="p-8 md:p-10">
         {/* Sender header */}
         <div className="mb-6">
           <InlineInput
             value={content.senderName}
             onSave={v => updateField("senderName", v)}
-            className="text-xl md:text-2xl font-bold text-gray-900"
-            placeholder="Your Name"
+            className="" placeholder="Your Name"
+            style={theme.name}
           />
           {content.senderTitle && (
             <InlineInput
               value={content.senderTitle}
               onSave={v => updateField("senderTitle", v)}
-              className="text-sm text-gray-500"
-              placeholder="Job Title"
+              className="" placeholder="Job Title"
+              style={theme.title}
             />
           )}
           {content.date && (
-            <p className="text-xs text-gray-400 mt-1">{content.date}</p>
+            <p className="mt-1" style={theme.muted}>{content.date}</p>
           )}
         </div>
 
-        {renderDivider()}
+        <CLThemeDivider theme={theme} />
 
         {/* Recipient info */}
         {(content.recipientName || content.companyName) && (
-          <div className="mb-4 text-sm text-gray-600 space-y-0.5">
+          <div className="mb-4 space-y-0.5" style={theme.muted}>
             {content.recipientName && (
               <InlineInput value={content.recipientName} onSave={v => updateField("recipientName", v)} placeholder="Hiring Manager" />
             )}
@@ -150,7 +156,7 @@ export function InteractiveCLPreview({ content, onContentChange, accentColor = "
 
         {/* Subject */}
         {content.subject && (
-          <p className="text-sm font-semibold text-gray-800 mb-4">
+          <p className="text-sm font-semibold mb-4" style={{ color: theme.sectionTitle.color }}>
             Re: <InlineInput value={content.subject} onSave={v => updateField("subject", v)} placeholder="Position you're applying for" />
           </p>
         )}
@@ -159,14 +165,15 @@ export function InteractiveCLPreview({ content, onContentChange, accentColor = "
         <InlineInput
           value={content.salutation}
           onSave={v => updateField("salutation", v)}
-          className="text-sm text-gray-800"
+          className="text-sm"
           placeholder="Dear Hiring Manager,"
+          style={{ color: theme.body.color }}
         />
 
-        {renderDivider()}
+        <CLThemeDivider theme={theme} />
 
         {/* Body paragraphs */}
-        <div className="space-y-4">
+        <div className="space-y-4" style={theme.body}>
           {content.bodyParagraphs.map((p, idx) => (
             <div key={idx} className="group relative">
               <InlineTextarea
@@ -184,23 +191,25 @@ export function InteractiveCLPreview({ content, onContentChange, accentColor = "
           ))}
           <button
             onClick={addParagraph}
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+            className="inline-flex items-center gap-1 text-xs font-medium"
+            style={{ color: theme.title.color || accentColor }}
           >
             <Plus className="w-3.5 h-3.5" /> Add paragraph
           </button>
         </div>
 
-        {renderDivider()}
+        <CLThemeDivider theme={theme} />
 
         {/* Closing */}
         <div className="mt-6 space-y-1">
           <InlineInput
             value={content.closing}
             onSave={v => updateField("closing", v)}
-            className="text-sm text-gray-800"
+            className="text-sm"
             placeholder="Sincerely,"
+            style={{ color: theme.body.color }}
           />
-          <p className="text-sm font-semibold text-gray-900">{content.senderName}</p>
+          <p className="text-sm font-semibold" style={{ color: theme.name.color }}>{content.senderName}</p>
         </div>
       </div>
     </div>
