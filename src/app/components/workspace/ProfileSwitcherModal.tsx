@@ -31,19 +31,23 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
     (a, b) => new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime()
   );
 
-  const handleSwitch = (id: string) => {
-    switchProfile(id);
-    onOpenChange(false);
+  const handleSwitch = async (id: string) => {
+    try {
+      await switchProfile(id);
+      onOpenChange(false);
+    } catch (err) {
+      console.error("Failed to switch profile:", err);
+    }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const trimmed = newName.trim();
     if (!trimmed) {
       setAddError("Enter a profile name.");
       return;
     }
     try {
-      createProfile(trimmed);
+      const newId = await createProfile(trimmed);
       setShowAddDialog(false);
       setNewName("");
       setAddError(null);
