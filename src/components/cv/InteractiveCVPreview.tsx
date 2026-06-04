@@ -25,7 +25,7 @@ function InlineInput({ value, onSave, className, placeholder, style }: {
         onBlur={() => { onSave(draft || value); setEditing(false); }}
         onKeyDown={e => { if (e.key === "Enter") { onSave(draft || value); setEditing(false); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
         autoFocus
-        className={`bg-white border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
+        className={`bg-white text-gray-900 border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
         placeholder={placeholder}
         style={style}
       />
@@ -56,7 +56,7 @@ function InlineTextarea({ value, onSave, className }: {
         <textarea
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          className={`w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
+          className={`w-full bg-white text-gray-900 border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
           rows={4}
           autoFocus
         />
@@ -365,19 +365,19 @@ function ExperienceItemCard({ item, onUpdate, onRemove }: {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Role</label>
-            <input value={draft.role} onChange={e => setDraft(p => ({ ...p, role: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Job title" />
+            <input value={draft.role} onChange={e => setDraft(p => ({ ...p, role: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Job title" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Company</label>
-            <input value={draft.company} onChange={e => setDraft(p => ({ ...p, company: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Company name" />
+            <input value={draft.company} onChange={e => setDraft(p => ({ ...p, company: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Company name" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Period</label>
-            <input value={draft.period} onChange={e => setDraft(p => ({ ...p, period: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="e.g. Jan 2020 - Present" />
+            <input value={draft.period} onChange={e => setDraft(p => ({ ...p, period: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="e.g. Jan 2020 - Present" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Location</label>
-            <input value={draft.location ?? ""} onChange={e => setDraft(p => ({ ...p, location: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="e.g. Remote / NY" />
+            <input value={draft.location ?? ""} onChange={e => setDraft(p => ({ ...p, location: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="e.g. Remote / NY" />
           </div>
         </div>
         <div>
@@ -385,7 +385,7 @@ function ExperienceItemCard({ item, onUpdate, onRemove }: {
           <textarea
             value={(draft.bullets ?? []).join("\n")}
             onChange={e => setDraft(p => ({ ...p, bullets: e.target.value.split("\n").filter(Boolean) }))}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+            className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm"
             rows={4}
             placeholder="Led a team of 5 engineers...&#10;Reduced deployment time by 40%..."
           />
@@ -457,15 +457,15 @@ function EducationItemCard({ item, onUpdate, onRemove }: {
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-0.5">Degree</label>
-            <input value={draft.degree} onChange={e => setDraft(p => ({ ...p, degree: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Degree name" />
+            <input value={draft.degree} onChange={e => setDraft(p => ({ ...p, degree: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="Degree name" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Institution</label>
-            <input value={draft.institution} onChange={e => setDraft(p => ({ ...p, institution: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="University" />
+            <input value={draft.institution} onChange={e => setDraft(p => ({ ...p, institution: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="University" />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">Period</label>
-            <input value={draft.period} onChange={e => setDraft(p => ({ ...p, period: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1 text-sm" placeholder="e.g. 2014-2018" />
+            <input value={draft.period} onChange={e => setDraft(p => ({ ...p, period: e.target.value }))} className="w-full bg-white text-gray-900 border border-gray-300 rounded px-2 py-1 text-sm" placeholder="e.g. 2014-2018" />
           </div>
         </div>
         <div className="flex gap-2">
