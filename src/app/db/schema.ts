@@ -30,7 +30,7 @@ export interface AppMetadataRecord {
   value: any;
 }
 
-export class ArtemisQuiverDB extends Dexie {
+class ArtemisQuiverDB extends Dexie {
   profiles!: Table<ProfileRecord, string>;
   analysisSessions!: Table<AnalysisSessionRecord, string>;
   metadata!: Table<AppMetadataRecord, string>;

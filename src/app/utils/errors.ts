@@ -1,4 +1,4 @@
-export enum ErrorDomain {
+enum ErrorDomain {
   LLM = "LLM",
   CV = "CV",
   CL = "CL",
@@ -9,7 +9,7 @@ export enum ErrorDomain {
   APP = "APP",
 }
 
-export enum ErrorSeverity {
+enum ErrorSeverity {
   CRITICAL = "CRITICAL",
   ERROR = "ERROR",
   WARNING = "WARNING",
@@ -67,7 +67,7 @@ export const ErrorCodes = {
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
-export const ERROR_CATALOG: Record<ErrorCode, ErrorRecord> = {
+const ERROR_CATALOG: Record<ErrorCode, ErrorRecord> = {
   // ── LLM ────────────────────────────────────────────────────────────
   [ErrorCodes.LLM_API_FAILURE]: {
     code: ErrorCodes.LLM_API_FAILURE,

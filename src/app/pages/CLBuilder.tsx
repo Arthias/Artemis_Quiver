@@ -4,17 +4,16 @@ import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Mail, Download, Sparkles, Wand2, Copy, Check } from "lucide-react";
-import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
-import { generateCoverLetter, editCoverLetter, parseClJson } from "../services/clBuilderService";
+import { generateCoverLetter, editCoverLetter } from "../services/clBuilderService";
 import type { CLContent } from "../../types/cl";
 import { CLContentSchema } from "../../types/cl";
 import { renderCLToHTML } from "../../components/cv/renderingEngine";
 import { InteractiveCLPreview } from "../../components/cv/InteractiveCLPreview";
 import { downloadMarkdown } from "../utils/download";
-import { AppError, ErrorCodes } from "../utils/errors";
+import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 import { parsePlainTextToCLContent } from "../utils/clParser";
 
@@ -25,15 +24,6 @@ const CL_SUGGESTIONS = [
   { title: "Emphasize leadership", hint: "Highlight management", prompt: "Emphasize leadership and team management experience." },
   { title: "Focus on tech stack", hint: "Mention technologies", prompt: "Highlight relevant technical skills and stack from the profile." },
 ];
-
-function defaultCLContent(): CLContent {
-  return {
-    senderName: "",
-    salutation: "Dear Hiring Manager,",
-    bodyParagraphs: [""],
-    closing: "Sincerely,",
-  };
-}
 
 export function CLBuilder() {
   const { config } = useConfig();
