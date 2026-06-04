@@ -42,6 +42,7 @@ export function parsePlainTextToCLContent(text: string, senderName?: string): CL
   let recipientName = "";
   let companyName = "";
   let date = "";
+  let closingIdx = -1;
 
   if (salutationIdx >= 0) {
     salutation = allLines[salutationIdx];
@@ -61,7 +62,7 @@ export function parsePlainTextToCLContent(text: string, senderName?: string): CL
 
     // Body starts after salutation
     const bodyStart = salutationIdx + 1;
-    const closingIdx = findClosingBlock(allLines, bodyStart);
+    closingIdx = findClosingBlock(allLines, bodyStart);
 
     if (closingIdx >= 0) {
       closing = allLines[closingIdx].replace(/[,;:.!]+$/, "");
