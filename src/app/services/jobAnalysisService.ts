@@ -8,6 +8,7 @@ const ANALYSIS_SYSTEM_PROMPT = `You are a job application coach. Analyze job pos
 Respond with a single JSON object only (no markdown fences, no extra text).
 Use this exact schema:
 {
+  "title": "<concise job title + company, e.g. Senior Software Engineer at Google>",
   "score": <number 0-100>,
   "salaryRange": "<estimated range as string>",
   "summary": "<2-3 sentence match summary>",
@@ -35,6 +36,7 @@ function validateAnalysisResult(data: unknown): AnalysisResult {
     : [];
   const coverLetterDraft = String(obj.coverLetterDraft ?? "");
   const summary = obj.summary != null ? String(obj.summary) : undefined;
+  const title = obj.title != null ? String(obj.title) : undefined;
 
   if (!tips.length || !cvRecommendations.length || !coverLetterDraft) {
     throw new AppError(ErrorCodes.ANALYSIS_FAILED, "Analysis response is missing required fields.");
@@ -47,6 +49,7 @@ function validateAnalysisResult(data: unknown): AnalysisResult {
     cvRecommendations,
     coverLetterDraft,
     summary,
+    title,
   };
 }
 
