@@ -6,7 +6,35 @@ last_updated: 2026-06-03
 
 # Changelog
 
-## [v2.9.0] - June 3, 2026
+## [v3.0.0] - June 4, 2026
+
+### Features
+- **Chrome Extension (MV3)** — One-click job import from any page. Click the extension icon on a job posting to extract the content and pre-fill it in the Analysis Hub textarea.
+- **LinkedIn smart extraction** — Uses `MutationObserver` to wait for async job details, then trims content boundaries ("About the job" … "About the company") for clean job descriptions.
+- **Hash router for extension** — `createHashRouter` replaces `createBrowserRouter` so the app works under `chrome-extension://` URLs.
+- **Absolute server URL** — Default LLM URL changed from proxy (`/api/lmstudio`) to direct (`http://192.168.8.171:1234`) so extension pages bypass Vite's dev-only proxy.
+- **`useExtensionImport` hook** — React hook that listens for `chrome.runtime.onMessage` and `chrome.storage.session` to receive imported job postings.
+- **Separate extension build** — `vite.ext.config.ts` builds app + background script into `dist-ext/`; `npm run build:ext` produces the loadable extension.
+
+### Bug Fixes
+- **`closingIdx` ReferenceError** — Hoisted block-scoped variable in `clParser.ts` to fix `ReferenceError: closingIdx is not defined`.
+
+### Files Created
+- `src/extension/manifest.json` — Chrome extension manifest (MV3)
+- `src/extension/background.ts` — Service worker with `chrome.action.onClicked`
+- `src/app/hooks/useExtensionImport.ts` — React hook for receiving import data
+- `vite.ext.config.ts` — Extension-specific Vite build config
+
+### Files Modified
+- `src/app/routes.tsx` — `createBrowserRouter` → `createHashRouter`
+- `src/extension/background.ts` — `chrome.runtime.getURL("index.html")` for explicit file
+- `src/app/pages/AnalysisHub.tsx` — Wired `useExtensionImport` hook
+- `src/app/config/defaults.ts` — Absolute `serverUrl` instead of Vite proxy path
+- `src/app/utils/clParser.ts` — Fixed `closingIdx` variable scope
+
+### Breaking Changes
+- **Router changed from browser to hash router** — If you had deep-linked URLs, the format changed from `/profile` to `/#/profile`.
+- **Direct LLM server URL** — The Vite `/api/lmstudio` proxy is no longer the default. Dev server still works via the absolute URL (or you can set `/api/lmstudio` back in Settings).
 
 ### Features
 - **IndexedDB Storage (Dexie.js)** — Migrated the client persistence layer from size-limited `localStorage` to IndexedDB using Dexie.js. Decoupled `analysisSessions` from the profile blobs to support database indexing, speed up session-switches, and enable future relational pipeline and tracker integrations.
