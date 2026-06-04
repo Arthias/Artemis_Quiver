@@ -49,3 +49,54 @@ Artemis Quiver uses **Tailwind CSS** layered on CSS variables for styling.
 - **CSS Variables**: Color tokens should refer to shadcn's theme variables (e.g. `bg-background`, `text-foreground`, `border-border`) so that Light and Dark mode styles match automatically.
 - **Accessibility**: Ensure form fields, buttons, and selects include description tags and conform to standard keyboard navigation patterns.
 - **Icon Packages**: Use `lucide-react` for standard UI symbols and icons.
+
+---
+
+## 🔬 Static Analysis — Fallow
+
+[Fallow](https://docs.fallow.tools/quickstart) is the project's static analysis tool for catching dead code, duplication, and complexity issues before they compound. Run it as part of every feature implementation workflow.
+
+### When to run
+
+| Phase | Command | Purpose |
+|---|---|---|
+| Before writing code | `npx fallow` | Baseline — know the current state |
+| After implementation | `npx fallow dead-code` | Check no unused files/exports/deps were left behind |
+| Before commit | `npx fallow dupes` | Catch accidental copy-paste duplication |
+| During refactors | `npx fallow health` | Identify complexity regressions |
+| Periodic cleanup | `npx fallow fix --dry-run` | Preview automatic cleanup candidates |
+
+### Expected quality gates
+
+- **0 unused files** — every file should be reachable from an entry point
+- **0 unused dependencies** — `npm ls` should match actual imports
+- **0 unresolved imports** — all import paths must resolve
+- **Maintainability Index ≥85** (good) — if new code drops MI below 85, refactor before merging
+- **Clone groups ≤0** for new code — extract shared logic into functions/components rather than duplicating
+
+### Workflow integration
+
+1. **Before starting a feature**, run `npx fallow` and save the baseline output.
+2. **During development**, use `npx fallow dead-code` after adding exports to confirm they're consumed, and `npx fallow dupes` periodically to catch accidental clones.
+3. **After completing**, verify no regressions: `npx fallow` metrics should be at least as good as the baseline (fewer dead files/exports, same or better MI).
+4. **For refactoring targets** surfaced by `npx fallow health` — prioritize by the `pri` score (higher = better ROI). Low-effort items (e.g., removing dead exports) should be cleaned immediately; high-effort items (e.g., extracting large functions) should be scheduled into the next sprint.
+5. **Suppress false positives** sparingly with `// fallow-ignore-next-line <rule>` — prefer fixing the underlying issue. If suppressing, add a brief comment explaining why.
+
+### Config
+
+Fallow auto-detects project structure. No config file is required. When customization is needed (e.g., custom entry points or rule severity), create `.fallowrc.json` in the project root:
+
+```jsonc
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["src/app/*.tsx", "src/app/services/*.ts"],
+  "ignorePatterns": ["**/*.generated.ts", "**/__tests__/**"],
+  "rules": {
+    "unused-files": "error",
+    "unused-exports": "warn",
+    "unused-types": "off"
+  }
+}
+```
+
+The `.fallow/` directory and `cache.bin` / `churn.bin` are gitignored automatically.
