@@ -36,7 +36,7 @@ University of Technology, 2018
 
 export const DEFAULT_LLM_CONFIG: LlmConfig = {
   provider: "lmstudio",
-  serverUrl: "/api/lmstudio",
+  serverUrl: "http://192.168.8.171:1234",
   model: "google/gemma-4-e2b",
   temperature: 0.7,
   autoSaveProfile: true,
