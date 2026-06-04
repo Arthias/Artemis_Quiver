@@ -7,6 +7,7 @@ export interface AnalysisResult {
   cvRecommendations: string[];
   coverLetterDraft: string;
   summary?: string;
+  title?: string;
 }
 
 export interface AnalysisSession {

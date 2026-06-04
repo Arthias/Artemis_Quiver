@@ -26,10 +26,11 @@ const navigation = [
   { name: "Settings", href: "/config", icon: Settings },
 ];
 
-function sessionTitle(jobPosting: string, summary?: string): string {
+function sessionTitle(jobPosting: string, title?: string, summary?: string): string {
+  if (title?.trim()) return title.trim().slice(0, 50);
   if (summary?.trim()) return summary.trim().slice(0, 50);
   const first = jobPosting.trim().split("\n")[0];
-  return first.slice(0, 50) || "Untitled analysis";
+  return first?.slice(0, 50) || "Untitled analysis";
 }
 
 export function Sidebar() {
@@ -119,7 +120,7 @@ export function Sidebar() {
                       <MessageSquare className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-sidebar-foreground truncate">
-                          {sessionTitle(session.jobPosting, session.result.summary)}
+                          {sessionTitle(session.jobPosting, session.result.title, session.result.summary)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatRelativeTime(session.createdAt)} · {session.result.score}%
