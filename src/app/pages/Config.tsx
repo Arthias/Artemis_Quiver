@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, Loader2 } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -13,27 +13,227 @@ import {
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { useConfig } from "../context/ConfigContext";
-import type { LocalLlmProvider } from "../types/llm";
+import { listModels as listModelsApi } from "../services/llmService";
+import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
 
+const PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
+  { value: "openai-compatible", label: "OpenAI Compatible" },
+  { value: "anthropic", label: "Anthropic" },
+  { value: "google-gemini", label: "Google Gemini" },
+];
+
+const SECONDARY_USE_OPTIONS: { value: SecondaryUse; label: string; desc: string }[] = [
+  { value: "never", label: "Never", desc: "Always use primary model" },
+  { value: "fallback", label: "Fallback", desc: "Use secondary if primary fails" },
+  { value: "quick-tasks", label: "Quick Tasks", desc: "Classification/scoring to secondary" },
+  { value: "always", label: "Always", desc: "Always use secondary model" },
+];
+
+function ModelEndpointCard({
+  label,
+  endpoint,
+  onChange,
+}: {
+  label: string;
+  endpoint: ModelEndpoint;
+  onChange: (patch: Partial<ModelEndpoint>) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const [models, setModels] = useState<string[] | null>(null);
+  const [listingModels, setListingModels] = useState(false);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const handleTest = async () => {
+    setTestMessage(null);
+    setTestError(null);
+    setTesting(true);
+    try {
+      const { testConnection } = await import("../services/llmService");
+      const reply = await testConnection(endpoint);
+      setTestMessage(`OK: "${reply}"`);
+    } catch (err) {
+      setTestError(err instanceof Error ? err.message : "Connection test failed.");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleListModels = async () => {
+    if (models !== null) { setModels(null); return; }
+    setListingModels(true);
+    try {
+      const list = await listModelsApi(endpoint);
+      setModels(list);
+    } catch (err) {
+      setModels([]);
+      setTestError(err instanceof Error ? err.message : "Failed to list models.");
+    } finally {
+      setListingModels(false);
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <button
+        type="button"
+        className="flex items-center gap-2 w-full text-left font-medium mb-2"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        {label}
+      </button>
+
+      {expanded && (
+        <div className="space-y-4 pl-6">
+          <div>
+            <Label className="mb-2 block">Provider</Label>
+            <Select
+              value={endpoint.provider}
+              onValueChange={(v) => onChange({ provider: v as ProviderType })}
+            >
+              <SelectTrigger className="bg-input-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVIDER_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Base URL</Label>
+            <Input
+              type="text"
+              value={endpoint.baseUrl}
+              onChange={(e) => onChange({ baseUrl: e.target.value })}
+              placeholder="http://localhost:11434"
+              className="bg-input-background border-border"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-2 block">API Key</Label>
+            <Input
+              type="password"
+              value={endpoint.apiKey ?? ""}
+              onChange={(e) => onChange({ apiKey: e.target.value || undefined })}
+              placeholder="sk-... (leave blank for local servers)"
+              className="bg-input-background border-border"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Model</Label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={endpoint.model}
+                onChange={(e) => onChange({ model: e.target.value })}
+                placeholder="google/gemma-4-e2b"
+                className="bg-input-background border-border flex-1"
+              />
+                <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? "Close model list" : "List available models"}>
+                {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
+              </Button>
+            </div>
+            {models && (
+              <div className="mt-2 max-h-32 overflow-y-auto border rounded p-2 text-xs space-y-1">
+                {models.length === 0 ? (
+                  <p className="text-muted-foreground">No models listed</p>
+                ) : (
+                  models.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className="block w-full text-left hover:bg-accent rounded px-1 py-0.5"
+                      onClick={() => { onChange({ model: m }); setModels(null); }}
+                    >
+                      {m}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <Label className="mb-2 block">
+              Temperature: {endpoint.temperature.toFixed(1)}
+            </Label>
+            <Input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={endpoint.temperature}
+              onChange={(e) => onChange({ temperature: parseFloat(e.target.value) })}
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
+              {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              Test
+            </Button>
+          </div>
+
+          {testMessage && (
+            <p className="text-sm text-green-700 dark:text-green-400">{testMessage}</p>
+          )}
+          {testError && (
+            <p className="text-sm text-destructive">{testError}</p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function Config() {
-  const { config, updateConfig, testLlmConnection, isTesting } = useConfig();
+  const { config, updateConfig } = useConfig();
+  const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
   const handleTest = async () => {
     setTestMessage(null);
     setTestError(null);
-    try {
-      const reply = await testLlmConnection();
-      setTestMessage(`Connection OK. Model replied: "${reply}"`);
-    } catch (err) {
-      setTestError(err instanceof Error ? err.message : "Connection test failed.");
+    setTesting(true);
+    const { testConnection } = await import("../services/llmService");
+    const testBoth = config.secondaryUse !== "never";
+    const results: string[] = [];
+    const errors: string[] = [];
+
+    for (const ep of testBoth
+      ? [config.primary, config.secondary]
+      : [config.primary]
+    ) {
+      try {
+        const reply = await testConnection(ep);
+        results.push(`${ep.label} (${ep.model}): OK ("${reply}")`);
+      } catch (err) {
+        errors.push(`${ep.label}: ${err instanceof Error ? err.message : "Failed"}`);
+      }
     }
+
+    if (results.length > 0) setTestMessage(results.join("\n"));
+    if (errors.length > 0) setTestError(errors.join("\n"));
+    setTesting(false);
   };
 
-  const defaultServerUrl =
-    config.provider === "lmstudio" ? "/api/lmstudio" : "/api/ollama";
+  const updatePrimary = (patch: Partial<ModelEndpoint>) => {
+    updateConfig({ primary: { ...config.primary, ...patch } });
+  };
+
+  const updateSecondary = (patch: Partial<ModelEndpoint>) => {
+    updateConfig({ secondary: { ...config.secondary, ...patch } });
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -46,7 +246,7 @@ export function Config() {
             <div>
               <h1 className="text-xl font-semibold">Settings</h1>
               <p className="text-sm text-muted-foreground">
-                Changes are saved automatically
+                Changes saved automatically
               </p>
             </div>
           </div>
@@ -55,95 +255,64 @@ export function Config() {
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Zap className="w-5 h-5 text-orange-500" />
               <h2 className="text-lg font-semibold">LLM Provider</h2>
             </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              MVP uses local models only. In dev, use the proxy paths{" "}
-              <code className="text-xs">/api/lmstudio</code> or{" "}
-              <code className="text-xs">/api/ollama</code> to avoid browser CORS issues.
-            </p>
 
-            <div className="space-y-6">
-              <div>
-                <Label className="mb-2 block">Provider</Label>
+            <div className="space-y-4">
+              <ModelEndpointCard
+                label="Primary Model"
+                endpoint={config.primary}
+                onChange={updatePrimary}
+              />
+
+              <ModelEndpointCard
+                label="Secondary Model"
+                endpoint={config.secondary}
+                onChange={updateSecondary}
+              />
+
+              <div className="flex items-center justify-between border-t pt-4">
+                <div>
+                  <Label className="mb-1 block">Secondary Use</Label>
+                  <p className="text-xs text-muted-foreground">
+                    How should the secondary model be used?
+                  </p>
+                </div>
                 <Select
-                  value={config.provider}
-                  onValueChange={(value) =>
-                    updateConfig({
-                      provider: value as LocalLlmProvider,
-                      serverUrl: value === "lmstudio" ? "/api/lmstudio" : "/api/ollama",
-                    })
-                  }
+                  value={config.secondaryUse}
+                  onValueChange={(v) => updateConfig({ secondaryUse: v as SecondaryUse })}
                 >
-                  <SelectTrigger className="bg-input-background">
+                  <SelectTrigger className="w-[180px] bg-input-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="lmstudio">LMStudio</SelectItem>
-                    <SelectItem value="ollama">Ollama</SelectItem>
+                    {SECONDARY_USE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                {SECONDARY_USE_OPTIONS.find((o) => o.value === config.secondaryUse)?.desc}
+              </p>
 
-              <div>
-                <Label className="mb-2 block">Server URL</Label>
-                <Input
-                  type="text"
-                  value={config.serverUrl}
-                  onChange={(e) => updateConfig({ serverUrl: e.target.value })}
-                  placeholder={defaultServerUrl}
-                  className="bg-input-background border-border"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Dev default proxies to your LAN LMStudio at 192.168.8.171:1234. Use a
-                  full URL only if CORS is enabled on the server.
-                </p>
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Model</Label>
-                <Input
-                  type="text"
-                  value={config.model}
-                  onChange={(e) => updateConfig({ model: e.target.value })}
-                  placeholder="google/gemma-4-e2b"
-                  className="bg-input-background border-border"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Must match the model id loaded in LMStudio or pulled in Ollama.
-                </p>
-              </div>
-
-              <div>
-                <Label className="mb-2 block">
-                  Temperature: {config.temperature.toFixed(1)}
-                </Label>
-                <Input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={config.temperature}
-                  onChange={(e) =>
-                    updateConfig({ temperature: parseFloat(e.target.value) })
-                  }
-                  className="w-full"
-                />
-              </div>
-
-              <div className="flex gap-2 items-center">
-                <Button variant="outline" onClick={handleTest} disabled={isTesting}>
-                  {isTesting ? (
+              <div className="flex gap-2 items-center pt-2 border-t">
+                <Button variant="outline" onClick={handleTest} disabled={testing}>
+                  {testing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Testing...
+                      Testing models...
                     </>
                   ) : (
-                    "Test connection"
+                    <>
+                      <Zap className="w-4 h-4" />
+                      Test Models
+                    </>
                   )}
                 </Button>
               </div>
@@ -198,7 +367,6 @@ export function Config() {
               />
             </div>
           </Card>
-
         </div>
       </div>
     </div>

@@ -31,7 +31,7 @@ Up to **3 local profiles**, each with its own master profile, LLM settings, them
 
 ### Settings
 
-- **LLM Provider:** LMStudio or Ollama
+- **LLM Provider:** Dual model slots (primary + secondary), each configurable with provider (OpenAI-compatible, Anthropic Claude, Google Gemini), base URL, API key, model, temperature. Secondary routing: never, fallback, quick-tasks, always.
 - **General:** light/dark theme and auto-save (per active profile)
 
 ## Run locally
@@ -43,10 +43,12 @@ npm run dev
 
 ### Default LLM (dev)
 
-Default server URL is `http://192.168.8.171:1234` with model `google/gemma-4-e2b`. Change in **Settings** if your setup differs.
+Default primary uses proxy path `/api/lmstudio` (handled by Vite dev server), model `google/gemma-4-e2b`. Default secondary uses `/api/ollama`, model `llama3.2:3b`. Change in **Settings** if your setup differs.
+
+For local servers with CORS disabled, use the Vite proxy paths (`/api/lmstudio`, `/api/ollama`). For cloud APIs (OpenRouter, OpenAI, Anthropic), use direct URLs with API keys.
 
 1. Start LMStudio with the model loaded and the server enabled.
-2. Open **Settings** → **Test connection**.
+2. Open **Settings** → **Test Models**.
 3. Edit **Profile**, then run **Job Analysis** on the Analysis Hub.
 
 Data stays in the browser (IndexedDB) unless you export `.md` files.
@@ -98,20 +100,21 @@ Then in `chrome://extensions` → **Load unpacked** → select `dist-ext/`.
 | CV/CL builder AI chat for modifications | Done |
 | 10 prompt optimization modes (prompts.ts) | Done |
 | Centralized error codes + retry strategies | Done |
-| 62 automated tests (vitest) | Done |
+| 63 automated tests (vitest) | Done |
 
 ## Roadmap
 
 | Feature | Sprint | Status |
 |---------|--------|--------|
 | IndexedDB migration (Dexie.js) | 6 | Done |
-| LinkedIn job import (Chrome Extension) | 6b | **Done** |
-| Application Kanban (pipeline tracker) | 8 | **Planned** |
-| Email fetch for status checking | 8 | **Planned** |
-| Outreach message generator | 9 | **Planned** |
-| Cloud LLM fallback (OpenAI/Anthropic) | 10 | **Planned** |
-| Interview simulator (STAR + technical) | 11 | **Future** |
-| Desktop app (Tauri) + buy-once license | 12 | **Future** |
+| LinkedIn job import (Chrome Extension) | 7 | **Done** |
+| Multi-provider LLM config | 8 | **Done** |
+| Direct download (WebLLM in-browser) | 9 | **Planned** |
+| Code revision & cleanup | 9a | **Planned** |
+| Application Kanban (pipeline tracker) | 10 | **Planned** |
+| Outreach message generator | 11 | **Planned** |
+| Interview simulator (STAR + technical) | 12 | **Future** |
+| Desktop app (Tauri) + buy-once license | 13 | **Future** |
 
 ## Routes
 
@@ -126,7 +129,7 @@ Then in `chrome://extensions` → **Load unpacked** → select `dist-ext/`.
 ## Tech stack
 
 - **UI:** React 18, Vite, Tailwind CSS, shadcn/ui, React Router v7
-- **AI:** `fetch` to local LMStudio (OpenAI-compatible) or Ollama chat APIs
+- **AI:** Provider adapter layer supporting OpenAI-compatible, Anthropic Claude, and Google Gemini APIs. Fallback routing between two independently configured model slots.
 - **Persistence:** `IndexedDB` via Dexie.js (with automatic migration from `localStorage` on first load)
 - **Testing:** vitest with jsdom (62 tests across 9 files)
 

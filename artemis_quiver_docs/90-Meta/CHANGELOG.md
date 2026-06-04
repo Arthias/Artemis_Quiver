@@ -1,7 +1,7 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-06-03
+last_updated: 2026-06-04
 ---
 
 # Changelog
@@ -9,10 +9,50 @@ last_updated: 2026-06-03
 ## [v3.0.0] - June 4, 2026
 
 ### Features
+- **Multi-Provider LLM Architecture** — Replaced single-provider config with `ProviderAdapter` interface supporting OpenAI-compatible, Anthropic, and Google Gemini providers. Each adapter implements `chatCompletion()`, `listModels()`, and `testConnection()`.
+- **Dual Model Slots** — `LlmConfig` now has `primary` and `secondary` `ModelEndpoint` slots, each independently configurable with different provider types, base URLs, API keys, model names, and temperatures.
+- **Secondary Routing Strategies** — Configurable via `secondaryUse`: `"never"` (use primary always), `"fallback"` (retry secondary on primary failure), `"quick-tasks"` (classification/scoring to secondary), `"always"` (use secondary always).
+- **Config UI Revamp** — Dual collapsible model cards with provider selector, base URL, API key (always visible, blank for local servers), model list pull button (toggles open/close, closes on selection), temperature slider, and per-card test connection.
+- **Provider Adapter Layer** — `src/app/services/provider/` with `ProviderAdapter.ts` (interface), `OpenAICompatibleAdapter.ts` (covers LMStudio, Ollama, OpenAI, Groq, Together, Gemini compat), `AnthropicAdapter.ts` (native Claude Messages API), `GeminiAdapter.ts` (native Gemini API), and `registry.ts` (factory).
+- **Legacy Config Migration** — `fixLegacyEndpoint` in `WorkspaceProfileContext` auto-converts stored IP URLs (`http://192.168.8.171:1234` → `/api/lmstudio`) and strips provider labels from endpoint names on load.
+
+### Bug Fixes
+- **CORS on LM Studio** — Default `baseUrl` reverted to Vite proxy paths (`/api/lmstudio`, `/api/ollama`) instead of direct IPs. Users can enable CORS in LM Studio or use proxy paths in dev mode.
+- **Settings page crash on old profiles** — Added `normalizeSettings()` that converts old flat-format `LlmConfig` to new dual-slot `{ primary, secondary }` shape on load, preventing `Cannot read properties of undefined (reading 'provider')`.
+- **Model list dropdown persistence** — Clicking the list button now toggles the dropdown; selecting a model closes it.
+
+### Files Created
+- `src/app/services/provider/ProviderAdapter.ts` — Adapter interface
+- `src/app/services/provider/OpenAICompatibleAdapter.ts` — OpenAI-compatible provider
+- `src/app/services/provider/AnthropicAdapter.ts` — Anthropic Claude provider
+- `src/app/services/provider/GeminiAdapter.ts` — Google Gemini provider
+- `src/app/services/provider/registry.ts` — Provider registry factory
+- `src/app/services/provider/index.ts` — Barrel export
+
+### Files Modified
+- `src/app/types/llm.ts` — `ProviderType`, `ModelEndpoint`, dual-slot `LlmConfig`, `SecondaryUse`, generic default labels
+- `src/app/types/workspace.ts` — `ProfileSettings extends LlmConfig` (inherits dual-slot)
+- `src/app/config/defaults.ts` — `DEFAULT_LLM_CONFIG` with `primary`/`secondary` endpoints, proxy path defaults
+- `src/app/services/llmService.ts` — Delegates to adapters, exports `getActiveEndpoint()`, `chatCompletionWithFallback()`
+- `src/app/services/jobAnalysisService.ts` — Takes `ModelEndpoint` instead of `LlmConfig`
+- `src/app/services/cvBuilderService.ts` — Takes `ModelEndpoint` instead of `LlmConfig`
+- `src/app/services/clBuilderService.ts` — Takes `ModelEndpoint` instead of `LlmConfig`
+- `src/app/services/profileChatService.ts` — Takes `ModelEndpoint` instead of `LlmConfig`
+- `src/app/services/profileMergeService.ts` — Takes `ModelEndpoint` instead of `LlmConfig`
+- `src/app/pages/Config.tsx` — Dual model cards, API key field always visible, toggleable model list, test both models button
+- `src/app/pages/CLBuilder.tsx` — Uses `getActiveEndpoint()`
+- `src/app/pages/CVBuilder.tsx` — Uses `getActiveEndpoint()`
+- `src/app/pages/Profile.tsx` — Uses `getActiveEndpoint()`
+- `src/app/context/ConfigContext.tsx` — Uses `getActiveEndpoint()` for test connection
+- `src/app/context/AnalysisContext.tsx` — Uses `getActiveEndpoint()`
+- `src/app/context/WorkspaceProfileContext.tsx` — `normalizeSettings()` + `fixLegacyEndpoint()` for auto-migration
+- `src/app/db/migrations.ts` — `upgradeOldConfig()` preserves baseUrl as-is, uses generic label
+- `src/app/services/__tests__/llmService.test.ts` — Rewritten for adapter-based routing
+- All other test files — Updated mock configs to `ModelEndpoint`
+
 - **Chrome Extension (MV3)** — One-click job import from any page. Click the extension icon on a job posting to extract the content and pre-fill it in the Analysis Hub textarea.
 - **LinkedIn smart extraction** — Uses `MutationObserver` to wait for async job details, then trims content boundaries ("About the job" … "About the company") for clean job descriptions.
 - **Hash router for extension** — `createHashRouter` replaces `createBrowserRouter` so the app works under `chrome-extension://` URLs.
-- **Absolute server URL** — Default LLM URL changed from proxy (`/api/lmstudio`) to direct (`http://192.168.8.171:1234`) so extension pages bypass Vite's dev-only proxy.
 - **`useExtensionImport` hook** — React hook that listens for `chrome.runtime.onMessage` and `chrome.storage.session` to receive imported job postings.
 - **Separate extension build** — `vite.ext.config.ts` builds app + background script into `dist-ext/`; `npm run build:ext` produces the loadable extension.
 
@@ -29,12 +69,10 @@ last_updated: 2026-06-03
 - `src/app/routes.tsx` — `createBrowserRouter` → `createHashRouter`
 - `src/extension/background.ts` — `chrome.runtime.getURL("index.html")` for explicit file
 - `src/app/pages/AnalysisHub.tsx` — Wired `useExtensionImport` hook
-- `src/app/config/defaults.ts` — Absolute `serverUrl` instead of Vite proxy path
 - `src/app/utils/clParser.ts` — Fixed `closingIdx` variable scope
 
 ### Breaking Changes
 - **Router changed from browser to hash router** — If you had deep-linked URLs, the format changed from `/profile` to `/#/profile`.
-- **Direct LLM server URL** — The Vite `/api/lmstudio` proxy is no longer the default. Dev server still works via the absolute URL (or you can set `/api/lmstudio` back in Settings).
 
 ### Features
 - **IndexedDB Storage (Dexie.js)** — Migrated the client persistence layer from size-limited `localStorage` to IndexedDB using Dexie.js. Decoupled `analysisSessions` from the profile blobs to support database indexing, speed up session-switches, and enable future relational pipeline and tracker integrations.

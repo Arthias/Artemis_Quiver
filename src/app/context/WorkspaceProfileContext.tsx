@@ -13,6 +13,7 @@ import type {
   WorkspaceManifest,
   WorkspaceProfileMeta,
 } from "../types/workspace";
+import { upgradeOldConfig } from "../db/migrations";
 import { applyTheme } from "../utils/theme";
 import {
   createEmptyProfileData,
@@ -29,6 +30,34 @@ import {
   migrateFromLocalStorage,
 } from "../db";
 import { Loader2 } from "lucide-react";
+
+function normalizeSettings(raw: unknown): ProfileSettings {
+  if (raw && typeof raw === "object" && "primary" in raw) {
+    const s = raw as ProfileSettings;
+    return {
+      ...s,
+      primary: fixLegacyEndpoint(s.primary),
+      secondary: fixLegacyEndpoint(s.secondary),
+    };
+  }
+  const old = (raw ?? {}) as Record<string, unknown>;
+  return upgradeOldConfig({
+    provider: old.provider as string | undefined,
+    serverUrl: old.serverUrl as string | undefined,
+    model: old.model as string | undefined,
+    temperature: old.temperature as number | undefined,
+    autoSaveProfile: old.autoSaveProfile as boolean | undefined,
+    theme: old.theme as string | undefined,
+  });
+}
+
+function fixLegacyEndpoint<T extends { baseUrl: string; label: string }>(ep: T): T {
+  let { label, baseUrl } = ep;
+  if (baseUrl === "http://192.168.8.171:1234") baseUrl = "/api/lmstudio";
+  if (baseUrl === "http://localhost:11434") baseUrl = "/api/ollama";
+  label = label.replace(/ \(LMStudio\)| \(Ollama\)/g, "");
+  return { ...ep, label, baseUrl };
+}
 
 interface WorkspaceProfileContextValue {
   manifest: WorkspaceManifest;
@@ -82,15 +111,16 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
           })),
         });
 
+        const settings = normalizeSettings(loadedData.settings);
         setProfileData({
           profileMarkdown: loadedData.profileMarkdown,
-          settings: loadedData.settings,
+          settings,
           analysisSessions: [], // Decoupled/handled in AnalysisContext
           draftJobPosting: loadedData.draftJobPosting,
           profileChat: loadedData.profileChat,
         });
 
-        applyTheme(loadedData.settings.theme);
+        applyTheme(settings.theme);
       } catch (err) {
         console.error("[WorkspaceProfileContext] Init error:", err);
       } finally {

@@ -2,6 +2,34 @@ import { db } from "./schema";
 import { STORAGE_KEYS, LEGACY_STORAGE_KEYS, DEFAULT_PROFILE_MARKDOWN, DEFAULT_LLM_CONFIG } from "../config/defaults";
 import { getInitialTheme } from "../utils/theme";
 import type { WorkspaceManifest, ProfileWorkspaceData, ProfileSettings } from "../types/workspace";
+import type { ProviderType } from "../types/llm";
+
+export interface OldLlmConfig {
+  provider?: string;
+  serverUrl?: string;
+  model?: string;
+  temperature?: number;
+  autoSaveProfile?: boolean;
+  theme?: string;
+}
+
+export function upgradeOldConfig(old: OldLlmConfig): ProfileSettings {
+  const primary = {
+    label: "Primary",
+    provider: "openai-compatible" as ProviderType,
+    baseUrl: old.serverUrl ?? DEFAULT_LLM_CONFIG.primary.baseUrl,
+    model: old.model ?? DEFAULT_LLM_CONFIG.primary.model,
+    temperature: old.temperature ?? DEFAULT_LLM_CONFIG.primary.temperature,
+  };
+  const secondary = { ...DEFAULT_LLM_CONFIG.secondary };
+  return {
+    ...DEFAULT_LLM_CONFIG,
+    primary,
+    secondary,
+    autoSaveProfile: old.autoSaveProfile ?? DEFAULT_LLM_CONFIG.autoSaveProfile,
+    theme: old.theme ?? getInitialTheme(),
+  };
+}
 
 // Load JSON helper from localStorage
 function loadLocalStorageJson<T>(key: string, fallback: T): T {
@@ -111,13 +139,8 @@ export async function migrateFromLocalStorage(): Promise<void> {
     const now = new Date().toISOString();
     const profileId = crypto.randomUUID();
 
-    const settings = loadLocalStorageJson<ProfileSettings>(LEGACY_STORAGE_KEYS.llmConfig, {
-      ...DEFAULT_LLM_CONFIG,
-      theme: getInitialTheme(),
-    });
-    if (!settings.theme) {
-      settings.theme = getInitialTheme();
-    }
+    const rawOld = loadLocalStorageJson<OldLlmConfig>(LEGACY_STORAGE_KEYS.llmConfig, {});
+    const settings = upgradeOldConfig(rawOld);
 
     const markdown = localStorage.getItem(LEGACY_STORAGE_KEYS.profile) || DEFAULT_PROFILE_MARKDOWN;
     const draft = localStorage.getItem(LEGACY_STORAGE_KEYS.draftJobPosting) || "";

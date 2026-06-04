@@ -131,7 +131,8 @@ describe("Database Repository & Migration Tests", () => {
       const profile = profiles[0];
       expect(profile.name).toBe("Default");
       expect(profile.profileMarkdown).toBe("# Legacy Profile");
-      expect(profile.settings.provider).toBe("ollama");
+      expect(profile.settings.primary.provider).toBe("openai-compatible");
+      expect(profile.settings.primary.baseUrl).toContain("localhost:11434");
       expect(profile.settings.theme).toBe("light");
       expect(profile.draftJobPosting).toBe("Legacy job description");
 

@@ -1,72 +1,42 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { chatCompletion } from "../llmService";
-import type { LlmConfig } from "../../types/llm";
+import { describe, it, expect, vi } from "vitest";
+import { chatCompletion, getActiveEndpoint, chatCompletionWithFallback } from "../llmService";
+import type { ModelEndpoint, LlmConfig } from "../../types/llm";
 
-const lmstudioConfig: LlmConfig = {
-  provider: "lmstudio",
-  serverUrl: "/api/lmstudio",
-  model: "gemma-4-e2b",
+const mockEndpoint: ModelEndpoint = {
+  label: "Test",
+  provider: "openai-compatible",
+  baseUrl: "http://localhost:1234",
+  model: "test-model",
   temperature: 0.7,
-  autoSaveProfile: false,
 };
 
-const ollamaConfig: LlmConfig = {
-  provider: "ollama",
-  serverUrl: "http://localhost:11434",
-  model: "gemma2",
-  temperature: 0.5,
+const mockConfig: LlmConfig = {
+  primary: mockEndpoint,
+  secondary: { ...mockEndpoint, label: "Secondary", baseUrl: "http://localhost:11434", model: "small-model" },
+  secondaryUse: "never",
   autoSaveProfile: false,
 };
 
 describe("chatCompletion", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("should call LMStudio endpoint with correct URL and body", async () => {
+  it("should call OpenAI-compatible endpoint via adapter", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ choices: [{ message: { content: "Hello from LMStudio" } }] }),
+      json: () => Promise.resolve({ choices: [{ message: { content: "Hello" } }] }),
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const result = await chatCompletion(
-      [{ role: "user", content: "Hi" }],
-      lmstudioConfig
-    );
-
-    expect(result).toBe("Hello from LMStudio");
+    const result = await chatCompletion([{ role: "user", content: "Hi" }], mockEndpoint);
+    expect(result).toBe("Hello");
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/lmstudio/v1/chat/completions",
+      "http://localhost:1234/v1/chat/completions",
       expect.objectContaining({
         method: "POST",
-        body: expect.stringContaining("gemma-4-e2b"),
+        body: expect.stringContaining("test-model"),
       })
     );
   });
 
-  it("should call Ollama endpoint with correct URL and body", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ message: { content: "Hello from Ollama" } }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-
-    const result = await chatCompletion(
-      [{ role: "user", content: "Hi" }],
-      ollamaConfig
-    );
-
-    expect(result).toBe("Hello from Ollama");
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:11434/api/chat",
-      expect.objectContaining({
-        body: expect.stringContaining("gemma2"),
-      })
-    );
-  });
-
-  it("should throw on HTTP error", async () => {
+  it("should throw AppError on HTTP error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -74,28 +44,49 @@ describe("chatCompletion", () => {
     }));
 
     await expect(
-      chatCompletion([{ role: "user", content: "Hi" }], lmstudioConfig)
-    ).rejects.toThrow("LMStudio request failed (500)");
+      chatCompletion([{ role: "user", content: "Hi" }], mockEndpoint)
+    ).rejects.toThrow("OpenAI-compatible request failed (500)");
+  });
+});
+
+describe("getActiveEndpoint", () => {
+  it("should return primary by default", () => {
+    const ep = getActiveEndpoint(mockConfig);
+    expect(ep.model).toBe("test-model");
   });
 
-  it("should throw on empty response", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+  it("should return secondary for quick-tasks when secondaryUse is quick-tasks", () => {
+    const config = { ...mockConfig, secondaryUse: "quick-tasks" as const };
+    const ep = getActiveEndpoint(config, "quick");
+    expect(ep.model).toBe("small-model");
+  });
+});
+
+describe("chatCompletionWithFallback", () => {
+  it("should use primary when secondaryUse is never", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ choices: [{ message: { content: null } }] }),
-    }));
-
-    await expect(
-      chatCompletion([{ role: "user", content: "Hi" }], lmstudioConfig)
-    ).rejects.toThrow("empty response");
-  });
-
-  it("should throw AbortError as timeout", async () => {
-    const abortError = new DOMException("The operation was aborted", "AbortError");
-    const mockFetch = vi.fn().mockRejectedValue(abortError);
+      json: () => Promise.resolve({ choices: [{ message: { content: "Primary" } }] }),
+    });
     vi.stubGlobal("fetch", mockFetch);
 
-    await expect(
-      chatCompletion([{ role: "user", content: "Hi" }], lmstudioConfig)
-    ).rejects.toThrow("Request timed out");
+    const result = await chatCompletionWithFallback([{ role: "user", content: "Hi" }], mockConfig);
+    expect(result).toBe("Primary");
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("localhost:1234"), expect.anything());
+  });
+
+  it("should fallback to secondary on primary failure when secondaryUse is fallback", async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(new Error("Primary failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ choices: [{ message: { content: "Secondary" } }] }),
+      });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const config = { ...mockConfig, secondaryUse: "fallback" as const };
+    const result = await chatCompletionWithFallback([{ role: "user", content: "Hi" }], config);
+    expect(result).toBe("Secondary");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

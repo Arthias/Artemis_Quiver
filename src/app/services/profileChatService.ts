@@ -1,4 +1,4 @@
-import type { ChatMessage, LlmConfig } from "../types/llm";
+import type { ChatMessage, ModelEndpoint } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 
@@ -11,7 +11,7 @@ Do not invent experience. Only use information from the current profile and user
 export async function profileChat(
   messages: ChatMessage[],
   profileMarkdown: string,
-  config: LlmConfig
+  endpoint: ModelEndpoint
 ): Promise<string> {
   try {
     return await chatCompletion(
@@ -19,7 +19,7 @@ export async function profileChat(
         { role: "system", content: `${PROFILE_CHAT_SYSTEM}\n\n## Current profile\n\n${profileMarkdown}` },
         ...messages,
       ],
-      config
+      endpoint
     );
   } catch (err) {
     if (err instanceof AppError) throw err;

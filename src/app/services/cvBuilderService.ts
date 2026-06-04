@@ -1,4 +1,4 @@
-import type { LlmConfig } from "../types/llm";
+import type { ModelEndpoint } from "../types/llm";
 import type { ChatMessage } from "../types/llm";
 import { chatCompletion } from "./llmService";
 import { AppError, ErrorCodes } from "../utils/errors";
@@ -102,7 +102,7 @@ export async function generateCv(
   profileMarkdown: string,
   jobDescription: string | undefined,
   cvRecommendations: string[] | undefined,
-  config: LlmConfig,
+  endpoint: ModelEndpoint,
   options?: GenerateCvOptions
 ): Promise<string> {
   const mode = options?.mode ?? "standard";
@@ -123,7 +123,7 @@ export async function generateCv(
         );
       }
 
-      const raw = await chatCompletion(messages, config);
+      const raw = await chatCompletion(messages, endpoint);
 
       if (!isJsonMode) return raw;
 
@@ -154,7 +154,7 @@ export async function editCv(
   currentCvJson: string,
   userRequest: string,
   profileMarkdown: string,
-  config: LlmConfig
+  endpoint: ModelEndpoint
 ): Promise<string> {
   let lastRaw = "";
   let lastErrorMessage = "";
@@ -173,7 +173,7 @@ export async function editCv(
         );
       }
 
-      const raw = await chatCompletion(messages, config);
+      const raw = await chatCompletion(messages, endpoint);
 
       try {
         return normalizeCvJson(raw);
@@ -201,7 +201,7 @@ export async function editCv(
 export async function optimizeCv(
   profileMarkdown: string,
   mode: OptimizationMode,
-  config: LlmConfig,
+  endpoint: ModelEndpoint,
   context?: Partial<PromptContext>
 ): Promise<string> {
   const ctx: PromptContext = {
@@ -229,6 +229,6 @@ export async function optimizeCv(
       { role: "system", content: systemPrompt },
       { role: "user", content: `## Candidate profile\n\n${profileMarkdown}${contextBlock}` },
     ],
-    config
+    endpoint
   );
 }

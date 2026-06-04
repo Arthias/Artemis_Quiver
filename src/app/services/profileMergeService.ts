@@ -1,4 +1,4 @@
-import type { LlmConfig } from "../types/llm";
+import type { ModelEndpoint } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 
@@ -12,7 +12,7 @@ Rules:
 export async function mergeProfileFromUpload(
   currentProfile: string,
   uploadedText: string,
-  config: LlmConfig
+  endpoint: ModelEndpoint
 ): Promise<string> {
   try {
     const content = await chatCompletion(
@@ -23,7 +23,7 @@ export async function mergeProfileFromUpload(
           content: `## Current profile\n\n${currentProfile}\n\n## Uploaded content\n\n${uploadedText}`,
         },
       ],
-      config
+      endpoint
     );
     return content.trim();
   } catch (err) {

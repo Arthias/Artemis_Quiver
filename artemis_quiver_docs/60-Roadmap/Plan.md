@@ -30,12 +30,13 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 6** | Local Database — IndexedDB Migration | **Done** |
 | **Sprint 6b** | Code Quality & Technical Debt Cleanup | ✅ **Done** |
 | **Sprint 7** | Chrome Extension — One-Click Job Import | **Done** |
-| **Sprint 8b** | New Cleanup & Refinement | **Planned** |
-| **Sprint 8** | Application Kanban — Pipeline Tracker | **Planned** |
-| **Sprint 9** | Outreach Generator — Cold Messages | **Planned** |
-| **Sprint 10** | Cloud LLM Fallback — API Key Support | **Planned** |
-| **Sprint 11** | Interview Simulator — STAR + Technical | **Future** |
-| **Sprint 12** | Desktop App — Tauri Wrap & Monetize | **Future** |
+| **Sprint 8** | LLM Provider Rebuild — Multi-Provider Config | **Done** |
+| **Sprint 9** | Direct Download — WebLLM In-Browser Model | **Planned** |
+| **Sprint 9a** | Code Revision & Cleanup | **Planned** |
+| **Sprint 10** | Application Kanban — Pipeline Tracker | **Planned** |
+| **Sprint 11** | Outreach Generator — Cold Messages | **Planned** |
+| **Sprint 12** | Interview Simulator — STAR + Technical | **Future** |
+| **Sprint 13** | Desktop App — Tauri Wrap & Monetize | **Future** |
 
 ---
 
@@ -210,11 +211,141 @@ Systematic cleanup driven by [Fallow](https://docs.fallow.tools/quickstart) stat
 
 ---
 
-### Sprint 8b — New Cleanup & Refinement (Planned)
+### Sprint 8 — LLM Provider Rebuild: Multi-Provider Config (Done)
 
-Follow-up cleanup Sprint after the Chrome Extension v3.0.0 release.
+Overhauled the LLM configuration and service layer to support any provider, with primary/secondary model slots.
 
-**Goal:** Address new areas of technical debt, improve test coverage, and harden the codebase for the Kanban sprint.
+**Goal:** Users configure any LLM provider (local or cloud) per slot — OpenAI-compatible, Anthropic Claude, Google Gemini — with API keys, model listing, and connection testing.
+
+**Tasks:**
+
+#### Types & Config Model
+- [x] Define `ProviderType` union: `"openai-compatible" | "anthropic" | "google-gemini"`
+- [x] Define `ModelEndpoint` interface: `{ label, provider, baseUrl, apiKey, model, temperature, maxTokens }`
+- [x] Replace flat `LlmConfig` with `{ primary: ModelEndpoint, secondary: ModelEndpoint, secondaryUse: "never" | "fallback" | "quick-tasks" | "always" }`
+- [x] Update defaults in `src/app/config/defaults.ts`
+- [x] Write migration for existing saved configs to new shape
+
+#### Provider Abstraction Layer
+- [x] Create `src/app/services/provider/ProviderAdapter.ts` — interface: `chatCompletion()`, `listModels()`, `testConnection()`
+- [x] Create `src/app/services/provider/OpenAICompatibleAdapter.ts` — covers LMStudio, Ollama (OpenAI compat mode), OpenAI, Google Gemini via OpenAI compat, Groq, Together, etc.
+- [x] Create `src/app/services/provider/AnthropicAdapter.ts` — native Claude Messages API (`POST /v1/messages`)
+- [x] Create `src/app/services/provider/GeminiAdapter.ts` — native Gemini API (optional, OpenAI compat may suffice)
+- [x] Create `src/app/services/provider/registry.ts` — factory that returns the correct adapter for a `ProviderType`
+
+#### Model List API
+- [x] `OpenAICompatibleAdapter.listModels()` — `GET {baseUrl}/v1/models` → extract model IDs
+- [x] `AnthropicAdapter.listModels()` — return empty list (Claude has no public list API; user types manually)
+- [x] `GeminiAdapter.listModels()` — `GET {baseUrl}/v1/models` or native equivalent
+- [x] Wire list button in Config UI — toggleable dropdown, closes on selection
+
+#### Config UI Revamp
+- [x] Two collapsible cards: **Primary Model** + **Secondary Model**
+- [x] Each card: provider dropdown, base URL, API key (always visible, blank for local servers), model selector (text input + list button), temperature slider
+- [x] "Test Models" button — tests primary only if `secondaryUse: "never"`, tests both otherwise
+- [x] "Pull Models" button per slot — fetches and shows model list, closes on select
+- [x] Secondary routing strategy selector (never / fallback / quick-tasks / always)
+
+#### Refactor llmService.ts
+- [x] `chatCompletion()` accepts `ModelEndpoint` instead of `LlmConfig`
+- [x] Routes to correct `ProviderAdapter` via registry
+- [x] All existing service callers (jobAnalysisService, cvBuilderService, etc.) pass their designated endpoint
+- [x] Implement `secondaryUse: "fallback"` — auto-retry primary → secondary on failure
+- [x] Implement `secondaryUse: "quick-tasks"` — classification/scoring to secondary, generation to primary
+
+#### Test Connection
+- [x] Per-adapter `testConnection()` implementation
+- [x] Send minimal ping (e.g. "Reply with 'ok'") with 30s timeout
+- [x] Show success/failure in Config UI with model reply preview
+
+**Key Files Created:**
+- `src/app/services/provider/ProviderAdapter.ts`
+- `src/app/services/provider/OpenAICompatibleAdapter.ts`
+- `src/app/services/provider/AnthropicAdapter.ts`
+- `src/app/services/provider/GeminiAdapter.ts`
+- `src/app/services/provider/registry.ts`
+- `src/app/services/provider/index.ts`
+
+**Key Files Modified:**
+- `src/app/types/llm.ts` — new types
+- `src/app/config/defaults.ts` — new defaults
+- `src/app/services/llmService.ts` — adapter routing
+- `src/app/pages/Config.tsx` — dual-model UI
+- `src/app/context/ConfigContext.tsx` — new config shape
+- `src/app/context/WorkspaceProfileContext.tsx` — normalization
+- `src/app/context/AnalysisContext.tsx` — getActiveEndpoint
+- `src/app/db/migrations.ts` — upgradeOldConfig
+- All service files — ModelEndpoint instead of LlmConfig
+- All test files — ModelEndpoint mocks
+
+**Dependencies:** None (self-contained)
+
+---
+
+### Sprint 9 — Direct Download: WebLLM In-Browser Model (Planned)
+
+Let non-technical users download and run a model directly in the browser via WebLLM, no external server needed.
+
+**Goal:** First-run onboarding offers to download a small model (~2-4 GB) that runs inside the extension via WebGPU.
+
+**Tasks:**
+
+#### WebLLM Integration
+- [ ] Install `@mlc-ai/web-llm` package
+- [ ] Create `src/app/services/provider/WebLLMAdapter.ts`
+  - Wraps `CreateMLCEngine()` / `CreateExtensionServiceWorkerMLCEngine()`
+  - Implements `chatCompletion()`, `listModels()`, `testConnection()`
+  - Stores engine reference in service worker for persistence
+- [ ] Add `"wasm-unsafe-eval"` to extension CSP in `manifest.json`
+- [ ] Verify WebGPU availability on startup (graceful fallback if unavailable)
+
+#### Model Download & Cache
+- [ ] Model catalog for download: Llama 3.2 3B (default, ~2.3 GB), Llama 3.2 1B (fallback, ~880 MB), Qwen2.5 3B (alt, ~2.8 GB), Phi-3.5-mini (alt, ~3.7 GB)
+- [ ] Download UI: model picker with size estimate, progress bar via WebLLM `initProgressCallback`
+- [ ] Cache downloaded models in browser `Cache API` (persistent across restarts)
+- [ ] "Delete model" button to free disk space
+- [ ] Estimate VRAM before loading and warn if insufficient
+
+#### First-Run Onboarding
+- [ ] On first extension install, show onboarding flow:
+  1. "Welcome! Choose how to run AI: Local (download a model) or Remote (connect to existing server)"
+  2. If Local: pick model from catalog, show size estimate, start download
+  3. Progress bar with time estimate
+  4. On complete → test connection, show success
+- [ ] If WebGPU unavailable → hide Local option, prompt Remote
+- [ ] Skip option → user can configure later in Settings
+
+#### Integration with Provider System
+- [ ] WebLLM registers as a provider type (`"webllm"`) in the provider registry
+- [ ] Can be assigned to primary or secondary slot like any other provider
+- [ ] `WebLLMAdapter.listModels()` returns downloaded models
+- [ ] `WebLLMAdapter.testConnection()` runs a quick inference, measures TTFT
+
+#### Edge Cases
+- [ ] Handle page reload — service worker persists engine
+- [ ] Handle browser storage quota exceeded — show error with guidance
+- [ ] Handle model load failure — fall back gracefully
+- [ ] Handle tab close during download — resume on reopen (WebLLM caches partial downloads)
+
+**Key Files to Create:**
+- `src/app/services/provider/WebLLMAdapter.ts`
+- `src/app/components/onboarding/ModelDownloadFlow.tsx`
+- Model catalog config (model list with sizes, VRAM reqs, download URLs)
+
+**Key Files to Modify:**
+- `src/extension/manifest.json` — CSP for wasm-unsafe-eval
+- `src/app/pages/Config.tsx` — WebLLM provider option
+- `src/app/services/provider/registry.ts` — register WebLLM
+
+**Dependencies:** Sprint 8a (provider abstraction layer)
+
+---
+
+### Sprint 9a — Code Revision & Cleanup (Planned)
+
+Pre-Kanban code hardening sprint.
+
+**Goal:** Address technical debt, improve test coverage, tighten types, and harden the codebase before building the Kanban pipeline tracker.
 
 **Tasks:**
 
@@ -246,11 +377,11 @@ Follow-up cleanup Sprint after the Chrome Extension v3.0.0 release.
 - `src/app/hooks/useExtensionImport.ts` — tests
 - `vite.config.ts` — lazy-load routes, bundle report
 
-**Dependencies:** Sprint 7 (Chrome Extension is stable)
+**Dependencies:** Sprint 7 (Chrome Extension stable)
 
 ---
 
-### Sprint 8 — Application Kanban (Pipeline Tracker)
+### Sprint 10 — Application Kanban (Pipeline Tracker)
 Visual pipeline for tracking job applications through the hiring stages.
 
 **Goal:** Users manage their full job hunt pipeline — from saved → applied → interviewing → offer → closed.
@@ -292,7 +423,7 @@ Visual pipeline for tracking job applications through the hiring stages.
 - `src/app/pages/Pipeline.tsx`
 - `src/app/services/emailFetchService.ts`
 
-**Dependencies:** Sprint 6 (IndexedDB), Sprint 7 (URL→App auto-create)
+**Dependencies:** Sprint 6 (IndexedDB), Sprint 9a (cleanup complete)
 
 ---
 
