@@ -28,7 +28,7 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 4b** | Prompt Engineering & Optimization Modes | **Done** |
 | **Sprint 5** | Feature Polish (Follow-up Chat + MD Preview) | **Done** |
 | **Sprint 6** | Local Database — IndexedDB Migration | **Done** |
-| **Sprint 6b** | Code Quality & Technical Debt Cleanup | **Active** |
+| **Sprint 6b** | Code Quality & Technical Debt Cleanup | **Done** |
 | **Sprint 7** | URL Input — Frictionless Job Import | **Planned** |
 | **Sprint 8** | Application Kanban — Pipeline Tracker | **Planned** |
 | **Sprint 9** | Outreach Generator — Cold Messages | **Planned** |
