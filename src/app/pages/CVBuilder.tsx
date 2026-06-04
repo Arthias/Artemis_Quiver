@@ -12,7 +12,7 @@ import type { CVContent, ThemeConfig } from "../types/cv";
 import { renderCVToHTML } from "../../components/cv/renderingEngine";
 import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
 import { extractJsonObject } from "../utils/jsonParse";
-import { AppError, ErrorCodes } from "../utils/errors";
+import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 
 const CV_SUGGESTIONS = [

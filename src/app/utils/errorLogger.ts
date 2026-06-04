@@ -31,12 +31,4 @@ export function logAppError(err: unknown, context?: Record<string, unknown>): vo
   console.error(`${LOG_PREFIX} [Unknown]`, { value: String(err), context });
 }
 
-export function withErrorLogging<T>(
-  fn: () => Promise<T>,
-  context?: Record<string, unknown>,
-): Promise<T> {
-  return fn().catch((err) => {
-    logAppError(err, context);
-    throw err;
-  });
-}
+

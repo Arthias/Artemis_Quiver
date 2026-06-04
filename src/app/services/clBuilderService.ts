@@ -3,7 +3,6 @@ import type { ChatMessage } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 import { clGeneratePrompt, clEditPrompt } from "./prompts";
-import type { CLContent } from "../types/cl";
 
 const MAX_RETRIES = 3;
 
@@ -141,5 +140,4 @@ export async function editCoverLetter(
   throw new AppError(ErrorCodes.UNKNOWN, "Cover letter edit failed unexpectedly.");
 }
 
-export { parseClJson };
-export type { CLContent } from "../types/cl";
+export type { CLContent } from "../../types/cl";

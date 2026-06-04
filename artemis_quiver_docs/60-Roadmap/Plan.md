@@ -28,6 +28,7 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 4b** | Prompt Engineering & Optimization Modes | **Done** |
 | **Sprint 5** | Feature Polish (Follow-up Chat + MD Preview) | **Done** |
 | **Sprint 6** | Local Database — IndexedDB Migration | **Done** |
+| **Sprint 6b** | Code Quality & Technical Debt Cleanup | **Active** |
 | **Sprint 7** | URL Input — Frictionless Job Import | **Planned** |
 | **Sprint 8** | Application Kanban — Pipeline Tracker | **Planned** |
 | **Sprint 9** | Outreach Generator — Cold Messages | **Planned** |
@@ -102,6 +103,82 @@ Replaces localStorage with Dexie.js (IndexedDB wrapper) for scalable local persi
 - `src/app/db/interviewRepo.ts`
 - `src/app/db/templateRepo.ts`
 - `src/app/db/index.ts`
+
+---
+
+### Sprint 6b — Code Quality & Technical Debt Cleanup (Active)
+
+Systematic cleanup driven by [Fallow](https://docs.fallow.tools/quickstart) static analysis. Results from `npx fallow` (v2.88.2): 121 files analyzed, 14 entry points, 128 dead-code issues, 18 clone groups, 55 complexity hotspots.
+
+**Goal:** Reduce dead code, eliminate duplication, and lower complexity before feature work resumes.
+
+**Tasks:**
+
+#### Dead Code — Unused Files (39 files)
+- [ ] **Remove 29 unused shadcn/ui components** (not imported anywhere): accordion, alert-dialog, alert, aspect-ratio, avatar, breadcrumb, calendar, carousel, chart, checkbox, collapsible, command, context-menu, drawer, dropdown-menu, form, hover-card, input-otp, menubar, navigation-menu, pagination, popover, progress, radio-group, resizable, scroll-area, select, separator, sheet, skeleton, slider, switch, table, tabs, textarea, toggle, toggle-group, tooltip
+- [ ] **Remove `default_shadcn_theme.css`** — unused root-level CSS
+- [ ] **Remove `src/app/components/figma/ImageWithFallback.tsx`** — unused Figma component
+- [ ] **Verify remaining unused files** before deletion (confirm no runtime need)
+
+#### Dead Code — Unused Exports (52 exports)
+- [ ] **Prune `prompts.ts`** (12 unused): `cvGeneratePrompt`, `summaryRewritePrompt`, `bulletOptimizePrompt`, `atsOptimizePrompt`, `careerTransitionPrompt`, and 7 more
+- [ ] **Prune `workspaceStorage.ts`** (7 unused): `profileDataKey`, `createDefaultSettings`, `loadProfileData`, `saveProfileData`, `loadManifest`, and 2 more
+- [ ] **Prune `card.tsx`** (6 unused exports), **`select.tsx`** (5), **`dialog.tsx`** (4)
+- [ ] **Prune `errors.ts`** (3 unused): `ErrorDomain`, `ErrorSeverity`, `ERROR_CATALOG`
+- [ ] **Prune `sessionRepo.ts`** (2 unused): `getSession`, `deleteSessionsForProfile`
+- [ ] **Prune `badge.tsx`** — `badgeVariants` unused
+- [ ] **Prune type exports** (5 unused): re-exports in `db/index.ts`, `clBuilderService.ts` `CLContent`, `types/cv.ts` `CVSection`
+- [ ] **Review remaining 6 files** with partial unused exports
+
+#### Dead Code — Unused Dependencies (13 packages)
+- [ ] **Remove unused npm packages:** `@emotion/react`, `@emotion/styled`, `@mui/icons-material`, `@mui/material`, `@popperjs/core`, `canvas-confetti`, `dexie-react-hooks`, `motion`, `react-dnd`, `react-dnd-html5-backend`, and 3 more (run `npx fallow dead-code --format json` for full list)
+
+#### Dead Code — Broken Imports
+- [ ] **Fix unresolved imports** in `clBuilderService.ts` (`:6 ../types/cl` and `:145 ../types/cl`)
+- [ ] **Resolve duplicate export** `CLContent` in `clBuilderService.ts` ↔ `src/types/cl.ts`
+
+#### Duplication — 18 Clone Groups (716 lines, 5.5%)
+- [ ] **CLBuilder ↔ CVBuilder** (7 groups, 150 lines): Extract shared state initialization, PDF print logic, theme picker, error display, and markdown download into shared hooks/components
+- [ ] **InteractiveCVPreview ↔ InteractiveCLPreview** (1 group, 79 lines): Extract shared preview rendering logic
+- [ ] **InteractiveCVPreview self-duplication** (3 groups, 38 lines): Extract repeated inline editing logic
+- [ ] **cvBuilderService.ts self-duplication** (2 groups, 21 lines): Extract `normalizeSection` repeated patterns
+- [ ] **clBuilderService.ts self-duplication** (2 groups, 20 lines): Extract repetitive section processing
+- [ ] **llmService.ts** (2 groups, 19 lines): Extract shared API call boilerplate
+- [ ] **Test file duplication** (1 group, 17 lines): Extract shared test setup/mocks in `__tests__/profileChatService.test.ts` and `profileMergeService.test.ts`
+
+#### Complexity — Large Functions (10 over 60 lines)
+- [ ] **Refactor `AnalysisHub.tsx`** (417 lines) — split into sub-components
+- [ ] **Refactor `CVBuilder.tsx`** (380 lines) — split into sub-components
+- [ ] **Refactor `CLBuilder.tsx`** (378 lines) — split into sub-components
+- [ ] **Refactor `WorkspaceProfileContext.tsx`** (337 lines) — split provider logic
+- [ ] **Refactor `Profile.tsx`** (316 lines) — split into sub-components
+- [ ] **Refactor `InteractiveCVPreview.tsx`** (260 lines) — split inline editing
+- [ ] **Refactor `renderingEngine.ts` `renderCVToHTML`** (233 lines) — break into focused functions
+- [ ] **Refactor `AnalysisContext.tsx`** (216 lines) — split provider logic
+
+#### Complexity — High Complexity Functions (55 total)
+- [ ] **Refactor `clParser.ts:parsePlainTextToCLContent`** (51 cyclomatic, 109 cognitive, CRITICAL)
+- [ ] **Refactor `renderingEngine.ts:renderCVToHTML`** (43 cyclomatic, 65 cognitive, CRITICAL)
+- [ ] **Refactor `migrations.ts:migrateFromLocalStorage`** (34 cyclomatic, 51 cognitive, CRITICAL)
+- [ ] **Refactor `InteractiveCVPreview.tsx:InteractiveCVPreview`** (22 cyclomatic, CRITICAL CRAP)
+- [ ] **Refactor `llmService.ts:chatCompletion`** (21 cyclomatic, HIGH)
+- [ ] **Refactor `chart.tsx`** (4 critical/high functions, 20/16/16/12 cyclomatic)
+- [ ] **Refactor `cvBuilderService.ts:normalizeSection`** (19 cyclomatic, HIGH)
+- [ ] **Refactor `jobAnalysisService.ts:validateAnalysisResult`** (14 cyclomatic, HIGH)
+- [ ] **Refactor `prompts.ts:classifyEditIntent`** (13 cyclomatic, HIGH)
+- [ ] **Address remaining 46 high-complexity functions** (see `npx fallow health`)
+
+#### Complexity — Refactoring Targets (34 targets)
+- [ ] **5 low-effort wins:** Remove 100% dead exports from `hover-card.tsx`, `resizable.tsx`, `avatar.tsx`, `collapsible.tsx`, `alert.tsx`
+- [ ] **26 medium-effort:** Extract shared logic from `cvBuilderService.ts`, `card.tsx`, `chart.tsx`, `workspaceStorage.ts`, `sheet.tsx`, and 21 more
+- [ ] **3 high-effort:** Major extraction from `InteractiveCVPreview.tsx`, `CVBuilder.tsx`, `CLBuilder.tsx`
+
+**Key Files to Delete (after verification):**
+- `default_shadcn_theme.css`
+- `src/app/components/figma/ImageWithFallback.tsx`
+- 29 unused shadcn/ui components in `src/app/components/ui/`
+
+**Dependencies:** None (self-contained cleanup)
 
 ---
 
