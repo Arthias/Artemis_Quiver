@@ -1,7 +1,7 @@
 ---
 tags: [roadmap, planning, backlog]
 status: planning  
-last_updated: 2026-06-03
+last_updated: 2026-06-04
 ---
 
 # Development Plan & Sprint Backlog
@@ -29,7 +29,7 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 5** | Feature Polish (Follow-up Chat + MD Preview) | **Done** |
 | **Sprint 6** | Local Database — IndexedDB Migration | **Done** |
 | **Sprint 6b** | Code Quality & Technical Debt Cleanup | **Done** |
-| **Sprint 7** | URL Input — Frictionless Job Import | **Planned** |
+| **Sprint 7** | Chrome Extension — One-Click Job Import | **Done** |
 | **Sprint 8** | Application Kanban — Pipeline Tracker | **Planned** |
 | **Sprint 9** | Outreach Generator — Cold Messages | **Planned** |
 | **Sprint 10** | Cloud LLM Fallback — API Key Support | **Planned** |
@@ -182,31 +182,35 @@ Systematic cleanup driven by [Fallow](https://docs.fallow.tools/quickstart) stat
 
 ---
 
-### Sprint 7 — Frictionless Job Import (URL → Markdown)
-Eliminates the copy-paste friction for importing job postings.
+### Sprint 7 — Chrome Extension: One-Click Job Import (Done)
 
-**Goal:** User pastes a URL, app fetches the job posting as clean markdown.
+**Goal:** Click extension icon on any job page → extract content → pre-fill in Analysis Hub.
 
 **Tasks:**
-- [ ] Create `src/app/services/jobFetchService.ts` — URL→Markdown via Jina Reader API (`https://r.jina.ai/<url>`)
-- [ ] Add URL input field next to existing textarea in Analysis Hub
-- [ ] Auto-detect paste: if input looks like a URL, trigger fetch
-- [ ] Loading state while fetching + error handling for bad URLs / rate limits
-- [ ] Fallback: if fetch fails, show textarea for manual paste
-- [ ] Bookmarklet generator: inline script users drag to bookmarks bar
-- [ ] Bookmarklet code: extracts visible text from current page, sends to `localhost:5173/api/import` via beacon/navigator.sendBeacon
-- [ ] Create dev endpoint `POST /api/import` in Vite proxy/mock handler
-- [ ] Cache fetched results in IndexedDB (avoid re-fetching same URL)
-- [ ] Optional proxy binary (Go/Rust): `artemis-fetcher` standalone, serves `localhost:3791/fetch?url=...`
-- [ ] Test: fetch real LinkedIn/Indeed URLs, verify markdown output
-- [ ] Test: fallback gracefully on blocked domains (e.g. company career pages)
-- [ ] Test: bookmarklet extraction fidelity
+- [x] Create `src/extension/manifest.json` — Chrome MV3 manifest with scripting, activeTab, storage permissions
+- [x] Create `src/extension/background.ts` — Service worker with `chrome.action.onClicked` → injects extraction via `chrome.scripting.executeScript`
+- [x] Create `src/app/hooks/useExtensionImport.ts` — React hook listening for `chrome.runtime.onMessage` + `chrome.storage.session`
+- [x] Create `vite.ext.config.ts` — Separate Vite build producing `dist-ext/`
+- [x] Switch `createBrowserRouter` → `createHashRouter` for extension pathname compatibility
+- [x] Change default `serverUrl` from Vite proxy (`/api/lmstudio`) to absolute URL (`http://192.168.8.171:1234`)
+- [x] LinkedIn smart extraction: MutationObserver waits for DOM stability, trims content at "About the job" / "About the company" boundaries
+- [x] Non-LinkedIn fallback: instant `document.body.innerText` extraction
+- [x] Wire `useExtensionImport` into `AnalysisHub.tsx` with formatting callback
+- [x] Fix `closingIdx` ReferenceError in `clParser.ts` (hoisted block-scoped variable)
+- [x] Add `build:ext` script to `package.json`, update `.gitignore`
+- [x] Merge ChromExt branch into main
 
-**Key Files to Create:**
-- `src/app/services/jobFetchService.ts`
-- `src/app/utils/bookmarklet.ts`
+**Key Files Created:**
+- `src/extension/manifest.json`
+- `src/extension/background.ts`
+- `src/app/hooks/useExtensionImport.ts`
+- `vite.ext.config.ts`
 
-**Dependencies:** Sprint 6 (IndexedDB for URL cache)
+**Key Files Modified:**
+- `src/app/routes.tsx` — hash router
+- `src/app/config/defaults.ts` — absolute serverUrl
+- `src/app/pages/AnalysisHub.tsx` — extension hook
+- `src/app/utils/clParser.ts` — scope fix
 
 ---
 
@@ -419,7 +423,7 @@ Package as downloadable desktop app with one-time purchase.
 | [profileChatService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/profileChatService.ts) | Prompts local models to suggest segment edits. |
 | [cvBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cvBuilderService.ts) | Orchestrates CV generation and inline edit prompts. |
 | [clBuilderService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/clBuilderService.ts) | Orchestrates Cover Letter generation and inline edit prompts. |
-| [jobFetchService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/jobFetchService.ts) | URL→Markdown via Jina Reader API, bookmarklet, proxy binary. |
+| [useExtensionImport.ts](file:///F:/Dev/Artemis_Quiver/src/app/hooks/useExtensionImport.ts) | React hook for receiving Chrome Extension import data. |
 | [ApplicationContext.tsx](file:///F:/Dev/Artemis_Quiver/src/app/context/ApplicationContext.tsx) | Kanban pipeline state management with Dexie CRUD. |
 | [outreachService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/outreachService.ts) | Cold message generation for LinkedIn, email, follow-ups. |
 | [cloudLlmService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/cloudLlmService.ts) | OpenAI/Anthropic API integration with fallback routing. |

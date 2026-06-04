@@ -43,13 +43,40 @@ npm run dev
 
 ### Default LLM (dev)
 
-Vite proxies `/api/lmstudio` → `http://192.168.8.171:1234` with model `google/gemma-4-e2b`. Change in **Settings** if your setup differs.
+Default server URL is `http://192.168.8.171:1234` with model `google/gemma-4-e2b`. Change in **Settings** if your setup differs.
 
 1. Start LMStudio with the model loaded and the server enabled.
 2. Open **Settings** → **Test connection**.
 3. Edit **Profile**, then run **Job Analysis** on the Analysis Hub.
 
-Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy single-profile data migrates into a “Default” workspace profile on first load.
+Data stays in the browser (IndexedDB) unless you export `.md` files.
+
+---
+
+## Chrome Extension
+
+Artemis Quiver also runs as a **Chrome extension** (Manifest V3). Click the extension icon on any job posting page to extract the content and import it directly into the analysis textarea.
+
+### Build & load
+
+```bash
+npm run build:ext
+```
+
+Then in `chrome://extensions` → **Load unpacked** → select `dist-ext/`.
+
+### How it works
+
+- **Non-LinkedIn pages**: instantly extracts `document.body.innerText`
+- **LinkedIn job pages**: waits for dynamic content to render, then extracts the job description (trimmed of page clutter)
+- The app tab opens with the extracted text pre-filled in the analysis textarea
+
+### Permissions declared
+
+- `scripting` — injects content extraction into the current tab
+- `activeTab` — access only when clicking the extension icon
+- `storage` — passes extracted data to the app page
+- `host_permissions` — `http://192.168.8.171:1234` (LMStudio) and `http://localhost:11434` (Ollama)
 
 ## MVP (implemented)
 
@@ -78,8 +105,7 @@ Data stays in the browser (`localStorage`) unless you export `.md` files. Legacy
 | Feature | Sprint | Status |
 |---------|--------|--------|
 | IndexedDB migration (Dexie.js) | 6 | Done |
-| URL→Markdown job import (Jina Reader) | 7 | **Planned** |
-| Bookmarklet for DOM extraction | 7 | **Planned** |
+| LinkedIn job import (Chrome Extension) | 6b | **Done** |
 | Application Kanban (pipeline tracker) | 8 | **Planned** |
 | Email fetch for status checking | 8 | **Planned** |
 | Outreach message generator | 9 | **Planned** |
