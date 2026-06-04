@@ -1,102 +1,52 @@
-import type { ChatMessage, LlmConfig } from "../types/llm";
-import { AppError, ErrorCodes } from "../utils/errors";
-
-function normalizeBaseUrl(serverUrl: string): string {
-  return serverUrl.replace(/\/+$/, "");
-}
+import type { ChatMessage, LlmConfig, ModelEndpoint } from "../types/llm";
+import { getAdapter } from "./provider";
 
 export async function chatCompletion(
   messages: ChatMessage[],
-  config: LlmConfig,
+  endpoint: ModelEndpoint,
   options?: { timeoutMs?: number }
 ): Promise<string> {
-  const baseUrl = normalizeBaseUrl(config.serverUrl);
-  const timeoutMs = options?.timeoutMs ?? 120_000;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    if (config.provider === "lmstudio") {
-      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: config.model,
-          messages,
-          temperature: config.temperature,
-          stream: false,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        throw new AppError(
-          ErrorCodes.LLM_API_FAILURE,
-          `LMStudio request failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
-        );
-      }
-
-      const data = await response.json();
-      const content = data?.choices?.[0]?.message?.content;
-      if (!content || typeof content !== "string") {
-        throw new AppError(ErrorCodes.LLM_EMPTY_RESPONSE, "LMStudio returned an empty response.");
-      }
-      return content;
-    }
-
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: config.model,
-        messages,
-        stream: false,
-        options: { temperature: config.temperature },
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      throw new AppError(
-        ErrorCodes.LLM_API_FAILURE,
-        `Ollama request failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
-      );
-    }
-
-    const data = await response.json();
-    const content = data?.message?.content;
-    if (!content || typeof content !== "string") {
-      throw new AppError(ErrorCodes.LLM_EMPTY_RESPONSE, "Ollama returned an empty response.");
-    }
-    return content;
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new AppError(ErrorCodes.LLM_TIMEOUT, `Request timed out after ${timeoutMs}ms`);
-    }
-
-    if (error instanceof TypeError && error.message === "fetch failed") {
-      throw new AppError(ErrorCodes.LLM_CONNECTION_REFUSED, error.message);
-    }
-
-    if (error instanceof AppError) throw error;
-    throw new AppError(ErrorCodes.UNKNOWN, error instanceof Error ? error.message : String(error));
-  } finally {
-    clearTimeout(timeout);
-  }
+  const adapter = getAdapter(endpoint.provider);
+  return adapter.chatCompletion(messages, endpoint, options);
 }
 
-export async function testConnection(config: LlmConfig): Promise<string> {
-  const reply = await chatCompletion(
-    [
-      {
-        role: "user",
-        content: 'Reply with exactly the word "ok" and nothing else.',
-      },
-    ],
-    config,
-    { timeoutMs: 30_000 }
-  );
-  return reply.trim().slice(0, 80);
+export async function listModels(endpoint: ModelEndpoint): Promise<string[]> {
+  const adapter = getAdapter(endpoint.provider);
+  return adapter.listModels(endpoint);
+}
+
+export async function testConnection(endpoint: ModelEndpoint): Promise<string> {
+  const adapter = getAdapter(endpoint.provider);
+  return adapter.testConnection(endpoint);
+}
+
+export function getActiveEndpoint(
+  config: LlmConfig,
+  forTask?: "quick"
+): ModelEndpoint {
+  if (forTask === "quick" && config.secondaryUse === "quick-tasks") {
+    return config.secondary;
+  }
+  return config.primary;
+}
+
+export async function chatCompletionWithFallback(
+  messages: ChatMessage[],
+  config: LlmConfig,
+  options?: { timeoutMs?: number; forTask?: "quick" }
+): Promise<string> {
+  const primary = getActiveEndpoint(config, options?.forTask);
+
+  if (config.secondaryUse === "always") {
+    return chatCompletion(messages, config.secondary, options);
+  }
+
+  try {
+    return await chatCompletion(messages, primary, options);
+  } catch (err) {
+    if (config.secondaryUse === "fallback") {
+      return chatCompletion(messages, config.secondary, options);
+    }
+    throw err;
+  }
 }

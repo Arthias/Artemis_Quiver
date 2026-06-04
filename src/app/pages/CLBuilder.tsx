@@ -8,6 +8,7 @@ import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCoverLetter, editCoverLetter } from "../services/clBuilderService";
+import { getActiveEndpoint } from "../services/llmService";
 import type { CLContent } from "../../types/cl";
 import { CLContentSchema } from "../../types/cl";
 import { renderCLToHTML } from "../../components/cv/renderingEngine";
@@ -72,7 +73,7 @@ export function CLBuilder() {
       const content = await generateCoverLetter(
         profile,
         { jobDescription: jobDescription || undefined, companyName, position, seedDraft },
-        config
+        getActiveEndpoint(config)
       );
       const parsed = JSON.parse(content) as CLContent;
       const validated = CLContentSchema.parse(parsed);
@@ -105,7 +106,7 @@ export function CLBuilder() {
     setChatMessage("");
     try {
       const currentJson = JSON.stringify(clContent);
-      const updated = await editCoverLetter(currentJson, text, profile, config);
+      const updated = await editCoverLetter(currentJson, text, profile, getActiveEndpoint(config));
       const parsed = JSON.parse(updated) as CLContent;
       const validated = CLContentSchema.parse(parsed);
       setClContent(validated);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mergeProfileFromUpload } from "../profileMergeService";
-import type { LlmConfig } from "../../types/llm";
+import type { ModelEndpoint } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),
@@ -8,26 +8,26 @@ vi.mock("../llmService", () => ({
 
 import { chatCompletion } from "../llmService";
 
-const mockConfig: LlmConfig = {
-  provider: "lmstudio",
-  serverUrl: "/api/lmstudio",
+const mockEndpoint: ModelEndpoint = {
+  label: "Test",
+  provider: "openai-compatible",
+  baseUrl: "/api/lmstudio",
   model: "test",
   temperature: 0.7,
-  autoSaveProfile: false,
 };
 
 describe("mergeProfileFromUpload", () => {
   it("should return trimmed LLM response", async () => {
     vi.mocked(chatCompletion).mockResolvedValue("# Merged Profile\n\n## Overview\n\nUpdated overview\n");
 
-    const result = await mergeProfileFromUpload("# Current Profile", "Uploaded text", mockConfig);
+    const result = await mergeProfileFromUpload("# Current Profile", "Uploaded text", mockEndpoint);
     expect(result).toBe("# Merged Profile\n\n## Overview\n\nUpdated overview");
   });
 
   it("should pass both current profile and upload to LLM", async () => {
     vi.mocked(chatCompletion).mockResolvedValue("# Merged");
 
-    await mergeProfileFromUpload("# Current", "New content", mockConfig);
+    await mergeProfileFromUpload("# Current", "New content", mockEndpoint);
 
     const calls = vi.mocked(chatCompletion).mock.calls;
     const lastCall = calls[calls.length - 1]!;

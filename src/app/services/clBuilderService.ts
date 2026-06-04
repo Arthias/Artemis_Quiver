@@ -1,4 +1,4 @@
-import type { LlmConfig } from "../types/llm";
+import type { ModelEndpoint } from "../types/llm";
 import type { ChatMessage } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
@@ -35,7 +35,7 @@ function parseClJson(raw: string): string {
 export async function generateCoverLetter(
   profileMarkdown: string,
   options: GenerateCoverLetterOptions,
-  config: LlmConfig
+  endpoint: ModelEndpoint
 ): Promise<string> {
   const company = typeof options.companyName === "string" && options.companyName.trim()
     ? options.companyName.trim() : "the company";
@@ -66,7 +66,7 @@ export async function generateCoverLetter(
         );
       }
 
-      const raw = await chatCompletion(messages, config);
+      const raw = await chatCompletion(messages, endpoint);
 
       try {
         return parseClJson(raw);
@@ -95,7 +95,7 @@ export async function editCoverLetter(
   currentLetterJson: string,
   userRequest: string,
   profileMarkdown: string,
-  config: LlmConfig
+  endpoint: ModelEndpoint
 ): Promise<string> {
   const systemPrompt = clEditPrompt(userRequest);
   let lastRaw = "";
@@ -115,7 +115,7 @@ export async function editCoverLetter(
         );
       }
 
-      const raw = await chatCompletion(messages, config);
+      const raw = await chatCompletion(messages, endpoint);
 
       try {
         return parseClJson(raw);

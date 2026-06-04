@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { ProfileSettings } from "../types/workspace";
-import { testConnection } from "../services/llmService";
+import { testConnection, getActiveEndpoint } from "../services/llmService";
 import { useWorkspace } from "./WorkspaceProfileContext";
 
 interface ConfigContextValue {
@@ -50,7 +50,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const testLlmConnection = useCallback(async () => {
     setIsTesting(true);
     try {
-      return await testConnection(config);
+      return await testConnection(getActiveEndpoint(config));
     } finally {
       setIsTesting(false);
     }

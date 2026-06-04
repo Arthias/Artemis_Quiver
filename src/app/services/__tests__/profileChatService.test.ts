@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { profileChat, extractUpdatedProfile } from "../profileChatService";
-import type { ChatMessage, LlmConfig } from "../../types/llm";
+import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),
@@ -8,12 +8,12 @@ vi.mock("../llmService", () => ({
 
 import { chatCompletion } from "../llmService";
 
-const mockConfig: LlmConfig = {
-  provider: "lmstudio",
-  serverUrl: "/api/lmstudio",
+const mockEndpoint: ModelEndpoint = {
+  label: "Test",
+  provider: "openai-compatible",
+  baseUrl: "/api/lmstudio",
   model: "test",
   temperature: 0.7,
-  autoSaveProfile: false,
 };
 
 describe("profileChat", () => {
@@ -21,7 +21,7 @@ describe("profileChat", () => {
     vi.mocked(chatCompletion).mockResolvedValue("Suggestion text");
 
     const messages: ChatMessage[] = [{ role: "user", content: "Improve my summary" }];
-    const result = await profileChat(messages, "# Current profile", mockConfig);
+    const result = await profileChat(messages, "# Current profile", mockEndpoint);
 
     expect(result).toBe("Suggestion text");
     const callArgs = vi.mocked(chatCompletion).mock.calls[0]!;
@@ -37,7 +37,7 @@ describe("profileChat", () => {
       { role: "assistant", content: "First reply" },
       { role: "user", content: "Second message" },
     ];
-    await profileChat(messages, "# Profile", mockConfig);
+    await profileChat(messages, "# Profile", mockEndpoint);
 
     const calls = vi.mocked(chatCompletion).mock.calls;
     const lastCall = calls[calls.length - 1]!;

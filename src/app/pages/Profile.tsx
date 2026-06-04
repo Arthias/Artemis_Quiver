@@ -12,6 +12,7 @@ import { useProfile } from "../context/ProfileContext";
 import { useConfig } from "../context/ConfigContext";
 import { useWorkspace } from "../context/WorkspaceProfileContext";
 import { mergeProfileFromUpload } from "../services/profileMergeService";
+import { getActiveEndpoint } from "../services/llmService";
 import {
   extractUpdatedProfile,
   profileChat,
@@ -71,7 +72,7 @@ export function Profile() {
     setMerging(true);
     try {
       const text = await file.text();
-      const merged = await mergeProfileFromUpload(profile, text, config);
+      const merged = await mergeProfileFromUpload(profile, text, getActiveEndpoint(config));
       setMergePreview(merged);
     } catch (err) {
       setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Merge failed.");
@@ -100,7 +101,7 @@ export function Profile() {
     setChatError(null);
 
     try {
-      const reply = await profileChat(nextMessages, profile, config);
+      const reply = await profileChat(nextMessages, profile, getActiveEndpoint(config));
       const assistantMsg: ChatMessage = { role: "assistant", content: reply };
       persistChat([...nextMessages, assistantMsg]);
     } catch (err) {

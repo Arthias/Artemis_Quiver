@@ -1,4 +1,5 @@
 import type { LlmConfig } from "../types/llm";
+import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 
 export const DEFAULT_PROFILE_MARKDOWN = `# Professional Profile
 
@@ -35,10 +36,9 @@ University of Technology, 2018
 `;
 
 export const DEFAULT_LLM_CONFIG: LlmConfig = {
-  provider: "lmstudio",
-  serverUrl: "http://192.168.8.171:1234",
-  model: "google/gemma-4-e2b",
-  temperature: 0.7,
+  primary: DEFAULT_PRIMARY_ENDPOINT,
+  secondary: DEFAULT_SECONDARY_ENDPOINT,
+  secondaryUse: "never",
   autoSaveProfile: true,
 };
 

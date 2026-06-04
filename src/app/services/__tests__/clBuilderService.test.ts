@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { generateCoverLetter, editCoverLetter } from "../clBuilderService";
-import type { LlmConfig } from "../../types/llm";
+import type { ModelEndpoint } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),
@@ -8,12 +8,12 @@ vi.mock("../llmService", () => ({
 
 import { chatCompletion } from "../llmService";
 
-const mockConfig: LlmConfig = {
-  provider: "lmstudio",
-  serverUrl: "/api/lmstudio",
+const mockEndpoint: ModelEndpoint = {
+  label: "Test",
+  provider: "openai-compatible",
+  baseUrl: "/api/lmstudio",
   model: "test",
   temperature: 0.7,
-  autoSaveProfile: false,
 };
 
 const validJson = JSON.stringify({
@@ -43,7 +43,7 @@ describe("generateCoverLetter", () => {
     const result = await generateCoverLetter(
       "# Profile\nEngineer",
       { companyName: "ACME", position: "Senior Dev", jobDescription: "React role", seedDraft: "Draft text" },
-      mockConfig
+      mockEndpoint
     );
 
     const parsed = JSON.parse(result);
@@ -61,7 +61,7 @@ describe("generateCoverLetter", () => {
   it("should use defaults for missing options", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(validJson);
 
-    const result = await generateCoverLetter("# Profile", {}, mockConfig);
+    const result = await generateCoverLetter("# Profile", {}, mockEndpoint);
     const parsed = JSON.parse(result);
     expect(parsed.senderName).toBe("Jane Doe");
   });
@@ -72,7 +72,7 @@ describe("generateCoverLetter", () => {
     const result = await generateCoverLetter(
       "# Profile",
       { companyName: undefined, position: undefined },
-      mockConfig
+      mockEndpoint
     );
     const parsed = JSON.parse(result);
     expect(parsed.senderName).toBe("Jane Doe");
@@ -83,7 +83,7 @@ describe("editCoverLetter", () => {
   it("should call LLM with edit request", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(validEditJson);
 
-    const result = await editCoverLetter(validJson, "Make it formal", "# Profile", mockConfig);
+    const result = await editCoverLetter(validJson, "Make it formal", "# Profile", mockEndpoint);
     const parsed = JSON.parse(result);
     expect(parsed.bodyParagraphs[0]).toBe("Revised content...");
   });

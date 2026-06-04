@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { analyzeJobPosting, analysisToMarkdown, followUpChat } from "../jobAnalysisService";
 import type { AnalysisResult } from "../../types/analysis";
-import type { ChatMessage, LlmConfig } from "../../types/llm";
+import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),
@@ -9,12 +9,12 @@ vi.mock("../llmService", () => ({
 
 import { chatCompletion } from "../llmService";
 
-const mockConfig: LlmConfig = {
-  provider: "lmstudio",
-  serverUrl: "/api/lmstudio",
+const mockEndpoint: ModelEndpoint = {
+  label: "Test",
+  provider: "openai-compatible",
+  baseUrl: "/api/lmstudio",
   model: "test-model",
   temperature: 0.7,
-  autoSaveProfile: true,
 };
 
 describe("analyzeJobPosting", () => {
@@ -31,7 +31,7 @@ describe("analyzeJobPosting", () => {
     const { result, markdown } = await analyzeJobPosting(
       "React Developer position",
       "## Profile\nSenior engineer",
-      mockConfig
+      mockEndpoint
     );
 
     expect(result.score).toBe(85);
@@ -51,7 +51,7 @@ describe("analyzeJobPosting", () => {
       coverLetterDraft: "Draft",
     }));
 
-    await expect(analyzeJobPosting("test", "profile", mockConfig)).rejects.toThrow("valid score");
+    await expect(analyzeJobPosting("test", "profile", mockEndpoint)).rejects.toThrow("valid score");
   });
 
   it("should throw on missing required fields", async () => {
@@ -63,13 +63,13 @@ describe("analyzeJobPosting", () => {
       coverLetterDraft: "",
     }));
 
-    await expect(analyzeJobPosting("test", "profile", mockConfig)).rejects.toThrow("missing required fields");
+    await expect(analyzeJobPosting("test", "profile", mockEndpoint)).rejects.toThrow("missing required fields");
   });
 
   it("should handle LLM returning markdown-wrapped JSON", async () => {
     vi.mocked(chatCompletion).mockResolvedValue('```json\n{"score": 92, "salaryRange": "$130k", "tips": ["Tip"], "cvRecommendations": ["Rec"], "coverLetterDraft": "Draft"}\n```');
 
-    const { result } = await analyzeJobPosting("test", "profile", mockConfig);
+    const { result } = await analyzeJobPosting("test", "profile", mockEndpoint);
     expect(result.score).toBe(92);
   });
 });
@@ -110,7 +110,7 @@ describe("followUpChat", () => {
       "Software Engineer job at Google",
       "## Profile\nExperienced developer",
       messages,
-      mockConfig
+      mockEndpoint
     );
 
     expect(reply).toBe("Here is tailored advice...");
@@ -123,14 +123,14 @@ describe("followUpChat", () => {
   it("should handle empty message history", async () => {
     vi.mocked(chatCompletion).mockResolvedValue("First follow-up response");
 
-    const reply = await followUpChat("Job posting", "Profile", [], mockConfig);
+    const reply = await followUpChat("Job posting", "Profile", [], mockEndpoint);
     expect(reply).toBe("First follow-up response");
   });
 
   it("should include job posting and profile in the prompt", async () => {
     vi.mocked(chatCompletion).mockResolvedValue("Response");
 
-    await followUpChat("Senior React role", "Frontend profile", [], mockConfig);
+    await followUpChat("Senior React role", "Frontend profile", [], mockEndpoint);
 
     const calls = vi.mocked(chatCompletion).mock.calls;
     const userContent = calls[0][0].find(m => m.role === "user")?.content ?? "";
