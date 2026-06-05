@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Plus, User } from "lucide-react";
+import { Plus, Trash2, User } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,10 +22,11 @@ interface ProfileSwitcherModalProps {
 
 export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModalProps) {
   const navigate = useNavigate();
-  const { profiles, activeProfileId, switchProfile, createProfile } = useWorkspace();
+  const { profiles, activeProfileId, switchProfile, createProfile, deleteProfile } = useWorkspace();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newName, setNewName] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const sorted = [...profiles].sort(
     (a, b) => new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime()
@@ -40,6 +41,16 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteConfirmId) return;
+    try {
+      await deleteProfile(deleteConfirmId);
+      setDeleteConfirmId(null);
+    } catch (err) {
+      console.error("Failed to delete profile:", err);
+    }
+  };
+
   const handleAdd = async () => {
     const trimmed = newName.trim();
     if (!trimmed) {
@@ -47,7 +58,7 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
       return;
     }
     try {
-      const newId = await createProfile(trimmed);
+      await createProfile(trimmed);
       setShowAddDialog(false);
       setNewName("");
       setAddError(null);
@@ -72,29 +83,43 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
 
           <div className="space-y-2 py-2">
             {sorted.map((p) => (
-              <button
+              <div
                 key={p.id}
-                type="button"
-                onClick={() => handleSwitch(p.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md border transition-colors text-left ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-md border transition-colors ${
                   p.id === activeProfileId
                     ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-accent/50"
+                    : "border-border"
                 }`}
               >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
-                  {profileInitials(p.name)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Used {formatRelativeTime(p.lastUsedAt)}
-                  </p>
-                </div>
-                {p.id === activeProfileId && (
-                  <span className="text-xs text-primary font-medium">Active</span>
+                <button
+                  type="button"
+                  onClick={() => handleSwitch(p.id)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                >
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
+                    {profileInitials(p.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Used {formatRelativeTime(p.lastUsedAt)}
+                    </p>
+                  </div>
+                  {p.id === activeProfileId && (
+                    <span className="text-xs text-primary font-medium">Active</span>
+                  )}
+                </button>
+                {profiles.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmId(p.id)}
+                    className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Delete profile"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 )}
-              </button>
+              </div>
             ))}
           </div>
 
@@ -102,7 +127,6 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
             <Button
               className="w-full gap-2"
               variant="outline"
-              disabled={profiles.length >= MAX_WORKSPACE_PROFILES}
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="w-4 h-4" />
@@ -145,6 +169,27 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
             <Button onClick={handleAdd} className="gap-2">
               <User className="w-4 h-4" />
               Create & edit profile
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete profile</DialogTitle>
+            <DialogDescription>
+              This permanently deletes the profile and all its analysis history. This cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              <Trash2 className="w-4 h-4" />
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

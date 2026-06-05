@@ -26,7 +26,7 @@ import {
   getProfiles,
   getProfile,
   saveProfile,
-  deleteProfile,
+  deleteProfile as deleteProfileFromDb,
   migrateFromLocalStorage,
 } from "../db";
 import { Loader2 } from "lucide-react";
@@ -68,6 +68,7 @@ interface WorkspaceProfileContextValue {
   profileData: ProfileWorkspaceData;
   switchProfile: (id: string) => Promise<void>;
   createProfile: (name: string) => Promise<string>;
+  deleteProfile: (id: string) => Promise<void>;
   updateProfileData: (patch: Partial<ProfileWorkspaceData>) => void;
   updateSettings: (patch: Partial<ProfileSettings>) => void;
   persistActiveProfile: () => Promise<void>;
@@ -297,6 +298,49 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
     [manifest, profileData, activeProfile]
   );
 
+  const deleteProfile = useCallback(
+    async (id: string): Promise<void> => {
+      if (!manifest || !profileData || !activeProfile) return;
+      if (manifest.profiles.length <= 1) return;
+
+      await deleteProfileFromDb(id);
+
+      const remaining = await getProfiles();
+      let nextActiveId = manifest.activeProfileId;
+
+      if (id === manifest.activeProfileId) {
+        nextActiveId = remaining[0].id;
+        const target = await getProfile(nextActiveId);
+        if (target) {
+          const now = new Date().toISOString();
+          const updatedTarget = { ...target, lastUsedAt: now };
+          await saveProfile(updatedTarget);
+          await setActiveProfileId(nextActiveId);
+          setProfileData({
+            profileMarkdown: updatedTarget.profileMarkdown,
+            settings: updatedTarget.settings,
+            analysisSessions: [],
+            draftJobPosting: updatedTarget.draftJobPosting,
+            profileChat: updatedTarget.profileChat,
+          });
+          applyTheme(updatedTarget.settings.theme);
+        }
+      }
+
+      setManifest({
+        activeProfileId: nextActiveId,
+        profiles: remaining.map((p) => ({
+          id: p.id,
+          name: p.name,
+          createdAt: p.createdAt,
+          lastUsedAt: p.lastUsedAt,
+          lastModifiedAt: p.lastModifiedAt,
+        })),
+      });
+    },
+    [manifest, profileData, activeProfile]
+  );
+
   const updateProfileData = useCallback(
     (patch: Partial<ProfileWorkspaceData>) => {
       setProfileData((prev) => {
@@ -377,6 +421,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
       profileData,
       switchProfile,
       createProfile,
+      deleteProfile,
       updateProfileData,
       updateSettings,
       persistActiveProfile,
@@ -389,6 +434,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
     profileData,
     switchProfile,
     createProfile,
+    deleteProfile,
     updateProfileData,
     updateSettings,
     persistActiveProfile,
