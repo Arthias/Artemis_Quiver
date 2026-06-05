@@ -32,6 +32,7 @@ Thumbs.db
 # Tooling / agent local state
 .claude/
 .cursor/
+AGENTS.md
 *.tsbuildinfo
 .vscode-test/
 .cache/
