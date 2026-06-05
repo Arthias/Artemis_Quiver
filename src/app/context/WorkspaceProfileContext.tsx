@@ -52,10 +52,11 @@ function normalizeSettings(raw: unknown): ProfileSettings {
 }
 
 function fixLegacyEndpoint<T extends { baseUrl: string; label: string }>(ep: T): T {
-  let { label, baseUrl } = ep;
-  if (baseUrl === "http://192.168.8.171:1234") baseUrl = "/api/lmstudio";
-  if (baseUrl === "http://localhost:11434") baseUrl = "/api/ollama";
+  let { label } = ep;
+  const hasLegacyLabel = / \(LMStudio\)$| \(Ollama\)$/.test(label);
+  if (!hasLegacyLabel) return ep;
   label = label.replace(/ \(LMStudio\)| \(Ollama\)/g, "");
+  const baseUrl = ep.baseUrl === "http://192.168.8.171:1234" ? "/api/lmstudio" : ep.baseUrl === "http://localhost:11434" ? "/api/ollama" : ep.baseUrl;
   return { ...ep, label, baseUrl };
 }
 

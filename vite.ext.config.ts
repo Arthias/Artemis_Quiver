@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { cpSync, mkdirSync } from "fs";
 
 function figmaAssetResolver() {
   return {
@@ -22,11 +22,18 @@ function extensionAssets() {
     closeBundle() {
       const out = path.resolve(__dirname, "dist-ext");
       mkdirSync(out, { recursive: true });
+
+      // Copy manifest to dist root
       cpSync(
         path.resolve(__dirname, "src/extension/manifest.json"),
         path.join(out, "manifest.json"),
         { force: true }
       );
+
+      // Copy popup.html to dist root (Vite preserves nested dir structure)
+      const srcPopup = path.resolve(out, "src/extension/popup.html");
+      const dstPopup = path.resolve(out, "popup.html");
+      try { cpSync(srcPopup, dstPopup, { force: true }); } catch { /* popup may be at root already */ }
     },
   };
 }
@@ -46,6 +53,9 @@ export default defineConfig({
       input: {
         app: path.resolve(__dirname, "index.html"),
         background: path.resolve(__dirname, "src/extension/background.ts"),
+        overlay: path.resolve(__dirname, "src/extension/overlay.ts"),
+        "nano-inject": path.resolve(__dirname, "src/extension/nano-inject.ts"),
+        popup: path.resolve(__dirname, "src/extension/popup.html"),
       },
       output: {
         entryFileNames: "[name].js",
