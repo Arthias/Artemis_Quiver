@@ -1,7 +1,7 @@
 ---
 tags: [feature, error-handling, error-codes, architecture]
 status: active
-last_updated: 2026-05-29
+last_updated: 2026-06-05
 ---
 
 # Error Handling & Error Codes
@@ -83,13 +83,6 @@ Examples: `ERR_CV_JSON_PARSE`, `ERR_LLM_API_FAILURE`, `ERR_STORAGE_WRITE`
 |------|----------|-----------|----------|-------------|
 | `ERR_PROFILE_MERGE_FAILED` | ERROR | yes | immediate | Could not merge the profile. Try again. |
 | `ERR_PROFILE_CHAT_FAILED` | ERROR | yes | immediate | Assistant response failed. Try again. |
-
-### Storage (`ErrorDomain.STORAGE`)
-
-| Code | Severity | Retryable | Strategy | User Message |
-|------|----------|-----------|----------|-------------|
-| `ERR_STORAGE_READ` | ERROR | no | — | Could not read data from storage. |
-| `ERR_STORAGE_WRITE` | ERROR | no | — | Could not save data. Storage may be full or disabled. |
 
 ### Network (`ErrorDomain.NETWORK`)
 

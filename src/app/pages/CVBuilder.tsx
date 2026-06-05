@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
-import { FileText, Download, Sparkles, Wand2 } from "lucide-react";
+import { FileText, Download, Wand2 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
@@ -15,6 +15,9 @@ import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
 import { extractJsonObject } from "../utils/jsonParse";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
+import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
+import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
+import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 
 const CV_SUGGESTIONS = [
   { title: "Add more metrics", hint: "Include quantifiable achievements", prompt: "Add more quantifiable metrics and measurable achievements throughout the CV." },
@@ -28,12 +31,9 @@ export function CVBuilder() {
   const { profile } = useProfile();
   const { consumeHandoff } = useBuilderHandoff();
 
-  const [jobDescription, setJobDescription] = useState(""); // Job description to tailor CV
-  const [cvContent, setCvContent] = useState<CVContent | null>(null); // Parse JSON instead of raw string
-  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({ 
-    primaryColor: "#2563eb", 
-    templateId: "modern" 
-  });
+  const [jobDescription, setJobDescription] = useState("");
+  const [cvContent, setCvContent] = useState<CVContent | null>(null);
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({ primaryColor: "#2563eb", templateId: "modern" });
   const [cvRecommendations, setCvRecommendations] = useState<string[] | undefined>();
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -68,7 +68,7 @@ export function CVBuilder() {
       try {
         parsedContent = extractJsonObject(content) as CVContent;
       } catch (parseError) {
-        throw new Error(`Invalid JSON structure generated. Please check console for details.`);
+        throw new Error("Invalid JSON structure generated. Please check console for details.");
       }
       setCvContent(parsedContent);
       setIsGenerated(true);
@@ -166,7 +166,6 @@ export function CVBuilder() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -194,63 +193,19 @@ export function CVBuilder() {
               </div>
             )}
           </div>
-          
-          {/* Theme Configuration Panel */}
+
           {isGenerated && cvContent && (
-            <Card className="p-3 mt-3 bg-muted/50 border-dashed">
-              <div className="text-sm font-medium mb-2">Theme Configuration</div>
-              <div className="flex items-center gap-4">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Theme</label>
-                  <select 
-                    value={themeConfig.templateId || "modern"}
-                    onChange={(e) => setThemeConfig(prev => ({...prev, templateId: e.target.value as any}))}
-                    className="text-sm border rounded px-2 py-1 bg-background text-foreground"
-                  >
-                    <option value="modern">Modern</option>
-                    <option value="classic">Classic (Serif)</option>
-                    <option value="minimal">Minimal</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Primary Color</label>
-                  <input 
-                    type="color" 
-                    value={themeConfig.primaryColor}
-                    onChange={(e) => setThemeConfig(prev => ({...prev, primaryColor: e.target.value}))}
-                    className="w-8 h-8 border rounded cursor-pointer p-0"
-                  />
-                </div>
-              </div>
-            </Card>
+            <ThemeConfigPanel config={themeConfig} onChange={(c) => setThemeConfig(c as any)} />
           )}
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-hidden flex">
-        {/* Left Panel: Generation & Editor */}
         <div className="flex-1 border-r border-border overflow-auto">
           <div className="p-6">
-            {error && (
-              <Card className="p-3 mb-4 text-sm border-destructive/50 bg-destructive/5">
-                <div className="flex items-start gap-2">
-                  <pre className="whitespace-pre-wrap font-sans text-destructive flex-1">{error}</pre>
-                  {retryableError && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10"
-                      onClick={() => { setError(null); setRetryableError(null); generateCV(); }}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            )}
+            <BuilderErrorDisplay error={error} retryableError={retryableError} onRetry={generateCV} />
 
-            {!isGenerated ? ( // Loading / Not yet generated state
+            {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
                 <Card className="p-6">
                   <h2 className="text-lg font-semibold mb-4">Generate Tailored CV</h2>
@@ -259,7 +214,7 @@ export function CVBuilder() {
                       <label className="block text-sm font-medium mb-2">
                         Job Description (Optional)
                       </label>
-                      <Textarea 
+                      <Textarea
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
                         placeholder="Paste job description to tailor your CV, or leave empty for a general CV..."
@@ -286,7 +241,7 @@ export function CVBuilder() {
                         </>
                       )}
                     </Button>
-                    
+
                     {jobDescription && (
                       <p className="text-xs text-muted-foreground">Tips: Paste a job description to tailor your CV and highlight relevant experience. For general CV, leave it empty.</p>
                     )}
@@ -312,9 +267,8 @@ export function CVBuilder() {
                 </Card>
               </div>
 
-              ) : ( // Generated - Show interactive CV preview and chat panel
+            ) : (
               <div className="max-w-4xl mx-auto h-full flex flex-col">
-                {/* Interactive CV Preview Pane */}
                 <div className={`flex-1 overflow-auto mb-4 ${generating ? "animate-pulse" : ""}`}>
                   {!cvContent ? (
                     <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -334,7 +288,6 @@ export function CVBuilder() {
                   )}
                 </div>
 
-                {/* Hidden iframe for PDF printing */}
                 <iframe
                   ref={printIframeRef}
                   srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
@@ -347,57 +300,16 @@ export function CVBuilder() {
           </div>
         </div>
 
-        {/* Right Panel: AI Assistant (only if CV generated) */}
         {isGenerated && (
-          <div className="w-96 flex flex-col bg-muted/30 border-l border-border">
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-500" />
-                <h3 className="font-semibold">AI Assistant</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Request modifications to your CV
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4 space-y-3">
-              {CV_SUGGESTIONS.map((s) => (
-                <Card
-                  key={s.title}
-                  className="p-3 bg-card hover:bg-purple-500/10 cursor-pointer transition-colors"
-                  onClick={() => handleChatSubmit(s.prompt)}
-                >
-                  <p className="text-sm font-medium">{s.title}</p>
-                  <p className="text-xs text-muted-foreground">{s.hint}</p>
-                </Card>
-              ))}
-            </div>
-
-            <div className="p-4 border-t border-border">
-              <Textarea
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleChatSubmit();
-                  }
-                }}
-                placeholder="Request changes..."
-                className="resize-none bg-input-background border-border text-sm"
-                rows={3}
-                disabled={chatLoading}
-              />
-              <Button
-                onClick={() => handleChatSubmit()}
-                disabled={!chatMessage.trim() || chatLoading}
-                className="w-full mt-2"
-                size="sm"
-              >
-                {chatLoading ? "Applying..." : "Apply Changes"}
-              </Button>
-            </div>
-          </div>
+          <BuilderAssistantPanel
+            suggestions={CV_SUGGESTIONS}
+            chatMessage={chatMessage}
+            chatLoading={chatLoading}
+            onChatMessageChange={setChatMessage}
+            onSubmit={handleChatSubmit}
+            accentClass="text-purple-500"
+            panelBg="bg-muted/30"
+          />
         )}
       </div>
     </div>

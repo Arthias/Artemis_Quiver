@@ -14,7 +14,7 @@ import {
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { useConfig } from "../context/ConfigContext";
-import { listModels as listModelsApi } from "../services/llmService";
+import { listModels as listModelsApi, testConnection } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
 
@@ -189,7 +189,6 @@ function ModelEndpointCard({
     setTestError(null);
     setTesting(true);
     try {
-      const { testConnection } = await import("../services/llmService");
       const reply = await testConnection(endpoint);
       setTestMessage(`OK: "${reply}"`);
     } catch (err) {
@@ -425,7 +424,6 @@ export function Config() {
     setTestMessage(null);
     setTestError(null);
     setTesting(true);
-    const { testConnection } = await import("../services/llmService");
     const testBoth = config.secondaryUse !== "never";
     const results: string[] = [];
     const errors: string[] = [];

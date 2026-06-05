@@ -48,6 +48,7 @@ export default defineConfig({
   },
   assetsInclude: ["**/*.svg", "**/*.csv"],
   build: {
+    chunkSizeWarningLimit: 1000,
     outDir: "dist-ext",
     rollupOptions: {
       input: {
@@ -61,6 +62,11 @@ export default defineConfig({
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash][extname]",
+        manualChunks(id) {
+          if (id.includes("node_modules") && !id.includes("fake-indexeddb")) {
+            return "vendor";
+          }
+        },
       },
     },
   },

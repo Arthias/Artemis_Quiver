@@ -18,6 +18,4 @@ export function getAdapter(provider: ProviderType): ProviderAdapter {
   return adapter;
 }
 
-export function getRegisteredProviders(): ProviderType[] {
-  return Object.keys(registry) as ProviderType[];
-}
+

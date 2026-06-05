@@ -25,7 +25,7 @@ export interface AnalysisSessionRecord {
   followUpMessages?: ChatMessage[];
 }
 
-export interface AppMetadataRecord {
+interface AppMetadataRecord {
   key: string;
   value: any;
 }

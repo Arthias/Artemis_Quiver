@@ -67,7 +67,7 @@ RULES:
 - Categorize skills when possible using the "categories" field
 - Return ONLY the JSON object, no text/comments/formatting around it`;
 
-export function cvGeneratePrompt(ctx: PromptContext): string {
+function cvGeneratePrompt(ctx: PromptContext): string {
   const parts: string[] = [
     "You are an expert CV writer and career coach. Generate a professional CV in structured JSON from the candidate profile.",
   ];
@@ -96,7 +96,7 @@ GENERAL OPTIMIZATION GUIDELINES:
 // Summary Rewrite (#1)
 // ============================================================================
 
-export function summaryRewritePrompt(ctx: PromptContext): string {
+function summaryRewritePrompt(ctx: PromptContext): string {
   return `You are an expert CV writer specializing in professional summaries. Rewrite the candidate's summary to be concise, compelling, and aligned with the target role.
 
 Target role: ${ctx.targetRole ?? "the position"}
@@ -117,7 +117,7 @@ Return ONLY the rewritten summary text — no JSON, no commentary.`;
 // Bullet Point Optimization (#2)
 // ============================================================================
 
-export function bulletOptimizePrompt(ctx: PromptContext): string {
+function bulletOptimizePrompt(ctx: PromptContext): string {
   return `You are an expert CV writer specializing in achievement-oriented bullet points. Rewrite the provided experience descriptions to focus on measurable accomplishments.
 
 REQUIREMENTS:
@@ -137,7 +137,7 @@ Return ONLY the rewritten bullet points as a bullet list — no JSON, no comment
 // ATS Optimization (#3)
 // ============================================================================
 
-export function atsOptimizePrompt(ctx: PromptContext): string {
+function atsOptimizePrompt(ctx: PromptContext): string {
   return `You are an ATS (Applicant Tracking System) optimization expert. Rewrite the CV content so it ranks well with automated screeners while remaining natural and readable to human reviewers.
 
 Job description provided below. Use it to identify:
@@ -162,7 +162,7 @@ Return the full CV content optimized for ATS.`;
 // Career Transition (#4)
 // ============================================================================
 
-export function careerTransitionPrompt(ctx: PromptContext): string {
+function careerTransitionPrompt(ctx: PromptContext): string {
   const from = ctx.previousField ?? "your previous field";
   const to = ctx.newField ?? "your new target field";
 
@@ -182,7 +182,7 @@ Return the reframed CV content highlighting transferable skills and career chang
 // CV Audit (#5)
 // ============================================================================
 
-export function auditPrompt(ctx: PromptContext): string {
+function auditPrompt(ctx: PromptContext): string {
   return `You are a senior hiring manager and resume reviewer with 15+ years of experience across ${ctx.industry ?? "multiple industries"}. Audit the candidate's CV and provide frank, specific feedback.
 
 AUDIT CRITERIA:
@@ -207,7 +207,7 @@ Return the audit in a structured format. Be direct — the candidate wants hones
 // Work History Alignment (#7)
 // ============================================================================
 
-export function workHistoryAlignPrompt(ctx: PromptContext): string {
+function workHistoryAlignPrompt(ctx: PromptContext): string {
   return `You are a career alignment specialist. Restructure the candidate's work history to maximize relevance to the target role.
 
 ALIGNMENT GUIDELINES:
@@ -224,7 +224,7 @@ Return the restructured work history with explanations of why each change improv
 // Skills Section (#8)
 // ============================================================================
 
-export function skillsSectionPrompt(ctx: PromptContext): string {
+function skillsSectionPrompt(ctx: PromptContext): string {
   return `You are a technical resume specialist. Build or optimize the candidate's skills section.
 
 GUIDELINES:
@@ -242,7 +242,7 @@ Return the optimized skills section as a categorized list.`;
 // Headline Generation (#9)
 // ============================================================================
 
-export function headlinePrompt(ctx: PromptContext): string {
+function headlinePrompt(ctx: PromptContext): string {
   return `You are a personal branding specialist. Write a powerful resume headline and subheadline.
 
 FORMAT:
@@ -269,7 +269,7 @@ Return only the headline and subheadline — no JSON, no commentary.`;
 // Hiring Manager Roleplay (#10)
 // ============================================================================
 
-export function hiringManagerPrompt(ctx: PromptContext): string {
+function hiringManagerPrompt(ctx: PromptContext): string {
   return `You are a hiring manager at a ${ctx.industry ?? "leading"} company looking to fill a ${ctx.targetRole ?? "senior-level"} role. You review 200+ resumes for every open position. Be direct, critical, and specific about what would make you shortlist or reject this candidate.
 
 ANSWER THESE QUESTIONS IN YOUR FEEDBACK:
@@ -342,7 +342,7 @@ export function selectPrompt(
 // Cover Letter Builder Prompts
 // ============================================================================
 
-export const CL_JSON_FORMAT = `You MUST return ONLY a valid JSON object. No markdown fences, no text outside the JSON.
+const CL_JSON_FORMAT = `You MUST return ONLY a valid JSON object. No markdown fences, no text outside the JSON.
 
 EXAMPLE:
 {
@@ -427,38 +427,4 @@ ${CL_JSON_FORMAT}`;
 // from a user's free-text edit request
 // ============================================================================
 
-export function classifyEditIntent(userRequest: string): OptimizationMode {
-  const lower = userRequest.toLowerCase();
 
-  if (/\b(summary|professional summary|profile summary)\b/.test(lower) &&
-      /\b(rewrite|improve|enhance|optimize|polish)\b/.test(lower))
-    return "summary-rewrite";
-
-  if (/\b(bullet|bullet point|accomplishment|achievement|metric|measurable|action verb|star)\b/.test(lower))
-    return "bullet-optimize";
-
-  if (/\b(ats|keyword|applicant tracking|parser|screen)\b/.test(lower))
-    return "ats-optimize";
-
-  if (/\b(career change|career transition|transferable skill|switching|moving into|new field|new industry)\b/.test(lower))
-    return "career-transition";
-
-  if (/\b(audit|review|critique|feedback|vague|wordy|weakness|improve this|strength|weakness)\b/.test(lower))
-    return "audit";
-
-  if (/\b(align|tailor|match|fit|customize)\b.*\b(job|role|position|description)\b/.test(lower) ||
-      /\b(job|role|position|description)\b.*\b(align|tailor|match|fit|customize)\b/.test(lower))
-    return "work-history-align";
-
-  if (/\b(skill|technical skill|tools? section|technology stack)\b/.test(lower) &&
-      /\b(add|list|format|organize|categorize|improve)\b/.test(lower))
-    return "skills-section";
-
-  if (/\b(headline|subheadline|tagline|value proposition|personal brand|branding)\b/.test(lower))
-    return "headline";
-
-  if (/\b(hiring manager|recruiter|would you hire|interview|shortlist)\b/.test(lower))
-    return "hiring-manager";
-
-  return "standard";
-}

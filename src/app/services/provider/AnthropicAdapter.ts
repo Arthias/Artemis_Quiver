@@ -1,10 +1,7 @@
 import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 import { AppError, ErrorCodes } from "../../utils/errors";
 import type { ChatCompletionOptions, ProviderAdapter } from "./ProviderAdapter";
-
-function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
-}
+import { normalizeBaseUrl, createAbortSignal, handleFetchError } from "./shared";
 
 export const anthropicAdapter: ProviderAdapter = {
   async chatCompletion(
@@ -14,12 +11,10 @@ export const anthropicAdapter: ProviderAdapter = {
   ): Promise<string> {
     const baseUrl = normalizeBaseUrl(endpoint.baseUrl);
     const timeoutMs = options?.timeoutMs ?? 120_000;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const { signal, clear } = createAbortSignal(timeoutMs);
 
     const systemMessages = messages.filter((m) => m.role === "system");
     const nonSystemMessages = messages.filter((m) => m.role !== "system");
-
     const apiMessages = nonSystemMessages.map((m) => ({
       role: m.role === "assistant" ? "assistant" : "user",
       content: m.content,
@@ -40,7 +35,7 @@ export const anthropicAdapter: ProviderAdapter = {
           max_tokens: endpoint.maxTokens ?? 1024,
           temperature: endpoint.temperature,
         }),
-        signal: controller.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -58,16 +53,9 @@ export const anthropicAdapter: ProviderAdapter = {
       }
       return content;
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new AppError(ErrorCodes.LLM_TIMEOUT, `Request timed out after ${timeoutMs}ms`);
-      }
-      if (error instanceof TypeError && error.message === "fetch failed") {
-        throw new AppError(ErrorCodes.LLM_CONNECTION_REFUSED, error.message);
-      }
-      if (error instanceof AppError) throw error;
-      throw new AppError(ErrorCodes.UNKNOWN, error instanceof Error ? error.message : String(error));
+      handleFetchError(error, timeoutMs);
     } finally {
-      clearTimeout(timeout);
+      clear();
     }
   },
 

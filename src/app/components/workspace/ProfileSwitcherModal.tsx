@@ -13,7 +13,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useWorkspace } from "../../context/WorkspaceProfileContext";
 import { formatRelativeTime } from "../../utils/relativeTime";
-import { MAX_WORKSPACE_PROFILES, profileInitials } from "../../utils/workspaceStorage";
+import { MAX_WORKSPACE_PROFILES, profileInitials } from "../../utils/profileDefaults";
 
 interface ProfileSwitcherModalProps {
   open: boolean;

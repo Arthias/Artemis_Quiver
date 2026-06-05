@@ -6,6 +6,31 @@ last_updated: 2026-06-04
 
 # Changelog
 
+## [v3.1.0] - June 5, 2026
+
+### Refactoring
+- **clParser Cognitive Complexity Reduction** — `parsePlainTextToCLContent` broken into 7 extracted helpers (`findSalutation`, `findClosingBlock`, `extractSubject`, `extractRecipientInfo`, `parseBodyParagraphs`, `extractSenderFromHeader`, `extractSenderAfterClosing`). Main function cognitive complexity down from 109.
+- **Provider Adapter Duplication Removal** — Extracted `normalizeBaseUrl`, `createAbortSignal`, `handleFetchError` into shared `src/app/services/provider/shared.ts`. Removed ~60 duplicated lines across 3 adapters (timeout/abort/setup, error catch logic, `normalizeBaseUrl`).
+- **CVBuilder/CLBuilder Shared Components** — Extracted `BuilderAssistantPanel`, `BuilderErrorDisplay`, `ThemeConfigPanel` into `src/app/components/builder/`. Removed ~100 duplicated lines from the two builder pages.
+- **Dead code removal** — Removed `usePrintHandler.ts` (unused hook). Continue from prior session: removed all legacy localStorage migration code, removed `normalizeSettings`, `fixLegacyEndpoint`, `STORAGE_READ`/`STORAGE_WRITE` error codes, un-exported 12 unused prompt functions and 3 Zod schemas, renamed `workspaceStorage.ts` → `profileDefaults.ts`.
+
+### Bug Fixes
+- **`extractSenderFromHeader`** — Removed unused `allLines` parameter.
+
+### Files Created
+- `src/app/services/provider/shared.ts` — Shared adapter utilities
+- `src/app/components/builder/BuilderAssistantPanel.tsx` — Shared AI Assistant sidebar
+- `src/app/components/builder/BuilderErrorDisplay.tsx` — Shared error display with retry
+- `src/app/components/builder/ThemeConfigPanel.tsx` — Shared theme configuration panel
+
+### Files Modified
+- `src/app/utils/clParser.ts` — Extracted helpers from `parsePlainTextToCLContent`
+- `src/app/services/provider/OpenAICompatibleAdapter.ts` — Uses shared utilities
+- `src/app/services/provider/AnthropicAdapter.ts` — Uses shared utilities
+- `src/app/services/provider/GeminiAdapter.ts` — Uses shared utilities
+- `src/app/pages/CVBuilder.tsx` — Uses shared builder components
+- `src/app/pages/CLBuilder.tsx` — Uses shared builder components
+
 ## [v3.0.0] - June 4, 2026
 
 ### Features

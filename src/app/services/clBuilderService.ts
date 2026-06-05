@@ -140,4 +140,4 @@ export async function editCoverLetter(
   throw new AppError(ErrorCodes.UNKNOWN, "Cover letter edit failed unexpectedly.");
 }
 
-export type { CLContent } from "../../types/cl";
+

@@ -1,10 +1,7 @@
 import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 import { AppError, ErrorCodes } from "../../utils/errors";
 import type { ChatCompletionOptions, ProviderAdapter } from "./ProviderAdapter";
-
-function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
-}
+import { normalizeBaseUrl, createAbortSignal, handleFetchError } from "./shared";
 
 function buildParts(messages: ChatMessage[]) {
   return messages.map((m) => ({
@@ -21,8 +18,7 @@ export const geminiAdapter: ProviderAdapter = {
   ): Promise<string> {
     const baseUrl = normalizeBaseUrl(endpoint.baseUrl);
     const timeoutMs = options?.timeoutMs ?? 120_000;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const { signal, clear } = createAbortSignal(timeoutMs);
 
     const systemMessages = messages.filter((m) => m.role === "system");
     const nonSystemMessages = messages.filter((m) => m.role !== "system");
@@ -46,7 +42,7 @@ export const geminiAdapter: ProviderAdapter = {
               maxOutputTokens: endpoint.maxTokens ?? 1024,
             },
           }),
-          signal: controller.signal,
+          signal,
         }
       );
 
@@ -65,25 +61,16 @@ export const geminiAdapter: ProviderAdapter = {
       }
       return text;
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new AppError(ErrorCodes.LLM_TIMEOUT, `Request timed out after ${timeoutMs}ms`);
-      }
-      if (error instanceof TypeError && error.message === "fetch failed") {
-        throw new AppError(ErrorCodes.LLM_CONNECTION_REFUSED, error.message);
-      }
-      if (error instanceof AppError) throw error;
-      throw new AppError(ErrorCodes.UNKNOWN, error instanceof Error ? error.message : String(error));
+      handleFetchError(error, timeoutMs);
     } finally {
-      clearTimeout(timeout);
+      clear();
     }
   },
 
   async listModels(endpoint: ModelEndpoint): Promise<string[]> {
     const baseUrl = normalizeBaseUrl(endpoint.baseUrl);
     const headers: Record<string, string> = {};
-    if (endpoint.apiKey) {
-      headers["x-goog-api-key"] = endpoint.apiKey;
-    }
+    if (endpoint.apiKey) headers["x-goog-api-key"] = endpoint.apiKey;
 
     const response = await fetch(`${baseUrl}/v1/models`, { headers });
     if (!response.ok) {
