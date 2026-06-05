@@ -1,7 +1,7 @@
 ---
 tags: [feature, cv-builder, cl-builder, document-builder]
 status: completed
-last_updated: 2026-05-29
+last_updated: 2026-06-05
 ---
 
 # 📝 Document Builders (CV & Cover Letter)
@@ -90,6 +90,9 @@ Analysis Hub (Route: /)
 
 | Path | Purpose |
 |------|---------|
+| `src/app/components/builder/BuilderAssistantPanel.tsx` | Shared AI Assistant sidebar (both builders) |
+| `src/app/components/builder/BuilderErrorDisplay.tsx` | Shared error display with retry button |
+| `src/app/components/builder/ThemeConfigPanel.tsx` | Shared theme selector + color picker |
 | `src/types/cv.ts` | Zod schema + TypeScript types for CV structure (name, title, sections, bullets, categories) |
 | `src/app/types/cv.ts` | Barrel re-export for app-level imports |
 | `src/components/cv/renderingEngine.ts` | JSON → themed HTML converter (3 themes, print CSS) |

@@ -1,1 +1,1 @@
-export type { CVContent, CVSection, ThemeConfig } from "../../types/cv";
+export type { CVContent, ThemeConfig } from "../../types/cv";

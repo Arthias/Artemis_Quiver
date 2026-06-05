@@ -4,7 +4,6 @@ enum ErrorDomain {
   CL = "CL",
   ANALYSIS = "ANALYSIS",
   PROFILE = "PROFILE",
-  STORAGE = "STORAGE",
   NETWORK = "NETWORK",
   APP = "APP",
 }
@@ -52,10 +51,6 @@ export const ErrorCodes = {
   // ── Profile ────────────────────────────────────────────────────────
   PROFILE_MERGE_FAILED: "ERR_PROFILE_MERGE_FAILED",
   PROFILE_CHAT_FAILED: "ERR_PROFILE_CHAT_FAILED",
-
-  // ── Storage ────────────────────────────────────────────────────────
-  STORAGE_READ: "ERR_STORAGE_READ",
-  STORAGE_WRITE: "ERR_STORAGE_WRITE",
 
   // ── Network ────────────────────────────────────────────────────────
   NETWORK_TIMEOUT: "ERR_NETWORK_TIMEOUT",
@@ -199,26 +194,6 @@ const ERROR_CATALOG: Record<ErrorCode, ErrorRecord> = {
     userMessage: "Assistant response failed. Try again.",
     retryable: true,
     retryStrategy: "immediate",
-  },
-
-  // ── Storage ────────────────────────────────────────────────────────
-  [ErrorCodes.STORAGE_READ]: {
-    code: ErrorCodes.STORAGE_READ,
-    domain: ErrorDomain.STORAGE,
-    severity: ErrorSeverity.ERROR,
-    message: "localStorage read failed",
-    userMessage: "Could not read data from storage.",
-    retryable: false,
-    debugHint: "localStorage may be empty, corrupted, or blocked by browser policy.",
-  },
-  [ErrorCodes.STORAGE_WRITE]: {
-    code: ErrorCodes.STORAGE_WRITE,
-    domain: ErrorDomain.STORAGE,
-    severity: ErrorSeverity.ERROR,
-    message: "localStorage write failed",
-    userMessage: "Could not save data. Storage may be full or disabled.",
-    retryable: false,
-    debugHint: "localStorage quota exceeded or storage is disabled (private/incognito mode).",
   },
 
   // ── Network ────────────────────────────────────────────────────────

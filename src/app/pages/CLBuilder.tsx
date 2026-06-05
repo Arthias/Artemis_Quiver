@@ -3,7 +3,7 @@ import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Mail, Download, Sparkles, Wand2, Copy, Check } from "lucide-react";
+import { Mail, Download, Wand2, Copy, Check } from "lucide-react";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
@@ -17,6 +17,9 @@ import { downloadMarkdown } from "../utils/download";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 import { parsePlainTextToCLContent } from "../utils/clParser";
+import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
+import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
+import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 
 const CL_SUGGESTIONS = [
   { title: "Make it more formal", hint: "Corporate tone", prompt: "Make the tone more formal and professional for a corporate setting." },
@@ -46,7 +49,7 @@ export function CLBuilder() {
 
   const [themeConfig, setThemeConfig] = useState({
     primaryColor: "#2563eb",
-    templateId: "modern" as "modern" | "classic" | "minimal",
+    templateId: "modern" as const,
   });
   const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [printHtml, setPrintHtml] = useState("");
@@ -90,12 +93,6 @@ export function CLBuilder() {
     } finally {
       setGenerating(false);
     }
-  };
-
-  const retry = () => {
-    setError(null);
-    setRetryableError(null);
-    generateLetter();
   };
 
   const handleChatSubmit = async (message?: string) => {
@@ -217,32 +214,7 @@ export function CLBuilder() {
           </div>
 
           {isGenerated && clContent && (
-            <Card className="p-3 mt-3 bg-muted/50 border-dashed">
-              <div className="text-sm font-medium mb-2">Theme Configuration</div>
-              <div className="flex items-center gap-4">
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Theme</label>
-                  <select
-                    value={themeConfig.templateId}
-                    onChange={(e) => setThemeConfig(prev => ({ ...prev, templateId: e.target.value as any }))}
-                    className="text-sm border rounded px-2 py-1 bg-background text-foreground"
-                  >
-                    <option value="modern">Modern</option>
-                    <option value="classic">Classic (Serif)</option>
-                    <option value="minimal">Minimal</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Primary Color</label>
-                  <input
-                    type="color"
-                    value={themeConfig.primaryColor}
-                    onChange={(e) => setThemeConfig(prev => ({ ...prev, primaryColor: e.target.value }))}
-                    className="w-8 h-8 border rounded cursor-pointer p-0"
-                  />
-                </div>
-              </div>
-            </Card>
+            <ThemeConfigPanel config={themeConfig} onChange={(c) => setThemeConfig(c as any)} />
           )}
         </div>
       </div>
@@ -250,23 +222,7 @@ export function CLBuilder() {
       <div className="flex-1 overflow-hidden flex">
         <div className="flex-1 border-r border-border overflow-auto">
           <div className="p-6">
-            {error && (
-              <Card className="p-3 mb-4 text-sm border-destructive/50 bg-destructive/5">
-                <div className="flex items-start gap-2">
-                  <pre className="whitespace-pre-wrap font-sans text-destructive flex-1">{error}</pre>
-                  {retryableError && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10"
-                      onClick={retry}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            )}
+            <BuilderErrorDisplay error={error} retryableError={retryableError} onRetry={generateLetter} />
 
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
@@ -350,55 +306,15 @@ export function CLBuilder() {
         </div>
 
         {isGenerated && (
-          <div className="w-96 flex flex-col bg-muted/20">
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold">AI Assistant</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Request modifications to your cover letter</p>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4">
-              <div className="space-y-3">
-                {CL_SUGGESTIONS.map((s) => (
-                  <Card
-                    key={s.title}
-                    className="p-3 bg-card hover:bg-accent/50 cursor-pointer transition-colors"
-                    onClick={() => handleChatSubmit(s.prompt)}
-                  >
-                    <p className="text-sm font-medium">{s.title}</p>
-                    <p className="text-xs text-muted-foreground">{s.hint}</p>
-                  </Card>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-border">
-              <Textarea
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleChatSubmit();
-                  }
-                }}
-                placeholder="Request changes..."
-                className="resize-none bg-input-background border-border text-sm"
-                rows={3}
-                disabled={chatLoading}
-              />
-              <Button
-                onClick={() => handleChatSubmit()}
-                disabled={!chatMessage.trim() || chatLoading}
-                className="w-full mt-2"
-                size="sm"
-              >
-                {chatLoading ? "Applying..." : "Apply Changes"}
-              </Button>
-            </div>
-          </div>
+          <BuilderAssistantPanel
+            suggestions={CL_SUGGESTIONS}
+            chatMessage={chatMessage}
+            chatLoading={chatLoading}
+            onChatMessageChange={setChatMessage}
+            onSubmit={handleChatSubmit}
+            accentClass="text-blue-600"
+            panelBg="bg-muted/20"
+          />
         )}
       </div>
     </div>

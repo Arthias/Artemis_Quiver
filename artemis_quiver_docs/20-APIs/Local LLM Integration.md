@@ -28,7 +28,7 @@ Artemis Quiver uses a **provider adapter architecture** to support multiple LLM 
 
 ## 🔌 Provider Adapter Interface
 
-Each adapter implements [ProviderAdapter.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/provider/ProviderAdapter.ts):
+Each adapter implements [ProviderAdapter.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/provider/ProviderAdapter.ts). Common utilities (`normalizeBaseUrl`, `createAbortSignal`, `handleFetchError`) are shared via [shared.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/provider/shared.ts).
 
 ```typescript
 interface ProviderAdapter {

@@ -1,16 +1,11 @@
 import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 import { AppError, ErrorCodes } from "../../utils/errors";
 import type { ChatCompletionOptions, ProviderAdapter } from "./ProviderAdapter";
-
-function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
-}
+import { normalizeBaseUrl, createAbortSignal, handleFetchError } from "./shared";
 
 function buildHeaders(endpoint: ModelEndpoint): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (endpoint.apiKey) {
-    headers["Authorization"] = `Bearer ${endpoint.apiKey}`;
-  }
+  if (endpoint.apiKey) headers["Authorization"] = `Bearer ${endpoint.apiKey}`;
   return headers;
 }
 
@@ -22,8 +17,7 @@ export const openAICompatibleAdapter: ProviderAdapter = {
   ): Promise<string> {
     const baseUrl = normalizeBaseUrl(endpoint.baseUrl);
     const timeoutMs = options?.timeoutMs ?? 120_000;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const { signal, clear } = createAbortSignal(timeoutMs);
 
     try {
       const response = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -36,7 +30,7 @@ export const openAICompatibleAdapter: ProviderAdapter = {
           max_tokens: endpoint.maxTokens,
           stream: false,
         }),
-        signal: controller.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -54,25 +48,16 @@ export const openAICompatibleAdapter: ProviderAdapter = {
       }
       return content;
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        throw new AppError(ErrorCodes.LLM_TIMEOUT, `Request timed out after ${timeoutMs}ms`);
-      }
-      if (error instanceof TypeError && error.message === "fetch failed") {
-        throw new AppError(ErrorCodes.LLM_CONNECTION_REFUSED, error.message);
-      }
-      if (error instanceof AppError) throw error;
-      throw new AppError(ErrorCodes.UNKNOWN, error instanceof Error ? error.message : String(error));
+      handleFetchError(error, timeoutMs);
     } finally {
-      clearTimeout(timeout);
+      clear();
     }
   },
 
   async listModels(endpoint: ModelEndpoint): Promise<string[]> {
     const baseUrl = normalizeBaseUrl(endpoint.baseUrl);
     const headers: Record<string, string> = {};
-    if (endpoint.apiKey) {
-      headers["Authorization"] = `Bearer ${endpoint.apiKey}`;
-    }
+    if (endpoint.apiKey) headers["Authorization"] = `Bearer ${endpoint.apiKey}`;
 
     const response = await fetch(`${baseUrl}/v1/models`, { headers });
     if (!response.ok) {

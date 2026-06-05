@@ -11,29 +11,20 @@ import {
 
 const JSON_MODES: OptimizationMode[] = ["standard", "ats-optimize", "career-transition"];
 const MAX_RETRIES = 3;
-const SECTION_TYPE_KEYS = ["summary", "contact", "skills", "experience", "education", "certifications"] as const;
+
+const SECTION_NORMALIZERS: Record<string, (val: unknown) => Record<string, unknown>> = {
+  summary: (val) => ({ type: "summary", content: typeof val === "string" ? val : String(val ?? "") }),
+  contact: (val) => ({ type: "contact", ...(typeof val === "object" && val !== null ? val as Record<string, unknown> : {}) }),
+  skills: (val) => ({ type: "skills", skills: Array.isArray(val) ? val : [] }),
+  experience: (val) => ({ type: "experience", experience: Array.isArray(val) ? val : [] }),
+  education: (val) => ({ type: "education", education: Array.isArray(val) ? val : [] }),
+  certifications: (val) => ({ type: "certifications", certifications: Array.isArray(val) ? val : [] }),
+};
 
 function normalizeSection(section: Record<string, unknown>): Record<string, unknown> {
   if (section.type && typeof section.type === "string") return section;
-
-  for (const key of SECTION_TYPE_KEYS) {
-    if (key in section) {
-      const val = section[key];
-      switch (key) {
-        case "summary":
-          return { type: key, content: typeof val === "string" ? val : String(val ?? "") };
-        case "contact":
-          return { type: key, ...(typeof val === "object" && val !== null ? val as Record<string, unknown> : {}) };
-        case "skills":
-          return { type: key, skills: Array.isArray(val) ? val : [] };
-        case "experience":
-          return { type: key, experience: Array.isArray(val) ? val : [] };
-        case "education":
-          return { type: key, education: Array.isArray(val) ? val : [] };
-        case "certifications":
-          return { type: key, certifications: Array.isArray(val) ? val : [] };
-      }
-    }
+  for (const [key, normalizer] of Object.entries(SECTION_NORMALIZERS)) {
+    if (key in section) return normalizer(section[key]);
   }
   return section;
 }
@@ -98,6 +89,36 @@ function buildMessages(
   ];
 }
 
+async function withJsonRetry(
+  buildMessages: (attempt: number, lastRaw: string, lastError: string) => ChatMessage[],
+  endpoint: ModelEndpoint,
+  errorCode: ErrorCode,
+  errorMessage: string,
+): Promise<string> {
+  let lastRaw = "";
+  let lastErrorMessage = "";
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const messages = buildMessages(attempt, lastRaw, lastErrorMessage);
+      const raw = await chatCompletion(messages, endpoint);
+
+      try {
+        return normalizeCvJson(raw);
+      } catch (normalizeErr) {
+        lastRaw = raw;
+        lastErrorMessage = normalizeErr instanceof Error ? normalizeErr.message : String(normalizeErr);
+        if (attempt < MAX_RETRIES) continue;
+        throw new AppError(errorCode, `${errorMessage} after ${MAX_RETRIES + 1} attempts.`);
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
+    }
+  }
+  throw new AppError(ErrorCodes.UNKNOWN, errorMessage);
+}
+
 export async function generateCv(
   profileMarkdown: string,
   jobDescription: string | undefined,
@@ -106,48 +127,26 @@ export async function generateCv(
   options?: GenerateCvOptions
 ): Promise<string> {
   const mode = options?.mode ?? "standard";
-  const isJsonMode = JSON_MODES.includes(mode);
+  if (!JSON_MODES.includes(mode)) {
+    const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
+    return chatCompletion(messages, endpoint);
+  }
 
-  let lastRaw = "";
-  let lastErrorMessage = "";
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
+  return withJsonRetry(
+    (attempt, lastRaw, lastError) => {
       const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
-
-      // Attempt 3+: send corrective feedback with the model's broken output
       if (attempt >= 2 && lastRaw) {
         messages.push(
           { role: "assistant", content: lastRaw },
-          { role: "user", content: `Fix the JSON formatting error above: ${lastErrorMessage}. Return ONLY valid JSON. No markdown fences.` }
+          { role: "user", content: `Fix the JSON formatting error above: ${lastError}. Return ONLY valid JSON. No markdown fences.` }
         );
       }
-
-      const raw = await chatCompletion(messages, endpoint);
-
-      if (!isJsonMode) return raw;
-
-      try {
-        return normalizeCvJson(raw);
-      } catch (normalizeErr) {
-        lastRaw = raw;
-        lastErrorMessage = normalizeErr instanceof Error ? normalizeErr.message : String(normalizeErr);
-        if (attempt < MAX_RETRIES) continue;
-        throw new AppError(
-          ErrorCodes.CV_GENERATION_FAILED,
-          `CV generation failed after ${MAX_RETRIES + 1} attempts.`,
-        );
-      }
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      throw new AppError(
-        ErrorCodes.LLM_API_FAILURE,
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
-
-  throw new AppError(ErrorCodes.UNKNOWN, "CV generation failed unexpectedly.");
+      return messages;
+    },
+    endpoint,
+    ErrorCodes.CV_GENERATION_FAILED,
+    "CV generation failed",
+  );
 }
 
 export async function editCv(
@@ -156,46 +155,24 @@ export async function editCv(
   profileMarkdown: string,
   endpoint: ModelEndpoint
 ): Promise<string> {
-  let lastRaw = "";
-  let lastErrorMessage = "";
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
+  return withJsonRetry(
+    (attempt, lastRaw, lastError) => {
       const messages: ChatMessage[] = [
         { role: "system", content: cvEditPrompt(userRequest) },
         { role: "user", content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}` },
       ];
-
       if (attempt >= 2 && lastRaw) {
         messages.push(
           { role: "assistant", content: lastRaw },
-          { role: "user", content: `Fix the JSON error above: ${lastErrorMessage}. Return ONLY valid JSON.` }
+          { role: "user", content: `Fix the JSON error above: ${lastError}. Return ONLY valid JSON.` }
         );
       }
-
-      const raw = await chatCompletion(messages, endpoint);
-
-      try {
-        return normalizeCvJson(raw);
-      } catch (normalizeErr) {
-        lastRaw = raw;
-        lastErrorMessage = normalizeErr instanceof Error ? normalizeErr.message : String(normalizeErr);
-        if (attempt < MAX_RETRIES) continue;
-        throw new AppError(
-          ErrorCodes.CV_GENERATION_FAILED,
-          `CV edit failed after ${MAX_RETRIES + 1} attempts.`,
-        );
-      }
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      throw new AppError(
-        ErrorCodes.LLM_API_FAILURE,
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
-
-  throw new AppError(ErrorCodes.UNKNOWN, "CV edit failed unexpectedly.");
+      return messages;
+    },
+    endpoint,
+    ErrorCodes.CV_GENERATION_FAILED,
+    "CV edit failed",
+  );
 }
 
 export async function optimizeCv(

@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import type { ErrorLogRecord } from "../db/schema";
+import { db } from "../db/schema";
 
-export type LogSource = ErrorLogRecord["source"];
+
 
 interface ErrorLogValue {
   logs: ErrorLogRecord[];
@@ -31,7 +32,6 @@ export function ErrorLogProvider({ children }: { children: ReactNode }) {
 
   const setDevMode = useCallback(async (on: boolean) => {
     setDevModeState(on);
-    const { db } = await import("../db/schema");
     await db.metadata.put({ key: "artemis:devMode", value: on });
   }, []);
 
@@ -48,10 +48,8 @@ export function ErrorLogProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    void import("../db/schema").then(({ db }) => {
-      db.metadata.get("artemis:devMode").then((stored) => {
-        if (stored?.value === true && mounted) setDevModeState(true);
-      });
+    db.metadata.get("artemis:devMode").then((stored) => {
+      if (stored?.value === true && mounted) setDevModeState(true);
     });
 
     return () => {

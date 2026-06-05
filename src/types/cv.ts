@@ -16,7 +16,7 @@ const EducationItemSchema = z.object({
   location: z.string().optional()
 });
 
-export const CVSectionSchema = z.discriminatedUnion("type", [
+const CVSectionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("summary"),
     content: z.string().max(2000).describe("Professional summary text")
@@ -51,14 +51,14 @@ export const CVSectionSchema = z.discriminatedUnion("type", [
   })
 ]);
 
-export const CVContentSchema = z.object({
+const CVContentSchema = z.object({
   name: z.string().describe("Candidate's full name"),
   title: z.string().describe("Professional headline / role title"),
   location: z.string().optional().describe("Primary location"),
   sections: z.array(CVSectionSchema).min(1).describe("CV section array")
 });
 
-export const ThemeConfigSchema = z.object({
+const ThemeConfigSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   templateId: z.enum(["modern", "classic", "minimal"]).optional()
 });
