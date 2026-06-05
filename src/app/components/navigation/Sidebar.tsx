@@ -9,11 +9,13 @@ import {
   Plus,
   MessageSquare,
   ChevronRight,
+  Inbox,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
 import { useAnalysis } from "../../context/AnalysisContext";
+import { useExtensionBridge } from "../../context/ExtensionBridgeContext";
 import { useWorkspace } from "../../context/WorkspaceProfileContext";
 import { formatRelativeTime } from "../../utils/relativeTime";
 import { ProfileSwitcherModal } from "../workspace/ProfileSwitcherModal";
@@ -35,8 +37,9 @@ function sessionTitle(jobPosting: string, title?: string, summary?: string): str
 
 export function Sidebar() {
   const navigate = useNavigate();
-  const { sessions, loadSession, clearCurrent, activeSessionId } = useAnalysis();
+  const { sessions, loadSession, clearCurrent, activeSessionId, setDraftJobPosting } = useAnalysis();
   const { activeProfile, activeInitials } = useWorkspace();
+  const { pendingImports, clearPendingImport } = useExtensionBridge();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleNewAnalysis = () => {
@@ -46,6 +49,12 @@ export function Sidebar() {
 
   const handleLoadSession = (id: string) => {
     loadSession(id);
+    navigate("/");
+  };
+
+  const handleRunPending = (pending: { text: string }) => {
+    setDraftJobPosting(pending.text);
+    clearCurrent();
     navigate("/");
   };
 
@@ -95,6 +104,38 @@ export function Sidebar() {
         </div>
 
         <Separator className="mx-3" />
+
+        {pendingImports.length > 0 && (
+          <div className="px-3 pt-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1">
+              Pending
+            </h3>
+            <div className="space-y-1">
+              {pendingImports.map((p) => (
+                <div key={p.id} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleRunPending(p)}
+                    className="flex-1 text-left flex items-center gap-2 px-2 py-2 rounded-md hover:bg-sidebar-accent/50 transition-colors group"
+                  >
+                    <Inbox className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-sidebar-foreground truncate">{p.title}</p>
+                      <p className="text-xs text-muted-foreground">{formatRelativeTime(p.receivedAt)}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => clearPendingImport(p.id)}
+                    className="shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors text-xs"
+                    title="Dismiss"
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-hidden flex flex-col">
           <div className="px-4 py-3">

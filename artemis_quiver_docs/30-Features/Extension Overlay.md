@@ -286,6 +286,22 @@ The `overlay.ts` content script bundles as a separate chunk or inline. Content s
 
 ---
 
+## Naming Lore
+
+The name **Artemis Quiver** draws from Greek mythology:
+
+- **Artemis** — the goddess of the hunt. The app helps you hunt for jobs, matching your profile against opportunities like an archer sights a target.
+- **The Quiver** — her toolset, the container for her arrows. Each arrow is a tool: profile analyzer, CV builder, cover letter generator, match scorer, interview simulator. The quiver keeps them organized and ready.
+- **The Arrow** — a single job application. You take aim (analysis), draw (prepare CV/letter), and fire (apply).
+
+Possible metaphorical extensions:
+- **Honing the arrow** — refining your profile and documents
+- **Sharpening the tip** — interview prep and STAR responses
+- **The bow** — the LLM provider (the force that propels your application forward)
+- **The hunt** — your active job search campaign
+
+---
+
 ## Decisions (2026-06-05)
 
 | Decision | Choice |

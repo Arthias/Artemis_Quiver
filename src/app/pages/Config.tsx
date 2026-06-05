@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2 } from "lucide-react";
+import { useErrorLog } from "../context/ErrorLogContext";
 import {
   Select,
   SelectContent,
@@ -16,6 +17,143 @@ import { useConfig } from "../context/ConfigContext";
 import { listModels as listModelsApi } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
+
+const DEFAULT_KNOWN_SITES = [
+  "linkedin.com", "indeed.com", "glassdoor.com", "monster.com",
+  "ziprecruiter.com", "careerbuilder.com", "dice.com", "simplyhired.com",
+  "upwork.com", "freelancer.com", "stackoverflow.com", "weworkremotely.com", "remoteok.com",
+];
+
+function ExtensionSettingsCard() {
+  const [customSites, setCustomSites] = useState<string[]>([]);
+  const [newSite, setNewSite] = useState("");
+  const [overlayEnabled, setOverlayEnabled] = useState(true);
+
+  useEffect(() => {
+    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
+    if (!isExt) return;
+    chrome.storage.local.get("artemis:overlayConfig").then((result) => {
+      const cfg = (result as any)["artemis:overlayConfig"] || {};
+      setCustomSites(cfg.jobSites || []);
+      setOverlayEnabled(cfg.enabled !== false);
+    });
+  }, []);
+
+  function save(newCustom: string[]) {
+    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
+    if (!isExt) return;
+    chrome.storage.local.get("artemis:overlayConfig").then((result) => {
+      const cfg = (result as any)["artemis:overlayConfig"] || {};
+      cfg.jobSites = newCustom;
+      cfg.enabled = overlayEnabled;
+      chrome.storage.local.set({ "artemis:overlayConfig": cfg });
+    });
+  }
+
+  function addSite() {
+    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (!trimmed || customSites.includes(trimmed) || DEFAULT_KNOWN_SITES.includes(trimmed)) return;
+    const next = [...customSites, trimmed];
+    setCustomSites(next);
+    setNewSite("");
+    save(next);
+  }
+
+  function removeSite(site: string) {
+    const next = customSites.filter((s) => s !== site);
+    setCustomSites(next);
+    save(next);
+  }
+
+  const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
+
+  if (!isExt) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Globe className="w-5 h-5 text-blue-500" />
+          <h2 className="text-lg font-semibold">Extension</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Extension settings are available when running as a Chrome extension.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Globe className="w-5 h-5 text-blue-500" />
+        <h2 className="text-lg font-semibold">Extension Overlay</h2>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label>Show overlay on job sites</Label>
+          <p className="text-sm text-muted-foreground">
+            Floating badge with match scoring and import
+          </p>
+        </div>
+        <Switch
+          checked={overlayEnabled}
+          onCheckedChange={(v) => {
+            setOverlayEnabled(v);
+            chrome.storage.local.get("artemis:overlayConfig").then((result) => {
+              const cfg = (result as any)["artemis:overlayConfig"] || {};
+              cfg.enabled = v;
+              chrome.storage.local.set({ "artemis:overlayConfig": cfg });
+            });
+          }}
+        />
+      </div>
+
+      <div>
+        <Label className="mb-2 block">Known job sites</Label>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {DEFAULT_KNOWN_SITES.map((site) => (
+            <span key={site} className="px-2 py-1 rounded bg-muted text-xs text-muted-foreground">
+              {site}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label className="mb-2 block">Custom sites</Label>
+        <div className="flex gap-2 mb-2">
+          <Input
+            value={newSite}
+            onChange={(e) => setNewSite(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addSite()}
+            placeholder="myjobboard.com"
+            className="bg-input-background flex-1"
+          />
+          <Button variant="outline" size="icon" onClick={addSite}>
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+        {customSites.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {customSites.map((site) => (
+              <span key={site} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted text-xs">
+                {site}
+                <button onClick={() => removeSite(site)} className="text-destructive hover:text-destructive/80">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        The extension overlay appears on these sites when you visit job pages.
+        Configure fallback AI and fingerprint in the extension popup.
+      </p>
+    </Card>
+  );
+}
 
 const PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
   { value: "openai-compatible", label: "OpenAI Compatible" },
@@ -195,6 +333,88 @@ function ModelEndpointCard({
   );
 }
 
+const SOURCE_COLORS: Record<string, string> = {
+  app: "text-blue-500",
+  overlay: "text-purple-500",
+  popup: "text-pink-500",
+  background: "text-orange-500",
+  llm: "text-red-500",
+};
+
+function DevModeLogViewer() {
+  const { devMode, setDevMode, logs, clearLogs } = useErrorLog();
+
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Bug className="w-5 h-5 text-amber-500" />
+        <h2 className="text-lg font-semibold">Developer Mode</h2>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label>Error Log</Label>
+          <p className="text-sm text-muted-foreground">
+            Captures errors from the app, LLM connections, overlay, and popup
+          </p>
+        </div>
+        <Switch checked={devMode} onCheckedChange={setDevMode} />
+      </div>
+
+      {devMode && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{logs.length} entries</span>
+            <Button variant="outline" size="sm" onClick={clearLogs}>
+              <Trash2 className="w-3 h-3 mr-1" />
+              Clear Log
+            </Button>
+          </div>
+
+          <div
+            className="border rounded-lg bg-background p-2 overflow-auto"
+            style={{ maxHeight: "400px", fontFamily: "ui-monospace, SFMono-Regular, monospace", fontSize: "12px", lineHeight: "1.5" }}
+          >
+            {logs.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No errors captured yet</p>
+            ) : (
+              logs.map((entry) => (
+                <div key={entry.id} className="border-b border-border last:border-0 py-2 px-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[10px] font-semibold uppercase ${SOURCE_COLORS[entry.source] || "text-muted-foreground"}`}>
+                      {entry.source}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    </span>
+                    {entry.code && (
+                      <span className="text-[10px] bg-destructive/10 text-destructive px-1 rounded">
+                        {entry.code}
+                      </span>
+                    )}
+                    {entry.severity && (
+                      <span className={`text-[10px] ${entry.severity === "CRITICAL" ? "text-red-500" : entry.severity === "WARNING" ? "text-yellow-500" : "text-muted-foreground"}`}>
+                        {entry.severity}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-foreground break-all">{entry.message}</div>
+                  {entry.stack && (
+                    <details className="mt-1">
+                      <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">Stack</summary>
+                      <pre className="text-[10px] text-muted-foreground mt-1 whitespace-pre-wrap break-all max-h-24 overflow-auto">{entry.stack}</pre>
+                    </details>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function Config() {
   const { config, updateConfig } = useConfig();
   const [testing, setTesting] = useState(false);
@@ -356,7 +576,7 @@ export function Config() {
               <div>
                 <Label>Auto-save profile</Label>
                 <p className="text-sm text-muted-foreground">
-                  Save profile edits to localStorage after you stop typing
+                  Save profile edits to IndexedDB after you stop typing
                 </p>
               </div>
               <Switch
@@ -367,6 +587,9 @@ export function Config() {
               />
             </div>
           </Card>
+
+          <ExtensionSettingsCard />
+          <DevModeLogViewer />
         </div>
       </div>
     </div>

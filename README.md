@@ -2,6 +2,8 @@
 
 Job hunting automation engine: analyze job postings against your professional profile using a local LLM, then refine CVs and cover letters.
 
+The name draws from **Artemis** (goddess of the hunt) and **the Quiver** (her toolset of arrows). The app equips you for the job hunt — each tool is an arrow: profile analyzer, CV builder, cover letter generator, match scorer, interview simulator.
+
 Design source: [Figma — Job Hunting Automation Engine](https://www.figma.com/design/NAKF9BYIvmXKegz6JDnaJl/Job-Hunting-Automation-Engine).
 
 ## What it does

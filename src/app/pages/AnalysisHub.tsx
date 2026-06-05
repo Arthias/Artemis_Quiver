@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -20,7 +20,6 @@ import {
 import { useNavigate } from "react-router";
 import { useAnalysis } from "../context/AnalysisContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
-import { useExtensionImport, type ImportPayload } from "../hooks/useExtensionImport";
 
 function matchLabel(score: number): string {
   if (score >= 80) return "Strong Match";
@@ -46,15 +45,6 @@ export function AnalysisHub() {
     sendFollowUpMessage,
   } = useAnalysis();
   const { setHandoff } = useBuilderHandoff();
-
-  const handleImport = useCallback(
-    (payload: ImportPayload) => {
-      const formatted = `# ${payload.title}\n\nSource: ${payload.url}\n\n${payload.text}`;
-      setDraftJobPosting(formatted);
-    },
-    [setDraftJobPosting]
-  );
-  useExtensionImport(handleImport);
 
   const result = currentResult;
   const hasResult = result !== null;
