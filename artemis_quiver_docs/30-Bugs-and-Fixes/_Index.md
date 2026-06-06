@@ -273,6 +273,124 @@ Invalid JSON structure generated. Please check console for details.
 
 ---
 
+---
+
+## 2026-06-05: Overlay stuck as non-interactive blue rectangle
+
+### Issue #17: Collapsed overlay header blocked expansion click
+
+**Symptom:** Overlay appeared as a small dark rectangle that could only be dragged. Clicking to expand did nothing.
+
+**Root Cause:** `setupToggle()` checked `(e.target as HTMLElement).closest("[data-drag]")` and returned early — but the collapsed overlay **IS** the `[data-drag]` header, so every click was suppressed. Also `isDragging` global was never reset after drag, causing state corruption.
+
+**Fix Applied:**
+1. Replaced `setupDrag()` + `setupToggle()` with single `setupOverlayEvents()` using event delegation on the overlay element
+2. Drag uses local `wasDragged` flag (no globals)
+3. Click handler checks `justDragged` flag to suppress toggle after drag
+4. Event listeners attached once in `injectOverlay()` — no re-attachment on every render
+
+### Issue #18: Close button only rendered in expanded state
+
+**Symptom:** No way to dismiss overlay without reloading page.
+
+**Fix Applied:** Close button (`data-action="close"`) always rendered in header regardless of expanded state.
+
+### Issue #19: No visible status when fingerprint missing
+
+**Symptom:** Default config has `fallbackMode: "basic"` and no fingerprint. Overlay showed "JD" badge with no indication of what to do.
+
+**Fix Applied:** Collapsed view now shows:
+- `?` badge (gray) + "Not Configured" label when no fingerprint
+- `...` badge (yellow) + "Analyzing..." when fingerprint exists but no score yet
+- `85%` badge (colored) + "Match Score" when scored
+
+Expanded view shows guidance: "No profile fingerprint. Open the Artemis Quiver popup and generate a fingerprint to get AI match scores."
+
+### Issue #20: No storage change listener
+
+**Symptom:** Generating fingerprint in popup had no effect on already-injected overlay — required page refresh.
+
+**Fix Applied:** Added `chrome.storage.onChanged` listener. When fingerprint becomes available, `computeMatch()` triggers automatically and overlay re-renders.
+
+**Location:** `src/extension/overlay.ts`
+
+---
+
+## 2026-06-05: Overlay import & score failure handling (Session 2)
+
+### Issue #21: `chrome.tabs` undefined in content script
+
+**Symptom:** Import button threw `TypeError: Cannot read properties of undefined (reading 'query')` because `chrome.tabs` is not available in MV3 content scripts.
+
+**Root Cause:** `handleImport()` and `openApp()` in `overlay.ts` called `chrome.tabs.query()` and `chrome.tabs.create()` directly. Content scripts only have access to a subset of `chrome.*` APIs — `chrome.tabs` is restricted to service workers and popups.
+
+**Fix Applied:**
+1. Added `ARTEMIS_IMPORT_JOB` message handler in `background.ts` — receives import payload from overlay, handles tab lookup/focus/creation
+2. Added `ARTEMIS_OPEN_APP` message handler in `background.ts` — focuses or creates the app tab
+3. `overlay.ts` now sends fire-and-forget messages to background instead of calling `chrome.tabs` directly
+
+### Issue #22: Score failure stuck on "Analyzing..." indefinitely
+
+**Symptom:** When LLM call failed/returned null, `matchScore` stayed `null` but `hasFingerprint` was `true`, so the overlay showed "Analyzing..." forever with no feedback.
+
+**Root Cause:** `computeMatch` had no failure state — it only distinguished "no score yet" (matchScore === null) from "has score". LLM errors were silently caught and discarded.
+
+**Fix Applied:**
+1. Added `scoringFailed` boolean state variable
+2. `computeMatch` sets `scoringFailed = true` when LLM returns null and fingerprint exists
+3. Badge shows `!` (red) + label "Score Failed" when scoring fails
+4. Expanded view shows error guidance: "Check that your LLM endpoint is configured in settings and the server is running"
+5. Added **Retry** button in the error state that re-runs `computeMatch` with fresh config from storage
+
+**Location:** `src/extension/overlay.ts`, `src/extension/background.ts`
+
+---
+
+## 2026-06-05: Import content empty + channel errors (Session 3)
+
+### Issue #23: Pending import shows but job posting text is empty
+
+**Symptom:** "Import to Artemis" creates a pending import entry, but clicking it shows a blank job posting on the Analysis Hub.
+
+**Root Cause:** `Sidebar.tsx:handleRunPending()` called `setDraftJobPosting(pending.text)` **before** `clearCurrent()`. `clearCurrent()` resets `draftJobPosting` to `""` via `setDraftJobPosting("")`, wiping the import text immediately.
+
+**Fix Applied:** Swapped order to `clearCurrent()` first, then `setDraftJobPosting(pending.text)`.
+
+**Location:** `src/app/components/navigation/Sidebar.tsx:55-59`
+
+### Issue #24: 403 error lacks endpoint URL in message
+
+**Symptom:** When LM Studio returns 403, error says `LLM request failed: 403` with no indication of which URL was attempted.
+
+**Fix Applied:** Error now includes the full URL: `LLM request failed: 403 for http://192.168.8.171:1234/v1/chat/completions`
+
+**Location:** `src/extension/background.ts:160`
+
+### Issue #25: Pending import contained full LinkedIn page noise
+
+**Symptom:** Importing from LinkedIn included nav bars, notifications, search results, and all sidebar noise instead of just the job description.
+
+**Root Cause:** `overlay.ts:handleImport()` used `document.body.innerText` directly — the content script sees the full DOM text including LinkedIn chrome. The `extractPageContent()` function in `background.ts` already had proper LinkedIn cleaning (DOM stabilization, marker-based extraction, title from `.jobs-unified-top-card__title`) but was only used by the extension icon click (`chrome.action.onClicked`), not by the overlay import path.
+
+**Fix Applied:**
+1. `overlay.ts:handleImport()` now sends `ARTEMIS_EXTRACT_AND_IMPORT` to background instead of raw `document.body.innerText`
+2. Background receives message, gets tab ID from `_sender.tab.id`, runs `chrome.scripting.executeScript` with the existing `extractPageContent` function
+3. Cleaned content (LinkedIn: job description between "about the job" / "people also viewed"; others: `document.body.innerText`) is forwarded to app tab or stored as pending
+
+**Location:** `src/extension/overlay.ts:368-391`, `src/extension/background.ts`
+
+---
+
+### Issue #26: ExtensionBridge message handler could return ambiguous values
+
+**Symptom:** `ExtensionBridgeContext` used two `if` blocks instead of `if/else if`, risking both blocks executing and returning a Promise for the wrong message type.
+
+**Fix Applied:** Changed to `else if` pattern. Also changed `respondWithProfile()` from implicit Promise return to explicit `respondWithProfile().then(sendResponse); return true;` pattern for reliable channel handling.
+
+**Location:** `src/app/context/ExtensionBridgeContext.tsx:39-46`
+
+---
+
 ## Related Documentation
 
 - [[../00-Index/MOC|Map of Content]] — Project documentation index

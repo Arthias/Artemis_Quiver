@@ -15,7 +15,7 @@ import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
 import { useAnalysis } from "../../context/AnalysisContext";
-import { useExtensionBridge } from "../../context/ExtensionBridgeContext";
+import { useExtensionBridge, type PendingImport } from "../../context/ExtensionBridgeContext";
 import { useWorkspace } from "../../context/WorkspaceProfileContext";
 import { formatRelativeTime } from "../../utils/relativeTime";
 import { ProfileSwitcherModal } from "../workspace/ProfileSwitcherModal";
@@ -52,9 +52,10 @@ export function Sidebar() {
     navigate("/");
   };
 
-  const handleRunPending = (pending: { text: string }) => {
-    setDraftJobPosting(pending.text);
+  const handleRunPending = (pending: PendingImport) => {
     clearCurrent();
+    setDraftJobPosting(pending.text);
+    clearPendingImport(pending.id);
     navigate("/");
   };
 

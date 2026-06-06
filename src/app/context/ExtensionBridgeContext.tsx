@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 
-interface PendingImport {
+export interface PendingImport {
   id: string;
   title: string;
   text: string;
@@ -36,12 +36,12 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for live messages
-    const handler = (msg: any) => {
+    const handler = (msg: any, _sender: chrome.runtime.MessageSender, sendResponse: (resp: any) => void) => {
       if (msg.type === "ARTEMIS_IMPORT") {
         addPending(msg.payload);
-      }
-      if (msg.type === "ARTEMIS_REQUEST_PROFILE") {
-        return respondWithProfile();
+      } else if (msg.type === "ARTEMIS_REQUEST_PROFILE") {
+        respondWithProfile().then(sendResponse);
+        return true;
       }
     };
     chrome.runtime.onMessage.addListener(handler);

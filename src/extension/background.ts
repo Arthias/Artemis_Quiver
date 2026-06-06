@@ -62,6 +62,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       void relayErrorToApp(msg.payload);
       break;
 
+    case "ARTEMIS_IMPORT_JOB":
+      void handleImportJob(msg.payload);
+      break;
+
+    case "ARTEMIS_OPEN_APP":
+      void handleOpenApp();
+      break;
+
+    case "ARTEMIS_EXTRACT_AND_IMPORT": {
+      const tabId = _sender.tab?.id;
+      if (tabId) void handleExtractAndImport(tabId);
+      break;
+    }
   }
 });
 
@@ -150,7 +163,7 @@ async function callRemoteLLM(prompt: string, config: any): Promise<string> {
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!resp.ok) throw new Error(`LLM request failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`LLM request failed: ${resp.status} for ${endpoint.baseUrl}/v1/chat/completions`);
 
   const json = await resp.json() as any;
   const msg = json?.choices?.[0]?.message;
@@ -206,6 +219,65 @@ async function handleLLMScore(
     console.error("[Artemis] LLM score error:", err);
     relayErrorToApp({ message: msg, stack: err instanceof Error ? err.stack : undefined, source: "background", timestamp: new Date().toISOString() });
     sendResponse({ score: null });
+  }
+}
+
+// ── Extract page content and import (relayed from overlay) ──
+async function handleExtractAndImport(tabId: number) {
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: extractPageContent,
+    });
+    const data = result?.result as { title: string; text: string; url: string } | undefined;
+    if (!data?.text) return;
+
+    const appUrl = chrome.runtime.getURL("index.html");
+    const existingTabs = await chrome.tabs.query({ url: appUrl });
+    if (existingTabs.length > 0 && existingTabs[0]?.id) {
+      await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_IMPORT", payload: data });
+      await chrome.tabs.update(existingTabs[0].id, { active: true });
+    } else {
+      await chrome.storage.session.set({ "artemis:pendingImport": data });
+    }
+  } catch (err) {
+    console.error("[Artemis] Extract & import failed:", err);
+    relayErrorToApp({
+      message: String(err), stack: err instanceof Error ? err.stack : undefined,
+      source: "background", timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+// ── Import job (relayed from overlay content script) ──
+async function handleImportJob(payload: { title: string; text: string; url: string }) {
+  try {
+    const appUrl = chrome.runtime.getURL("index.html");
+    const existingTabs = await chrome.tabs.query({ url: appUrl });
+
+    if (existingTabs.length > 0 && existingTabs[0]?.id) {
+      await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_IMPORT", payload });
+      await chrome.tabs.update(existingTabs[0].id, { active: true });
+    } else {
+      await chrome.storage.session.set({ "artemis:pendingImport": payload });
+    }
+  } catch (err) {
+    console.error("[Artemis] Import job failed:", err);
+    relayErrorToApp({ message: String(err), stack: err instanceof Error ? err.stack : undefined, source: "background", timestamp: new Date().toISOString() });
+  }
+}
+
+async function handleOpenApp() {
+  try {
+    const appUrl = chrome.runtime.getURL("index.html");
+    const existingTabs = await chrome.tabs.query({ url: appUrl });
+    if (existingTabs.length > 0 && existingTabs[0]?.id) {
+      await chrome.tabs.update(existingTabs[0].id, { active: true });
+    } else {
+      await chrome.tabs.create({ url: appUrl });
+    }
+  } catch (err) {
+    console.error("[Artemis] Open app failed:", err);
   }
 }
 
