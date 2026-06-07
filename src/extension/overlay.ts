@@ -1,5 +1,7 @@
 /// <reference types="chrome" />
 
+import { matchJobSite } from "./job-sites.js";
+
 const STORAGE_KEY = "artemis:overlayConfig";
 const POSITION_KEY = "artemis:overlayPosition";
 
@@ -16,25 +18,24 @@ interface OverlayPosition {
   y: number;
 }
 
-const DEFAULT_SITES = [
-  "linkedin.com", "indeed.com", "glassdoor.com", "monster.com",
-  "ziprecruiter.com", "careerbuilder.com", "dice.com", "simplyhired.com",
-  "upwork.com", "freelancer.com", "stackoverflow.com", "weworkremotely.com", "remoteok.com",
-];
-
-function isKnownJobSite(hostname: string, custom: string[]): boolean {
-  const all = [...DEFAULT_SITES, ...custom.map((s) => s.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase())];
-  return all.some((s) => hostname === s || hostname.endsWith("." + s));
-}
-
 async function loadConfig(): Promise<OverlayConfig> {
-  const result = await chrome.storage.local.get(STORAGE_KEY);
-  return (result[STORAGE_KEY] as OverlayConfig) || { enabled: true, jobSites: [], fallbackMode: "basic" };
+  try {
+    const result = await chrome.storage.local.get(STORAGE_KEY);
+    return (result[STORAGE_KEY] as OverlayConfig) || { enabled: true, jobSites: [], fallbackMode: "basic" };
+  } catch (e) {
+    console.error("[Artemis] Failed to load config:", e);
+    return { enabled: true, jobSites: [], fallbackMode: "basic" };
+  }
 }
 
 async function loadPosition(): Promise<OverlayPosition> {
-  const result = await chrome.storage.local.get(POSITION_KEY);
-  return (result[POSITION_KEY] as OverlayPosition) || { x: 20, y: 20 };
+  try {
+    const result = await chrome.storage.local.get(POSITION_KEY);
+    return (result[POSITION_KEY] as OverlayPosition) || { x: 20, y: 20 };
+  } catch (e) {
+    console.error("[Artemis] Failed to load position:", e);
+    return { x: 20, y: 20 };
+  }
 }
 
 async function savePosition(pos: OverlayPosition): Promise<void> {
@@ -142,6 +143,8 @@ let isImported = false;
 let extracted: { title: string; company: string; salary: string } = { title: "", company: "", salary: "" };
 let nanoTestResult: string | null = null;
 let nanoTesting = false;
+let currentFallbackMode: string = "basic";
+let storageInit = false;
 
 function esc(s: string): string {
   const d = document.createElement("div");
@@ -223,7 +226,7 @@ function render() {
         ` : scoringFailed ? `
         <div class="ao-body-section">
           <div class="ao-info-box" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444">
-            <strong>Match scoring failed.</strong> Check that your LLM endpoint is configured in settings and the server is running.
+            <strong>Match scoring failed.</strong> ${currentFallbackMode === "basic" ? "Gemini Nano is unavailable. Switch the fallback mode in the extension popup to enable AI scoring." : "Check that your LLM endpoint is configured in settings and the server is running."}
             <br><button class="ao-sec-btn" data-action="retry" style="margin-top:8px;width:auto;display:inline-block;padding:4px 12px;font-size:12px">Retry</button>
           </div>
         </div>
@@ -359,6 +362,7 @@ function injectOverlay(config: OverlayConfig) {
 
   isExpanded = false;
   hasFingerprint = !!config.fingerprint;
+  currentFallbackMode = config.fallbackMode;
   matchScore = null;
   scoringFailed = false;
   isImporting = false;
@@ -382,8 +386,8 @@ function injectOverlay(config: OverlayConfig) {
   }
 
   // React to config changes (e.g. fingerprint generated in popup)
-  if (!injectOverlay._storageInit) {
-    injectOverlay._storageInit = true;
+  if (!storageInit) {
+    storageInit = true;
     chrome.storage.onChanged.addListener((changes) => {
       if (!overlayEl) return;
       const change = changes[STORAGE_KEY];
@@ -392,6 +396,7 @@ function injectOverlay(config: OverlayConfig) {
       if (!newConfig) return;
       const hadFingerprint = hasFingerprint;
       hasFingerprint = !!newConfig.fingerprint;
+      currentFallbackMode = newConfig.fallbackMode;
       console.log("[Artemis] storage changed: hadFingerprint:", hadFingerprint, "hasFingerprint:", hasFingerprint, "matchScore:", matchScore);
       if (hasFingerprint && !hadFingerprint && matchScore === null) {
         console.log("[Artemis] storage changed: re-triggering computeMatch");
@@ -645,7 +650,7 @@ async function init() {
     console.log("[Artemis] Overlay disabled in config");
     return;
   }
-  if (!isKnownJobSite(location.hostname, config.jobSites)) {
+  if (!matchJobSite(location.href, config.jobSites)) {
     console.log("[Artemis] Not a known job site:", location.hostname);
     return;
   }
@@ -681,9 +686,9 @@ function initUrlWatch() {
 
   // Monkey-patch pushState/replaceState for frameworks that use standard API
   const origPushState = history.pushState.bind(history);
-  history.pushState = (...args: any[]) => { origPushState(...args); onUrlChange(); };
+  history.pushState = (data: any, title: string, url?: string | URL | null) => { origPushState(data, title, url); onUrlChange(); };
   const origReplaceState = history.replaceState.bind(history);
-  history.replaceState = (...args: any[]) => { origReplaceState(...args); onUrlChange(); };
+  history.replaceState = (data: any, title: string, url?: string | URL | null) => { origReplaceState(data, title, url); onUrlChange(); };
 
   // popstate for back/forward
   window.addEventListener("popstate", onUrlChange);
