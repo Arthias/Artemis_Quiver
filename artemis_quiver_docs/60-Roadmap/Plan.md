@@ -1,7 +1,7 @@
 ---
 tags: [roadmap, planning, backlog]
 status: planning  
-last_updated: 2026-06-04
+last_updated: 2026-06-07
 ---
 
 # Development Plan & Sprint Backlog
@@ -32,7 +32,7 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 7** | Chrome Extension — One-Click Job Import | **Done** |
 | **Sprint 8** | LLM Provider Rebuild — Multi-Provider Config | **Done** |
 | **Sprint 9** | Direct Download — WebLLM In-Browser Model | **Planned** |
-| **Sprint 9a** | Code Revision & Cleanup | **Planned** |
+| **Sprint 9a** | Code Revision & Cleanup | **In Progress** |
 | **Sprint 10** | Application Kanban — Pipeline Tracker | **Planned** |
 | **Sprint 11** | Outreach Generator — Cold Messages | **Planned** |
 | **Sprint 12** | Interview Simulator — STAR + Technical | **Future** |
@@ -341,7 +341,7 @@ Let non-technical users download and run a model directly in the browser via Web
 
 ---
 
-### Sprint 9a — Code Revision & Cleanup (Planned)
+### Sprint 9a — Code Revision & Cleanup (In Progress)
 
 Pre-Kanban code hardening sprint.
 
@@ -350,12 +350,24 @@ Pre-Kanban code hardening sprint.
 **Tasks:**
 
 #### Test Coverage
-- [ ] **Extension extraction tests** — Unit tests for `extractPageContent()` LinkedIn/non-LinkedIn paths (mock DOM, MutationObserver)
+- [x] **Extension extraction tests** — Unit tests for `extractPageContent()` LinkedIn/non-LinkedIn paths (mock DOM, MutationObserver)
+- [x] **Extension job-site tests** — 21 tests for `parseSiteEntry`, `extractBaseUrl`, `matchJobSite`, `isKnownJobSite`
+- [x] **Overlay config/position tests** — Unit tests for `loadConfig`, `loadPosition`, `getScoringFailedMessage`, error paths
 - [ ] **useExtensionImport hook tests** — Test message listener, storage listener, cleanup on unmount
 - [ ] **IndexedDB edge cases** — Test concurrent profile writes, session overflow, migration from corrupted localStorage
 - [ ] **E2E smoke test** — Script that opens app, switches profiles, runs analysis, generates CV, exports PDF
+- 102 total tests (11 files), all passing
 
 #### Code Quality
+- [x] **Extract shared job-sites module** — `src/extension/job-sites.ts` with `SiteEntry` type, `parseSiteEntry`, `matchJobSite`, `extractBaseUrl`
+- [x] **Improve overlay init** — `loadConfig`/`loadPosition` wrapped in try/catch; dynamic error msg per fallback mode
+- [x] **Auto-save popup config** — No more "Save" button; every change persists immediately with visual feedback
+- [x] **Inline site editing** — Popup + Settings: edit job sites in-place (rename, add path patterns) with Enter/Escape
+- [x] **Default site exclusion** — Config UI can remove default job sites; stores `excludedSites` in storage
+- [x] **Path-aware job site matching** — `matchJobSite()` supports path patterns like `linkedin.com/jobs/*`; overlay + popup use it
+- [x] **Popup fingerprint error display** — Shows actual error message when fingerprint generation fails
+- [x] **Auto-fill site from tab URL** — Popup pre-fills new-site input with current tab's hostname+path
+- [x] **Import `DEFAULT_JOB_SITES` from extension** — Config.tsx no longer duplicates the list
 - [ ] **Remove legacy localStorage code** — After migration is stable, remove `workspaceStorage.ts` fallback paths
 - [ ] **Audit `any` types** — Search for unchecked `any` casts, add proper types (especially in service layers)
 - [ ] **Standardize error handling in extension** — Port `AppError` pattern to `background.ts` for consistent error reporting
@@ -367,7 +379,7 @@ Pre-Kanban code hardening sprint.
 - [ ] **Dexie query optimization** — Profile which IndexedDB queries are slowest, add indexes where needed
 
 #### Developer Experience
-- [ ] **Update AGENTS.md** — Document current architecture decisions, file map, common commands
+- [x] **Update AGENTS.md** — Document current architecture decisions, file map, common commands
 - [ ] **Add missing JSDoc** — Public API surfaces in `llmService.ts`, `jobAnalysisService.ts`, `cvBuilderService.ts`
 - [ ] **Standardize import aliases** — Use `@/` path alias consistently across all files
 

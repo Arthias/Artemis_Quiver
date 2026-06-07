@@ -1,6 +1,7 @@
 /// <reference types="chrome" />
 import { createRoot } from "react-dom/client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { parseSiteEntry } from "./job-sites";
 
 function logErrorToApp(message: string, stack?: string, code?: string) {
   try {
@@ -43,55 +44,87 @@ const FALLBACK_LABELS: Record<string, string> = {
 
 function Popup() {
   const [config, setConfig] = useState<OverlayConfig>(defaultConfig);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [newSite, setNewSite] = useState("");
+  const [editingSite, setEditingSite] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
   const [genStatus, setGenStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
+  const [genError, setGenError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveConfig = useCallback((updater: (prev: OverlayConfig) => OverlayConfig) => {
+    setConfig((prev) => {
+      const updated = updater(prev);
+      chrome.storage.local.set({ [STORAGE_KEY]: updated });
+      return updated;
+    });
+    setSaved(true);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaved(false), 1500);
+  }, []);
 
   useEffect(() => {
     chrome.storage.local.get(STORAGE_KEY).then((result) => {
       const saved = result[STORAGE_KEY] as OverlayConfig | undefined;
       if (saved) setConfig({ ...defaultConfig, ...saved });
     });
+    chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      const tab = tabs[0];
+      if (tab?.url) {
+        try {
+          const url = new URL(tab.url);
+          if (url.protocol === "http:" || url.protocol === "https:") {
+            const pathParts = url.pathname.split("/").filter(Boolean).slice(0, 2);
+            const path = pathParts.length > 0 ? "/" + pathParts.join("/") : "";
+            setNewSite(url.hostname + path);
+          }
+        } catch {}
+      }
+    });
   }, []);
-
-  const save = useCallback(async () => {
-    setSaving(true);
-    await chrome.storage.local.set({ [STORAGE_KEY]: config });
-    setDirty(false);
-    setSaving(false);
-  }, [config]);
 
   const addSite = useCallback(() => {
-    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "");
     if (!trimmed || config.jobSites.includes(trimmed)) return;
-    setConfig((c) => ({ ...c, jobSites: [...c.jobSites, trimmed] }));
     setNewSite("");
-    setDirty(true);
-  }, [newSite, config.jobSites]);
+    saveConfig((c) => ({ ...c, jobSites: [...c.jobSites, trimmed] }));
+  }, [newSite, config.jobSites, saveConfig]);
 
   const removeSite = useCallback((site: string) => {
-    setConfig((c) => ({ ...c, jobSites: c.jobSites.filter((s) => s !== site) }));
-    setDirty(true);
-  }, []);
+    saveConfig((c) => ({ ...c, jobSites: c.jobSites.filter((s) => s !== site) }));
+  }, [saveConfig]);
+
+  const saveEdit = useCallback((originalSite: string) => {
+    const trimmed = editValue.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    if (!trimmed || trimmed === originalSite) {
+      setEditingSite(null);
+      return;
+    }
+    if (!config.jobSites.includes(trimmed)) {
+      saveConfig((c) => ({ ...c, jobSites: c.jobSites.map((s) => s === originalSite ? trimmed : s) }));
+    }
+    setEditingSite(null);
+  }, [editValue, config.jobSites, saveConfig]);
 
   const generateFingerprint = useCallback(async () => {
     setGenStatus("generating");
+    setGenError("");
     try {
       const resp = await chrome.runtime.sendMessage({ type: "ARTEMIS_GENERATE_FINGERPRINT" });
       if (resp?.fingerprint) {
-        setConfig((c) => ({ ...c, fingerprint: resp.fingerprint, lastFingerprintUpdate: new Date().toISOString() }));
-        setDirty(true);
+        saveConfig((c) => ({ ...c, fingerprint: resp.fingerprint, lastFingerprintUpdate: new Date().toISOString() }));
         setGenStatus("done");
       } else {
         console.error("[Artemis] Fingerprint failed:", resp?.error || "unknown error");
         setGenStatus("error");
+        setGenError(resp?.error || "Unknown error");
       }
     } catch (err) {
       console.error("[Artemis] Fingerprint error:", err);
       setGenStatus("error");
+      setGenError(err instanceof Error ? err.message : "Unknown error");
     }
-  }, []);
+  }, [saveConfig]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -120,7 +153,7 @@ function Popup() {
         <input
           type="checkbox"
           checked={config.enabled}
-          onChange={(e) => { setConfig((c) => ({ ...c, enabled: e.target.checked })); setDirty(true); }}
+          onChange={(e) => { saveConfig((c) => ({ ...c, enabled: e.target.checked })); }}
           style={{ width: "16px", height: "16px" }}
         />
         <span>Show overlay on job pages</span>
@@ -146,6 +179,11 @@ function Popup() {
           {genStatus === "done" && "✓ Generated"}
           {genStatus === "error" && "Error — try again"}
         </button>
+        {genStatus === "error" && genError && (
+          <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>
+            {genError}
+          </div>
+        )}
         {config.fingerprint && (
           <div style={{ marginTop: "6px", fontSize: "11px", color: "#64748b", wordBreak: "break-all" }}>
             {config.fingerprint.slice(0, 100)}...
@@ -164,7 +202,7 @@ function Popup() {
                 type="radio"
                 name="fallback"
                 checked={config.fallbackMode === mode}
-                onChange={() => { setConfig((c) => ({ ...c, fallbackMode: mode })); setDirty(true); }}
+                onChange={() => { saveConfig((c) => ({ ...c, fallbackMode: mode })); }}
               />
               <span style={{ fontSize: "13px" }}>{FALLBACK_LABELS[mode]}</span>
             </label>
@@ -181,7 +219,7 @@ function Popup() {
             value={newSite}
             onChange={(e) => setNewSite(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSite()}
-            placeholder="e.g., myjobboard.com"
+            placeholder="e.g., myjobboard.com or myjobboard.com/jobs/*"
             style={{
               flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)",
               background: "#1e293b", color: "#f1f5f9", fontSize: "13px", outline: "none",
@@ -194,33 +232,53 @@ function Popup() {
         </div>
         {config.jobSites.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-            {config.jobSites.map((site) => (
-              <span key={site} style={{
-                display: "inline-flex", alignItems: "center", gap: "4px",
-                padding: "3px 8px", borderRadius: "4px", background: "#1e293b",
-                fontSize: "12px", color: "#94a3b8",
-              }}>
-                {site}
-                <span onClick={() => removeSite(site)} style={{ cursor: "pointer", color: "#ef4444", fontSize: "14px" }}>×</span>
-              </span>
-            ))}
+            {config.jobSites.map((site) => {
+              const parsed = parseSiteEntry(site);
+              const hasPath = !!parsed.pathPattern;
+              return editingSite === site ? (
+                <span key={site} style={{
+                  display: "inline-flex", alignItems: "center", gap: "4px",
+                  padding: "3px 8px", borderRadius: "4px", background: "#1e293b",
+                  fontSize: "12px",
+                }}>
+                  <input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { saveEdit(site); }
+                      if (e.key === "Escape") { setEditingSite(null); }
+                    }}
+                    style={{
+                      width: "140px", padding: "2px 4px", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.15)",
+                      background: "#0f172a", color: "#f1f5f9", fontSize: "12px", outline: "none",
+                    }}
+                    autoFocus
+                  />
+                  <span onClick={() => saveEdit(site)} style={{ cursor: "pointer", color: "#22c55e", fontSize: "14px", fontWeight: "700" }}>&#10003;</span>
+                  <span onClick={() => setEditingSite(null)} style={{ cursor: "pointer", color: "#ef4444", fontSize: "14px" }}>&#10005;</span>
+                </span>
+              ) : (
+                <span key={site} style={{
+                  display: "inline-flex", alignItems: "center", gap: "4px",
+                  padding: "3px 8px", borderRadius: "4px", background: "#1e293b",
+                  fontSize: "12px", color: "#94a3b8",
+                }}>
+                  <span>{parsed.domain}</span>
+                  {hasPath && <span style={{ color: "#93c5fd" }}>{parsed.pathPattern}</span>}
+                  <span onClick={() => { setEditingSite(site); setEditValue(site); }} style={{ cursor: "pointer", color: "#94a3b8", fontSize: "12px", marginLeft: "2px" }}>&#9998;</span>
+                  <span onClick={() => removeSite(site)} style={{ cursor: "pointer", color: "#ef4444", fontSize: "14px" }}>&#10005;</span>
+                </span>
+              )
+            })}
           </div>
         )}
       </div>
 
-      <button
-        onClick={save}
-        disabled={!dirty || saving}
-        style={{
-          padding: "10px", border: "none", borderRadius: "8px",
-          background: dirty ? "#3b82f6" : "#1e293b",
-          color: dirty ? "#fff" : "#64748b",
-          fontSize: "14px", fontWeight: "600", cursor: dirty ? "pointer" : "default",
-          transition: "all 0.2s",
-        }}
-      >
-        {saving ? "Saving..." : dirty ? "Save changes" : "Saved"}
-      </button>
+      {saved && (
+        <div style={{ textAlign: "center", fontSize: "12px", color: "#22c55e", padding: "6px" }}>
+          ✓ Saved
+        </div>
+      )}
     </div>
   );
 }

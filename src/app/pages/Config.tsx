@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2 } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check } from "lucide-react";
 import { useErrorLog } from "../context/ErrorLogContext";
 import {
   Select,
@@ -17,17 +17,15 @@ import { useConfig } from "../context/ConfigContext";
 import { listModels as listModelsApi, testConnection } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
-
-const DEFAULT_KNOWN_SITES = [
-  "linkedin.com", "indeed.com", "glassdoor.com", "monster.com",
-  "ziprecruiter.com", "careerbuilder.com", "dice.com", "simplyhired.com",
-  "upwork.com", "freelancer.com", "stackoverflow.com", "weworkremotely.com", "remoteok.com",
-];
+import { DEFAULT_JOB_SITES } from "../../extension/job-sites";
 
 function ExtensionSettingsCard() {
   const [customSites, setCustomSites] = useState<string[]>([]);
+  const [excludedSites, setExcludedSites] = useState<string[]>([]);
   const [newSite, setNewSite] = useState("");
   const [overlayEnabled, setOverlayEnabled] = useState(true);
+  const [editingSite, setEditingSite] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   useEffect(() => {
     const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
@@ -35,34 +33,80 @@ function ExtensionSettingsCard() {
     chrome.storage.local.get("artemis:overlayConfig").then((result) => {
       const cfg = (result as any)["artemis:overlayConfig"] || {};
       setCustomSites(cfg.jobSites || []);
+      setExcludedSites(cfg.excludedSites || []);
       setOverlayEnabled(cfg.enabled !== false);
     });
   }, []);
 
-  function save(newCustom: string[]) {
+  function save(newCustom: string[], newExcluded: string[]) {
     const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
     if (!isExt) return;
     chrome.storage.local.get("artemis:overlayConfig").then((result) => {
       const cfg = (result as any)["artemis:overlayConfig"] || {};
       cfg.jobSites = newCustom;
+      cfg.excludedSites = newExcluded;
       cfg.enabled = overlayEnabled;
       chrome.storage.local.set({ "artemis:overlayConfig": cfg });
     });
   }
 
+  const allSites = [
+    ...DEFAULT_JOB_SITES.filter((s) => !excludedSites.includes(s)),
+    ...customSites,
+  ];
+
   function addSite() {
-    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    if (!trimmed || customSites.includes(trimmed) || DEFAULT_KNOWN_SITES.includes(trimmed)) return;
+    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    if (!trimmed || allSites.includes(trimmed)) return;
     const next = [...customSites, trimmed];
     setCustomSites(next);
     setNewSite("");
-    save(next);
+    save(next, excludedSites);
   }
 
   function removeSite(site: string) {
-    const next = customSites.filter((s) => s !== site);
-    setCustomSites(next);
-    save(next);
+    if (DEFAULT_JOB_SITES.includes(site)) {
+      const nextExcluded = [...excludedSites, site];
+      setExcludedSites(nextExcluded);
+      save(customSites, nextExcluded);
+    } else {
+      const next = customSites.filter((s) => s !== site);
+      setCustomSites(next);
+      save(next, excludedSites);
+    }
+  }
+
+  function startEdit(site: string) {
+    setEditingSite(site);
+    setEditValue(site);
+  }
+
+  function saveEdit() {
+    if (editingSite === null) return;
+    const trimmed = editValue.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    if (!trimmed || trimmed === editingSite) {
+      setEditingSite(null);
+      setEditValue("");
+      return;
+    }
+    if (DEFAULT_JOB_SITES.includes(editingSite)) {
+      const nextCustom = [...customSites, trimmed];
+      const nextExcluded = [...excludedSites, editingSite];
+      setCustomSites(nextCustom);
+      setExcludedSites(nextExcluded);
+      save(nextCustom, nextExcluded);
+    } else {
+      const next = customSites.map((s) => (s === editingSite ? trimmed : s));
+      setCustomSites(next);
+      save(next, excludedSites);
+    }
+    setEditingSite(null);
+    setEditValue("");
+  }
+
+  function cancelEdit() {
+    setEditingSite(null);
+    setEditValue("");
   }
 
   const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
@@ -109,48 +153,65 @@ function ExtensionSettingsCard() {
       </div>
 
       <div>
-        <Label className="mb-2 block">Known job sites</Label>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {DEFAULT_KNOWN_SITES.map((site) => (
-            <span key={site} className="px-2 py-1 rounded bg-muted text-xs text-muted-foreground">
-              {site}
-            </span>
-          ))}
+        <Label className="mb-2 block">Job sites</Label>
+        <p className="text-xs text-muted-foreground mb-3">
+          The extension overlay appears on these sites when you visit job pages.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {allSites.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No job sites configured. Add one below.</p>
+          ) : (
+            allSites.map((site) =>
+              editingSite === site ? (
+                <span key={site} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted text-xs">
+                  <Input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEdit();
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                    className="w-48 h-6 text-xs"
+                    autoFocus
+                  />
+                  <button onClick={saveEdit} className="text-green-500 hover:text-green-600">
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ) : (
+                <span key={site} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted text-xs">
+                  {site}
+                  <button onClick={() => startEdit(site)} className="text-muted-foreground hover:text-foreground">
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => removeSite(site)} className="text-destructive hover:text-destructive/80">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )
+            )
+          )}
         </div>
       </div>
 
       <div>
-        <Label className="mb-2 block">Custom sites</Label>
-        <div className="flex gap-2 mb-2">
+        <Label className="mb-2 block">Add custom site</Label>
+        <div className="flex gap-2">
           <Input
             value={newSite}
             onChange={(e) => setNewSite(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSite()}
-            placeholder="myjobboard.com"
+            placeholder="linkedin.com/jobs/*"
             className="bg-input-background flex-1"
           />
           <Button variant="outline" size="icon" onClick={addSite}>
             <Plus className="w-4 h-4" />
           </Button>
         </div>
-        {customSites.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {customSites.map((site) => (
-              <span key={site} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted text-xs">
-                {site}
-                <button onClick={() => removeSite(site)} className="text-destructive hover:text-destructive/80">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        The extension overlay appears on these sites when you visit job pages.
-        Configure fallback AI and fingerprint in the extension popup.
-      </p>
     </Card>
   );
 }
