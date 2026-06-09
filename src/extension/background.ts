@@ -253,13 +253,16 @@ async function handleExtractAndImport(tabId: number) {
 async function handleImportJob(payload: { title: string; text: string; url: string }) {
   try {
     const appUrl = chrome.runtime.getURL("index.html");
-    const existingTabs = await chrome.tabs.query({ url: appUrl });
+    const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
 
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
       await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_IMPORT", payload });
       await chrome.tabs.update(existingTabs[0].id, { active: true });
     } else {
-      await chrome.storage.session.set({ "artemis:pendingImport": payload });
+      const stored = await chrome.storage.session.get("artemis:pendingImports");
+      const existing = (stored as any)["artemis:pendingImports"] || [];
+      existing.push(payload);
+      await chrome.storage.session.set({ "artemis:pendingImports": existing });
     }
   } catch (err) {
     console.error("[Artemis] Import job failed:", err);
@@ -270,7 +273,7 @@ async function handleImportJob(payload: { title: string; text: string; url: stri
 async function handleOpenApp() {
   try {
     const appUrl = chrome.runtime.getURL("index.html");
-    const existingTabs = await chrome.tabs.query({ url: appUrl });
+    const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
       await chrome.tabs.update(existingTabs[0].id, { active: true });
     } else {

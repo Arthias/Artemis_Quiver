@@ -11,7 +11,9 @@ export interface PendingImport {
 
 interface ExtensionBridgeValue {
   pendingImports: PendingImport[];
+  latestImportId: string | null;
   clearPendingImport: (id: string) => void;
+  tryClearByText: (text: string) => void;
   runPendingImport: (id: string) => void;
   onRunPending: (fn: (text: string) => void) => void;
 }
@@ -21,24 +23,27 @@ const ExtensionBridgeContext = createContext<ExtensionBridgeValue | null>(null);
 export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
   const [pendingImports, setPendingImports] = useState<PendingImport[]>([]);
   const [runHandler, setRunHandler] = useState<((text: string) => void) | null>(null);
+  const [latestImportId, setLatestImportId] = useState<string | null>(null);
 
   useEffect(() => {
     const isExtension = typeof chrome !== "undefined" && chrome.runtime?.id;
     if (!isExtension) return;
 
-    // Pick up any stored pending import
-    chrome.storage.session.get("artemis:pendingImport").then((stored) => {
-      const payload = (stored as any)["artemis:pendingImport"] as { title: string; text: string; url: string } | undefined;
-      if (payload) {
-        chrome.storage.session.remove("artemis:pendingImport");
-        addPending(payload);
+    // Pick up any stored pending imports (array)
+    chrome.storage.session.get("artemis:pendingImports").then((stored) => {
+      const payloads = (stored as any)["artemis:pendingImports"] as { title: string; text: string; url: string }[] | undefined;
+      if (payloads && payloads.length > 0) {
+        chrome.storage.session.remove("artemis:pendingImports");
+        for (const p of payloads) {
+          addPending(p, false);
+        }
       }
     });
 
     // Listen for live messages
     const handler = (msg: any, _sender: chrome.runtime.MessageSender, sendResponse: (resp: any) => void) => {
       if (msg.type === "ARTEMIS_IMPORT") {
-        addPending(msg.payload);
+        addPending(msg.payload, true);
       } else if (msg.type === "ARTEMIS_REQUEST_PROFILE") {
         respondWithProfile().then(sendResponse);
         return true;
@@ -49,12 +54,13 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, []);
 
-  function addPending(payload: { title: string; text: string; url: string }) {
+  function addPending(payload: { title: string; text: string; url: string }, isLive: boolean) {
     const id = crypto.randomUUID();
     setPendingImports((prev) => {
       if (prev.some((p) => p.url === payload.url && p.title === payload.title)) return prev;
       return [...prev, { id, ...payload, receivedAt: new Date().toISOString() }];
     });
+    if (isLive) setLatestImportId(id);
   }
 
   async function respondWithProfile(): Promise<{ profileMarkdown: string; primaryEndpoint?: any; secondaryEndpoint?: any } | { error: string }> {
@@ -80,6 +86,10 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     setPendingImports((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const tryClearByText = useCallback((text: string) => {
+    setPendingImports((prev) => prev.filter((p) => p.text !== text));
+  }, []);
+
   const runPendingImport = useCallback((id: string) => {
     const pending = pendingImports.find((p) => p.id === id);
     if (pending && runHandler) {
@@ -94,10 +104,12 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     pendingImports,
+    latestImportId,
     clearPendingImport,
+    tryClearByText,
     runPendingImport,
     onRunPending,
-  }), [pendingImports, clearPendingImport, runPendingImport, onRunPending]);
+  }), [pendingImports, latestImportId, clearPendingImport, tryClearByText, runPendingImport, onRunPending]);
 
   return (
     <ExtensionBridgeContext.Provider value={value}>
