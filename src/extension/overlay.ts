@@ -141,8 +141,8 @@ const STYLES = `
   #artemis-overlay .ao-spinner { animation:ao-spin 1s linear infinite }
   @keyframes ao-spin { to { transform:rotate(360deg) } }
   #artemis-overlay .ao-bullseye { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none }
-  #artemis-overlay .ao-bullseye::after { content:'';display:block;width:6px;height:6px;border-radius:50%;background:rgba(234,179,8,0.3);animation:ao-pulse 1s ease-out infinite }
-  @keyframes ao-pulse { 0% { width:6px;height:6px;opacity:.6 } 100% { width:44px;height:44px;opacity:0 } }
+  #artemis-overlay .ao-bullseye::after { content:'';display:block;width:44px;height:44px;border-radius:50%;background:rgba(234,179,8,0.3);animation:ao-pulse 1s ease-out infinite;transform-origin:center }
+  @keyframes ao-pulse { 0% { transform:scale(0.15);opacity:.6 } 100% { transform:scale(1);opacity:0 } }
 `;
 
 // Uncaught error relay

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router";
 import {
   Target,
@@ -37,9 +37,9 @@ function sessionTitle(jobPosting: string, title?: string, summary?: string): str
 
 export function Sidebar() {
   const navigate = useNavigate();
-  const { sessions, loadSession, clearCurrent, activeSessionId, setDraftJobPosting } = useAnalysis();
+  const { sessions, loadSession, clearCurrent, activeSessionId, draftJobPosting, setDraftJobPosting } = useAnalysis();
   const { activeProfile, activeInitials } = useWorkspace();
-  const { pendingImports, clearPendingImport } = useExtensionBridge();
+  const { pendingImports, latestImportId, clearPendingImport } = useExtensionBridge();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleNewAnalysis = () => {
@@ -55,9 +55,15 @@ export function Sidebar() {
   const handleRunPending = (pending: PendingImport) => {
     clearCurrent();
     setDraftJobPosting(pending.text);
-    clearPendingImport(pending.id);
     navigate("/");
   };
+
+  // Auto-navigate when a new import arrives from extension
+  useEffect(() => {
+    if (!latestImportId) return;
+    const p = pendingImports.find((pi) => pi.id === latestImportId);
+    if (p) handleRunPending(p);
+  }, [latestImportId]);
 
   return (
     <>
@@ -117,14 +123,16 @@ export function Sidebar() {
                   <button
                     type="button"
                     onClick={() => handleRunPending(p)}
-                    className="flex-1 text-left flex items-center gap-2 px-2 py-2 rounded-md hover:bg-sidebar-accent/50 transition-colors group"
+                    className={`flex-1 min-w-0 text-left flex items-center gap-2 px-2 py-2 rounded-md hover:bg-sidebar-accent/50 transition-colors group ${
+                      activeSessionId === null && draftJobPosting === p.text ? "bg-sidebar-accent/50" : ""
+                    }`}
                   >
                     <Inbox className="w-4 h-4 text-amber-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-sidebar-foreground truncate">{p.title}</p>
                       <p className="text-xs text-muted-foreground">{formatRelativeTime(p.receivedAt)}</p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                   </button>
                   <button
                     type="button"

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
-import { FileText, Download, Wand2 } from "lucide-react";
+import { FileText, Download, Wand2, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
@@ -32,9 +32,10 @@ export function CVBuilder() {
   const { consumeHandoff } = useBuilderHandoff();
 
   const [jobDescription, setJobDescription] = useState("");
+  const [jobDescExpanded, setJobDescExpanded] = useState(true);
   const [cvContent, setCvContent] = useState<CVContent | null>(null);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>({ primaryColor: "#2563eb", templateId: "modern" });
-  const [cvRecommendations, setCvRecommendations] = useState<string[] | undefined>();
+  const [recs, setRecs] = useState<{ text: string; enabled: boolean; comment: string }[]>([]);
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
@@ -49,19 +50,26 @@ export function CVBuilder() {
   useEffect(() => {
     const handoff = consumeHandoff();
     if (!handoff) return;
-    if (handoff.jobPosting) setJobDescription(handoff.jobPosting);
-    if (handoff.cvRecommendations?.length) setCvRecommendations(handoff.cvRecommendations);
-    if (handoff.autoGenerate) generateCV();
+    if (handoff.jobPosting) {
+      setJobDescription(handoff.jobPosting);
+      setJobDescExpanded(false);
+    }
+    if (handoff.cvRecommendations?.length) {
+      setRecs(handoff.cvRecommendations.map((t) => ({ text: t, enabled: true, comment: "" })));
+    }
   }, [consumeHandoff]);
 
   const generateCV = async () => {
     setGenerating(true);
     setError(null);
     try {
+      const activeRecs = recs
+        .filter((r) => r.enabled)
+        .map((r) => (r.comment ? `${r.text}\nAdditional context: ${r.comment}` : r.text));
       const content = await generateCv(
         profile,
         jobDescription || undefined,
-        cvRecommendations,
+        activeRecs.length > 0 ? activeRecs : undefined,
         getActiveEndpoint(config)
       );
       let parsedContent: CVContent;
@@ -211,17 +219,60 @@ export function CVBuilder() {
                   <h2 className="text-lg font-semibold mb-4">Generate Tailored CV</h2>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Job Description (Optional)
-                      </label>
-                      <Textarea
-                        value={jobDescription}
-                        onChange={(e) => setJobDescription(e.target.value)}
-                        placeholder="Paste job description to tailor your CV, or leave empty for a general CV..."
-                        rows={4}
-                        className="w-full bg-input-background border-border resize-none"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setJobDescExpanded(!jobDescExpanded)}
+                        className="flex items-center gap-2 text-sm font-medium mb-2 hover:text-foreground/80"
+                      >
+                        {jobDescExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        Job Description
+                        {jobDescription ? <span className="text-xs text-muted-foreground font-normal">(pre-filled from analysis)</span> : <span className="text-xs text-muted-foreground font-normal">(Optional)</span>}
+                      </button>
+                      {jobDescExpanded && (
+                        <Textarea
+                          value={jobDescription}
+                          onChange={(e) => setJobDescription(e.target.value)}
+                          placeholder="Paste job description to tailor your CV, or leave empty for a general CV..."
+                          rows={4}
+                          className="w-full bg-input-background border-border resize-none"
+                        />
+                      )}
                     </div>
+
+                    {recs.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">CV Optimization</label>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Select which recommendations to apply. Add context about your experience for each.
+                        </p>
+                        <div className="space-y-3">
+                          {recs.map((rec, idx) => (
+                            <div key={idx} className="border border-border rounded-lg p-3">
+                              <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={rec.enabled}
+                                  onChange={() => setRecs((prev) => prev.map((r, i) => i === idx ? { ...r, enabled: !r.enabled } : r))}
+                                  className="mt-0.5 accent-blue-600"
+                                />
+                                <span className={`text-sm ${rec.enabled ? "" : "text-muted-foreground line-through"}`}>
+                                  {rec.text}
+                                </span>
+                              </label>
+                              {rec.enabled && (
+                                <Textarea
+                                  value={rec.comment}
+                                  onChange={(e) => setRecs((prev) => prev.map((r, i) => i === idx ? { ...r, comment: e.target.value } : r))}
+                                  placeholder="Add context about your relevant experience..."
+                                  rows={2}
+                                  className="w-full bg-input-background border-border resize-none mt-2 text-sm"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <Button
                       onClick={generateCV}
