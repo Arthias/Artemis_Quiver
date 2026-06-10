@@ -17,8 +17,12 @@ No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces c
 | `npm run test` | vitest (102 tests, 11 files) |
 | `npm run test:watch` | vitest watch |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run qa` | Launch QA agent (Playwright MCP + dev server) |
-| `npm run qa:ext` | QA agent with extension loaded (`dist-ext/`) |
+| `npm run qa` | Interactive QA (dev + MCP, no auto-run) |
+| `npm run qa:all` | Full auto-QA: run all suites → `qa-reports/` |
+| `npm run qa:hub` | QA: Analysis Hub only |
+| `npm run qa:cv` | QA: CV Builder only |
+| `npm run qa:ext` | QA with extension loaded (`dist-ext/`) |
+| `npm run qa:headless` | Full auto-QA headless |
 | `opencode.json` | MCP server config for `@playwright/mcp` |
 
 ## Architecture
@@ -65,6 +69,32 @@ type ProviderType = "openai-compatible" | "anthropic" | "google-gemini";
 - vitest + jsdom + `fake-indexeddb`
 - Test files colocated: `src/**/*.test.{ts,tsx}`
 - No setup files; globals enabled
+
+## QA Workflow (Playwright MCP)
+
+After a dev cycle, run automated UI/UX QA via Playwright MCP:
+
+```
+npm run qa:all          # Run all suites, reports go to qa-reports/
+npm run qa:hub          # Analysis Hub only
+npm run qa:cv           # CV Builder only  
+npm run qa:headless     # Full run, no browser window
+```
+
+**How it works:**
+
+1. `scripts/qa.ps1` starts Vite dev server + Playwright MCP (SSE on port 3099)
+2. Feeds the prompt from `qa_prompts/<suite>.md` to `opencode run --agent qa`
+3. The `qa` agent (`.opencode/agents/qa.md`) uses `ollama/qwen2.5-coder:7b` by default
+4. The agent uses Playwright MCP browser tools (navigate, snapshot, click, eval)
+5. Results saved to `qa-reports/qa-report-<timestamp>.md`
+
+**Override model** (e.g. for a different local model):
+```
+npm run qa:hub -- --Model ollama/qwen2.5-coder:1.5b
+```
+
+**Bugs found during QA** → file in `artemis_quiver_docs/30-Bugs-and-Fixes/`
 
 ## Common Pitfalls
 

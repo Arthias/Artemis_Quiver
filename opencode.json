@@ -1,9 +1,11 @@
 {
-  "mcpServers": {
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
     "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp", "--port", "3099"],
-      "env": {}
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp", "--allowed-hosts", "localhost", "--port", "3099"],
+      "enabled": true,
+      "timeout": 120000
     }
   }
 }

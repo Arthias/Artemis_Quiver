@@ -37,6 +37,14 @@ Thumbs.db
 .cache/
 .prettierignore.tmp
 
+# Artemis Quiver specific
+.opencode/
+!opencode.json
+.opencode/agents/*.md
+
+# QA reports (don't commit)
+qa-reports/
+
 # Test & coverage
 coverage/
 
