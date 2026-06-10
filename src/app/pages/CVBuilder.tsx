@@ -45,7 +45,15 @@ export function CVBuilder() {
 
   const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [printHtml, setPrintHtml] = useState("");
-  const printPendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!printHtml) return;
+    const timer = setTimeout(() => {
+      printIframeRef.current?.contentWindow?.focus();
+      printIframeRef.current?.contentWindow?.print();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [printHtml]);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -158,18 +166,9 @@ export function CVBuilder() {
     }
   };
 
-  const handleIframeLoad = useCallback(() => {
-    if (printPendingRef.current && printIframeRef.current?.contentWindow) {
-      printPendingRef.current = false;
-      printIframeRef.current.contentWindow.focus();
-      printIframeRef.current.contentWindow.print();
-    }
-  }, []);
-
   const printPDF = useCallback(() => {
     if (!cvContent) return;
     const html = renderCVToHTML(cvContent, themeConfig);
-    printPendingRef.current = true;
     setPrintHtml(html);
   }, [cvContent, themeConfig]);
 
@@ -343,7 +342,6 @@ export function CVBuilder() {
                 <iframe
                   ref={printIframeRef}
                   srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
-                  onLoad={handleIframeLoad}
                   style={{ position: "absolute", width: 0, height: 0, border: "none" }}
                   title="Print frame"
                 />

@@ -47,7 +47,8 @@ export function AnalysisHub() {
   } = useAnalysis();
   const { setHandoff } = useBuilderHandoff();
 
-  const hasResult = currentResult !== null;
+  const result = currentResult;
+  const hasResult = result !== null;
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [followUpInput, setFollowUpInput] = useState("");
 
