@@ -116,6 +116,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
 
       setSessions((prev) => [session, ...prev]);
       await touchLastUsed();
+      window.scrollTo(0, 0);
     } catch (err) {
       const message = err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Analysis failed. Check LLM settings.";
       setError(message);

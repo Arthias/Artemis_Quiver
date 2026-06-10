@@ -82,6 +82,7 @@ export function CLBuilder() {
       const validated = CLContentSchema.parse(parsed);
       setClContent(validated);
       setIsGenerated(true);
+      window.scrollTo(0, 0);
     } catch (err) {
       logAppError(err, { phase: "generateCoverLetter" });
       if (err instanceof AppError) {
