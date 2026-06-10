@@ -21,6 +21,9 @@ interface ExtensionBridgeValue {
   tryClearByText: (text: string) => void;
   runPendingImport: (id: string) => void;
   onRunPending: (fn: (text: string) => void) => void;
+  openPendingId: string | null;
+  markPendingOpen: (id: string) => void;
+  clearOpenPending: () => void;
 }
 
 const ExtensionBridgeContext = createContext<ExtensionBridgeValue | null>(null);
@@ -29,6 +32,7 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
   const [pendingImports, setPendingImports] = useState<PendingImport[]>([]);
   const [runHandler, setRunHandler] = useState<((text: string) => void) | null>(null);
   const [latestImportId, setLatestImportId] = useState<string | null>(null);
+  const [openPendingId, setOpenPendingId] = useState<string | null>(null);
 
   useEffect(() => {
     const isExtension = typeof chrome !== "undefined" && chrome.runtime?.id;
@@ -107,6 +111,17 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     setRunHandler(() => fn);
   }, []);
 
+  const markPendingOpen = useCallback((id: string) => {
+    setOpenPendingId(id);
+  }, []);
+
+  const clearOpenPending = useCallback(() => {
+    setOpenPendingId((prev) => {
+      if (prev) setPendingImports((p) => p.filter((pi) => pi.id !== prev));
+      return null;
+    });
+  }, []);
+
   const value = useMemo(() => ({
     pendingImports,
     latestImportId,
@@ -114,7 +129,10 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     tryClearByText,
     runPendingImport,
     onRunPending,
-  }), [pendingImports, latestImportId, clearPendingImport, tryClearByText, runPendingImport, onRunPending]);
+    openPendingId,
+    markPendingOpen,
+    clearOpenPending,
+  }), [pendingImports, latestImportId, clearPendingImport, tryClearByText, runPendingImport, onRunPending, openPendingId, markPendingOpen, clearOpenPending]);
 
   return (
     <ExtensionBridgeContext.Provider value={value}>

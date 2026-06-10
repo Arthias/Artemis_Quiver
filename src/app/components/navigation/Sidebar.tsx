@@ -39,7 +39,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { sessions, loadSession, clearCurrent, activeSessionId, draftJobPosting, setDraftJobPosting } = useAnalysis();
   const { activeProfile, activeInitials } = useWorkspace();
-  const { pendingImports, latestImportId, clearPendingImport } = useExtensionBridge();
+  const { pendingImports, latestImportId, clearPendingImport, markPendingOpen } = useExtensionBridge();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleNewAnalysis = () => {
@@ -55,6 +55,7 @@ export function Sidebar() {
   const handleRunPending = (pending: PendingImport) => {
     clearCurrent();
     setDraftJobPosting(pending.text);
+    markPendingOpen(pending.id);
     navigate("/");
   };
 
