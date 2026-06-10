@@ -91,7 +91,7 @@ export function ErrorLogProvider({ children }: { children: ReactNode }) {
     const isExt = typeof chrome !== "undefined" && chrome.runtime?.id;
     if (!isExt) return;
 
-    const msgHandler = (msg: any) => {
+    const msgHandler = (msg: { type: string; payload: { timestamp?: string; message: string; stack?: string; source?: string; code?: string; severity?: string; metadata?: Record<string, unknown> } }) => {
       if (msg.type === "ARTEMIS_LOG_ERROR") {
         const p = msg.payload;
         void addLog({
