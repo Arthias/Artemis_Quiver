@@ -14,9 +14,12 @@ No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces c
 | `npm run dev` | Vite dev server (localhost:5173) |
 | `npm run build` | Production build |
 | `npm run build:ext` | Chrome extension → `dist-ext/` |
-| `npm run test` | vitest (63 tests, 9 files) |
+| `npm run test` | vitest (102 tests, 11 files) |
 | `npm run test:watch` | vitest watch |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run qa` | Launch QA agent (Playwright MCP + dev server) |
+| `npm run qa:ext` | QA agent with extension loaded (`dist-ext/`) |
+| `opencode.json` | MCP server config for `@playwright/mcp` |
 
 ## Architecture
 
