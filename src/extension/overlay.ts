@@ -1,8 +1,44 @@
 /// <reference types="chrome" />
-import { matchJobSite, parseSiteEntry, domainMatches } from "./job-sites";
+// NOTE: Content scripts in MV3 cannot use ES module imports.
+// These helper functions are inlined here intentionally.
+// If you add imports here, the build will produce dynamic import()
+// statements that Chrome's isolated world rejects.
 
 const STORAGE_KEY = "artemis:overlayConfig";
 const POSITION_KEY = "artemis:overlayPosition";
+
+function parseSiteEntry(entry: string): { domain: string; pathPattern?: string } {
+  let cleaned = entry.trim().toLowerCase();
+  cleaned = cleaned.replace(/^https?:\/\//, "");
+  cleaned = cleaned.replace(/\/+$/, "");
+  const slashIdx = cleaned.indexOf("/");
+  if (slashIdx === -1) return { domain: cleaned };
+  return { domain: cleaned.slice(0, slashIdx), pathPattern: cleaned.slice(slashIdx) };
+}
+
+function domainMatches(entryDomain: string, hostname: string): boolean {
+  return hostname === entryDomain || hostname.endsWith("." + entryDomain);
+}
+
+function matchJobSite(url: string, entries: string[]): boolean {
+  let hostname: string;
+  let pathname: string;
+  try {
+    const u = new URL(url);
+    hostname = u.hostname;
+    pathname = u.pathname;
+  } catch { return false; }
+  for (const entry of entries) {
+    const parsed = parseSiteEntry(entry);
+    if (!domainMatches(parsed.domain, hostname)) continue;
+    if (parsed.pathPattern) {
+      const prefix = parsed.pathPattern.endsWith("*") ? parsed.pathPattern.slice(0, -1) : parsed.pathPattern;
+      if (!pathname.startsWith(prefix)) continue;
+    }
+    return true;
+  }
+  return false;
+}
 
 interface OverlayConfig {
   enabled: boolean;
