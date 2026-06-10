@@ -1,5 +1,10 @@
 /// <reference types="chrome" />
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
+import type { ModelEndpoint } from "../types/llm";
+
+type ArtemisMessage =
+  | { type: "ARTEMIS_IMPORT"; payload: { title: string; text: string; url: string } }
+  | { type: "ARTEMIS_REQUEST_PROFILE" };
 
 export interface PendingImport {
   id: string;
@@ -31,7 +36,7 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
 
     // Pick up any stored pending imports (array)
     chrome.storage.session.get("artemis:pendingImports").then((stored) => {
-      const payloads = (stored as any)["artemis:pendingImports"] as { title: string; text: string; url: string }[] | undefined;
+      const payloads = stored["artemis:pendingImports"] as { title: string; text: string; url: string }[] | undefined;
       if (payloads && payloads.length > 0) {
         chrome.storage.session.remove("artemis:pendingImports");
         for (const p of payloads) {
@@ -41,7 +46,7 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for live messages
-    const handler = (msg: any, _sender: chrome.runtime.MessageSender, sendResponse: (resp: any) => void) => {
+    const handler = (msg: ArtemisMessage, _sender: chrome.runtime.MessageSender, sendResponse: (resp: { profileMarkdown?: string; primaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey">; secondaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey">; error?: string }) => void) => {
       if (msg.type === "ARTEMIS_IMPORT") {
         addPending(msg.payload, true);
       } else if (msg.type === "ARTEMIS_REQUEST_PROFILE") {
@@ -63,7 +68,7 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     if (isLive) setLatestImportId(id);
   }
 
-  async function respondWithProfile(): Promise<{ profileMarkdown: string; primaryEndpoint?: any; secondaryEndpoint?: any } | { error: string }> {
+  async function respondWithProfile(): Promise<{ profileMarkdown: string; primaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey">; secondaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey"> } | { error: string }> {
     try {
       const { getActiveProfileId, getProfile } = await import("../db");
       const activeProfileId = await getActiveProfileId();
