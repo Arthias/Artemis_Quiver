@@ -27,7 +27,7 @@ src/app/
 ├── providers/         # Global provider bootstrap (AppProviders)
 ├── services/          # Pure modules for API calls and prompting
 ├── types/             # Explicit TypeScript interface declarations
-└── utils/             # Helper functions (localStorage, time formatting, downloads)
+└── utils/             # Helper functions (formatting, JSON parsing, errors, defaults)
 ```
 
 ---
@@ -64,7 +64,8 @@ Artemis Quiver uses **Tailwind CSS** layered on CSS variables for styling.
 | After implementation | `npx fallow dead-code` | Check no unused files/exports/deps were left behind |
 | Before commit | `npx fallow dupes` | Catch accidental copy-paste duplication |
 | During refactors | `npx fallow health` | Identify complexity regressions |
-| Periodic cleanup | `npx fallow fix --dry-run` | Preview automatic cleanup candidates |
+| **Cleanup phase** | **`npx fallow && npx fallow dead-code && npx fallow dupes && npx fallow health`** | **Full sweep — mandatory at end of every cleanup sprint. Multiple agents leave residue (dead exports, clones, orphaned files). A full sweep catches all categories at once.** |
+| Periodic maintenance | `npx fallow fix --dry-run` | Preview automatic cleanup candidates |
 
 ### Expected quality gates
 
@@ -81,6 +82,19 @@ Artemis Quiver uses **Tailwind CSS** layered on CSS variables for styling.
 3. **After completing**, verify no regressions: `npx fallow` metrics should be at least as good as the baseline (fewer dead files/exports, same or better MI).
 4. **For refactoring targets** surfaced by `npx fallow health` — prioritize by the `pri` score (higher = better ROI). Low-effort items (e.g., removing dead exports) should be cleaned immediately; high-effort items (e.g., extracting large functions) should be scheduled into the next sprint.
 5. **Suppress false positives** sparingly with `// fallow-ignore-next-line <rule>` — prefer fixing the underlying issue. If suppressing, add a brief comment explaining why.
+
+### Cleanup phase mandate
+
+When multiple agents have been working on the codebase, residue accumulates: unused exports from refactored code, duplicate logic from parallel work, orphaned files, and complexity regressions. **Every cleanup phase (e.g. Sprint 9a) must end with a full Fallow sweep:**
+
+```bash
+npx fallow              # full scan → check metrics against baseline
+npx fallow dead-code    # unused files, exports, deps
+npx fallow dupes        # clone groups
+npx fallow health       # complexity + maintainability index
+```
+
+Fix all violations before closing the cleanup phase. Quality gates: **0 unused files, 0 unused exports, 0 clone groups, Maintainability Index ≥85**. If the sweep finds issues, schedule a follow-up pass — don't leave residue for the next sprint.
 
 ### Config
 

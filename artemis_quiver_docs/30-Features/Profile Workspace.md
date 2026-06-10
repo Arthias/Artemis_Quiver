@@ -32,8 +32,8 @@ Located in [Profile.tsx](file:///F:/Dev/Artemis_Quiver/src/app/pages/Profile.tsx
 ### 1. Markdown Editor & Preview Tab
 - **Edit Mode**: Standard markdown-formatted text editor `<Textarea>` for direct profile customization.
 - **Preview Mode**: Renders the raw text layout safely.
-- **Autosave**: If configured in settings, edits trigger an autosave to `localStorage` debounced at 800ms.
-- **Dirty State**: Shows an indicator (`unsaved changes`) if memory deviates from local storage.
+- **Autosave**: If configured in settings, edits trigger an autosave to IndexedDB (via Dexie.js) debounced at 800ms.
+- **Dirty State**: Shows an indicator (`unsaved changes`) if memory differs from stored state.
 
 ### 2. Smart File Importer
 - Supports uploads up to **500KB**.

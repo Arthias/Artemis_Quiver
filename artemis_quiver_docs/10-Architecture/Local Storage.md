@@ -46,14 +46,11 @@ The database name is `ArtemisQuiverDB`. Under [schema.ts](file:///f:/Dev/Artemis
 
 ---
 
-## 🔄 One-Shot Migration & Self-Healing
+## 🔄 Initialization & Self-Healing
 
-On app launch, the persistence layer checks if database profiles exist. If not, it executes a migration helper under [migrations.ts](file:///f:/Dev/Artemis_Quiver/src/app/db/migrations.ts):
+On app launch, the persistence layer checks if database profiles exist. If none exist, [migrations.ts](file:///f:/Dev/Artemis_Quiver/src/app/db/migrations.ts) creates a single default profile. If profiles exist but the `activeProfileId` is missing or corrupt in `metadata`, the system automatically selects the most recently used profile and restores a valid active session.
 
-1. **Workspace Manifest Check:** Reads `localStorage` for `artemis-workspace` (containing a list of profiles and active ID). If found, it creates individual `profiles` and separates `analysisSessions` to write them relational-style into IndexedDB.
-2. **Legacy Data Fallback:** If no manifest exists, it checks for older single-profile keys (`artemis-profile`, `artemis-llm-config`, etc.), structures them as a `"Default"` profile, and migrates them.
-3. **Storage Cleanup:** Deletes corresponding `localStorage` keys only after successful DB writes to prevent sync corruption.
-4. **Self-Healing Recovery:** If profiles are present in IndexedDB but the `activeProfileId` is missing or corrupt in `metadata`, the system automatically selects the most recently used profile and restores a valid active session.
+**Note:** The initial migration from `localStorage` (reading `artemis-workspace`, `artemis-profile`, `artemis-llm-config` keys and writing to IndexedDB) was performed in v3.0.0 and has since been removed from the codebase. Fresh installs go directly to IndexedDB with no localStorage dependency.
 
 ---
 
