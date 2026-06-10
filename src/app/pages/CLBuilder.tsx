@@ -52,16 +52,6 @@ export function CLBuilder() {
     templateId: "modern" as const,
   });
   const printIframeRef = useRef<HTMLIFrameElement>(null);
-  const [printHtml, setPrintHtml] = useState("");
-
-  useEffect(() => {
-    if (!printHtml) return;
-    const timer = setTimeout(() => {
-      printIframeRef.current?.contentWindow?.focus();
-      printIframeRef.current?.contentWindow?.print();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [printHtml]);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -176,7 +166,18 @@ export function CLBuilder() {
   const printPDF = useCallback(() => {
     if (!clContent) return;
     const html = renderCLToHTML(clContent, themeConfig);
-    setPrintHtml(html);
+    const iframe = printIframeRef.current;
+    if (!iframe) return;
+    const win = iframe.contentWindow;
+    if (!win) return;
+    const doc = win.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    requestAnimationFrame(() => {
+      win.focus();
+      win.print();
+    });
   }, [clContent, themeConfig]);
 
   return (
@@ -295,7 +296,7 @@ export function CLBuilder() {
                 </div>
                 <iframe
                   ref={printIframeRef}
-                  srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
+                  srcDoc="<!DOCTYPE html><html><head></head><body></body></html>"
                   style={{ position: "absolute", width: 0, height: 0, border: "none" }}
                   title="Print frame"
                 />
