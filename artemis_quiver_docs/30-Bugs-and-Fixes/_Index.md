@@ -391,6 +391,25 @@ Expanded view shows guidance: "No profile fingerprint. Open the Artemis Quiver p
 
 ---
 
+## Known Limitations (not yet addressed)
+
+### PDF rendering diverges from interactive preview
+
+The PDF export (`renderingEngine.ts`) and the interactive preview (`InteractiveCVPreview.tsx`) are completely separate rendering paths:
+
+| Aspect | Preview | PDF Export |
+|--------|---------|-----------|
+| Engine | React + Tailwind + `lucide-react` icons | Raw HTML string + hand-written CSS |
+| Interactivity | Inline editing, drag-reorder, expand/collapse | Static output only |
+| Icons | `lucide-react` SVG components | Inline SVG strings in HTML |
+| State | React state (live) | Snapshot at print time |
+
+**Impact:** Visual alignment between preview and PDF requires manual replication of every layout/design change. Minor spacing, font, and icon differences can appear. Not critical — PDF output is functional but may not be pixel-perfect.
+
+**Suggested fix:** Would require either (a) rendering the preview components via `renderToStaticMarkup` for PDF (risky — preview components assume live DOM), or (b) using `dangerouslySetInnerHTML` in the preview to show the PDF-rendered HTML (loses all interactivity). Neither is a clear win; incremental improvements to `renderingEngine.ts` are the pragmatic path.
+
+---
+
 ## Related Documentation
 
 - [[../00-Index/MOC|Map of Content]] — Project documentation index
