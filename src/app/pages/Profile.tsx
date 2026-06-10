@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "../components/ui/button";
+import { MessageAlert } from "../components/ui/Alert";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -26,7 +27,7 @@ export function Profile() {
     useProfile();
   const { config } = useConfig();
   const { profileData, updateProfileData, persistActiveProfile } = useWorkspace();
-
+  
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("editor");
   const [showOnboarding, setShowOnboarding] = useState(!!navState?.isNewProfile);
@@ -36,6 +37,22 @@ export function Profile() {
   const [mergePreview, setMergePreview] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // WebLLM: Check if user has ever downloaded/local model available
+  const [localModelAvailable, setLocalModelAvailable] = useState<boolean | null>(null);
+  
+  useEffect(() => {
+    if (navState?.edit) {
+      setIsEditing(true);
+      setActiveTab("editor");
+    }
+    // Load cached WebLLM status from localStorage or first-run state
+    const cachedStatus = localStorage.getItem("artemis:webllmStatus") as 
+      | "available" | "downloading" | "initial" | null;
+    
+    setLocalModelAvailable(cachedStatus === "available");
+    setShowOnboarding(!!navState?.isNewProfile && cachedStatus !== "available");
+  }, [navState]);
 
   const messages = profileData.profileChat;
 
@@ -54,6 +71,9 @@ export function Profile() {
   const handleSave = () => {
     saveProfile();
     setIsEditing(false);
+    // Persist WebLLM state when profile is saved
+    setLocalModelAvailable(true); // Model available on subsequent visits
+    localStorage.setItem("artemis:webllmStatus", "available");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
