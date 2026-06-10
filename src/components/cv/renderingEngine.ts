@@ -50,8 +50,8 @@ const CV_COMMON_STYLES = `
   .cv-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; margin-bottom: 0.75rem; }
   .cv-header-left { flex: 1; min-width: 0; }
   .cv-header-right { flex-shrink: 0; text-align: right; }
-  .cv-contact-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; margin-bottom: 0.2rem; white-space: nowrap; }
-  .cv-contact-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; }
+  .cv-contact-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; margin-bottom: 0.2rem; white-space: nowrap; font-size: 0.78rem; }
+  .cv-contact-row svg { flex-shrink: 0; opacity: 0.6; }
   h2.section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 0.75rem 0; }
   ul.bullets { margin: 0.25rem 0 0 0; padding-left: 1.1rem; list-style: disc; }
   ul.bullets li { margin-bottom: 0.2rem; }
@@ -70,8 +70,7 @@ function getCvThemeStyles(themeId: string, pc: string): string {
         .cv-sheet { box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; }
         .cv-name { font-size: 2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.025em; margin: 0; }
         .cv-title { font-size: 1.05rem; color: ${pc}; font-weight: 600; margin: 0.15rem 0 0 0; }
-        .cv-contact-row { font-size: 0.78rem; color: #64748b; }
-        .cv-contact-label { color: ${pc}; }
+        .cv-contact-row { color: #64748b; }
         .cv-divider { border: none; border-top: 2px solid #e2e8f0; margin: 1rem 0; }
         h2.section-title { color: ${pc}; }
         .exp-role { font-size: 1rem; font-weight: 600; color: #0f172a; margin: 0; }
@@ -90,7 +89,6 @@ function getCvThemeStyles(themeId: string, pc: string): string {
         .cv-name { font-size: 2rem; font-weight: 700; font-family: 'Playfair Display', serif; color: #1a202c; margin: 0; }
         .cv-title { font-size: 1rem; color: ${pc}; font-style: italic; margin: 0.2rem 0 0 0; }
         .cv-contact-row { font-size: 0.78rem; color: #4a5568; }
-        .cv-contact-label { color: ${pc}; }
         .cv-divider { border: none; border-top: 1px solid #cbd5e0; margin: 1rem 0; }
         h2.section-title { color: ${pc}; text-align: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; }
         .exp-role { font-size: 1rem; font-weight: 600; color: #1a202c; margin: 0; }
@@ -108,7 +106,6 @@ function getCvThemeStyles(themeId: string, pc: string): string {
         .cv-name { font-size: 1.6rem; font-weight: 700; color: #0f172a; margin: 0; }
         .cv-title { font-size: 0.95rem; color: #64748b; font-weight: 400; margin: 0.15rem 0 0 0; }
         .cv-contact-row { font-size: 0.75rem; color: #94a3b8; }
-        .cv-contact-label { color: #64748b; }
         .cv-divider { border: none; border-top: 1px solid #f1f5f9; margin: 0.75rem 0; }
         h2.section-title { color: #1e293b; }
         .exp-role { font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0; }
@@ -124,15 +121,19 @@ function getCvThemeStyles(themeId: string, pc: string): string {
 }
 
 function cvHeaderHtml(name: string, title: string, contact: Extract<CVSection, { type: "contact" }> | undefined): string {
+  const iconEmail = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>';
+  const iconPhone = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  const iconLinkedin = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>';
+  const iconLocation = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
   const contactRows: string[] = [];
   if (contact) {
-    if (contact.email) contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">Email</span><a class="contact-link" href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a></div>`);
-    if (contact.phone) contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">Phone</span><span>${escapeHtml(contact.phone)}</span></div>`);
+    if (contact.email) contactRows.push(`<div class="cv-contact-row">${iconEmail}<a class="contact-link" href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a></div>`);
+    if (contact.phone) contactRows.push(`<div class="cv-contact-row">${iconPhone}<span>${escapeHtml(contact.phone)}</span></div>`);
     if (contact.linkedin) {
       const linkedinLabel = contact.linkedin.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-      contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">LinkedIn</span><a class="contact-link" href="${escapeHtml(contact.linkedin)}">${escapeHtml(linkedinLabel)}</a></div>`);
+      contactRows.push(`<div class="cv-contact-row">${iconLinkedin}<a class="contact-link" href="${escapeHtml(contact.linkedin)}">${escapeHtml(linkedinLabel)}</a></div>`);
     }
-    if (contact.location) contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">Location</span><span>${escapeHtml(contact.location)}</span></div>`);
+    if (contact.location) contactRows.push(`<div class="cv-contact-row">${iconLocation}<span>${escapeHtml(contact.location)}</span></div>`);
   }
   const lines: string[] = ['<header class="page-keep">', '<div class="cv-header">'];
   lines.push('<div class="cv-header-left">', `<h1 class="cv-name">${escapeHtml(name)}</h1>`);
