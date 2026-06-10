@@ -47,8 +47,12 @@ const CV_COMMON_STYLES = `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
   body { margin: 0; padding: 0; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   .cv-sheet { max-width: 800px; margin: 2rem auto; padding: 2.5rem 3rem; background: #fff; }
+  .cv-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; margin-bottom: 0.75rem; }
+  .cv-header-left { flex: 1; min-width: 0; }
+  .cv-header-right { flex-shrink: 0; text-align: right; }
+  .cv-contact-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; margin-bottom: 0.2rem; white-space: nowrap; }
+  .cv-contact-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; }
   h2.section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 0.75rem 0; }
-  .contact-bar a, .contact-bar span { color: inherit; }
   ul.bullets { margin: 0.25rem 0 0 0; padding-left: 1.1rem; list-style: disc; }
   ul.bullets li { margin-bottom: 0.2rem; }
   .exp-header { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -66,7 +70,8 @@ function getCvThemeStyles(themeId: string, pc: string): string {
         .cv-sheet { box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; }
         .cv-name { font-size: 2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.025em; margin: 0; }
         .cv-title { font-size: 1.05rem; color: ${pc}; font-weight: 600; margin: 0.15rem 0 0 0; }
-        .contact-bar { font-size: 0.8rem; color: #64748b; display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
+        .cv-contact-row { font-size: 0.78rem; color: #64748b; }
+        .cv-contact-label { color: ${pc}; }
         .cv-divider { border: none; border-top: 2px solid #e2e8f0; margin: 1rem 0; }
         h2.section-title { color: ${pc}; }
         .exp-role { font-size: 1rem; font-weight: 600; color: #0f172a; margin: 0; }
@@ -84,7 +89,8 @@ function getCvThemeStyles(themeId: string, pc: string): string {
         .cv-sheet { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .cv-name { font-size: 2rem; font-weight: 700; font-family: 'Playfair Display', serif; color: #1a202c; margin: 0; }
         .cv-title { font-size: 1rem; color: ${pc}; font-style: italic; margin: 0.2rem 0 0 0; }
-        .contact-bar { font-size: 0.8rem; color: #4a5568; display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem; justify-content: center; }
+        .cv-contact-row { font-size: 0.78rem; color: #4a5568; }
+        .cv-contact-label { color: ${pc}; }
         .cv-divider { border: none; border-top: 1px solid #cbd5e0; margin: 1rem 0; }
         h2.section-title { color: ${pc}; text-align: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.35rem; }
         .exp-role { font-size: 1rem; font-weight: 600; color: #1a202c; margin: 0; }
@@ -101,7 +107,8 @@ function getCvThemeStyles(themeId: string, pc: string): string {
         .cv-sheet { box-shadow: none; border: none; padding: 2rem 2.5rem; }
         .cv-name { font-size: 1.6rem; font-weight: 700; color: #0f172a; margin: 0; }
         .cv-title { font-size: 0.95rem; color: #64748b; font-weight: 400; margin: 0.15rem 0 0 0; }
-        .contact-bar { font-size: 0.78rem; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
+        .cv-contact-row { font-size: 0.75rem; color: #94a3b8; }
+        .cv-contact-label { color: #64748b; }
         .cv-divider { border: none; border-top: 1px solid #f1f5f9; margin: 0.75rem 0; }
         h2.section-title { color: #1e293b; }
         .exp-role { font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0; }
@@ -117,22 +124,24 @@ function getCvThemeStyles(themeId: string, pc: string): string {
 }
 
 function cvHeaderHtml(name: string, title: string, contact: Extract<CVSection, { type: "contact" }> | undefined): string {
-  const contactLines: string[] = [];
+  const contactRows: string[] = [];
   if (contact) {
-    if (contact.email) contactLines.push(`<a class="contact-link" href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a>`);
-    if (contact.phone) contactLines.push(`<span>${escapeHtml(contact.phone)}</span>`);
+    if (contact.email) contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">Email</span><a class="contact-link" href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a></div>`);
+    if (contact.phone) contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">Phone</span><span>${escapeHtml(contact.phone)}</span></div>`);
     if (contact.linkedin) {
       const linkedinLabel = contact.linkedin.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-      contactLines.push(`<a class="contact-link" href="${escapeHtml(contact.linkedin)}">${escapeHtml(linkedinLabel)}</a>`);
+      contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">LinkedIn</span><a class="contact-link" href="${escapeHtml(contact.linkedin)}">${escapeHtml(linkedinLabel)}</a></div>`);
     }
-    if (contact.location) contactLines.push(`<span>${escapeHtml(contact.location)}</span>`);
+    if (contact.location) contactRows.push(`<div class="cv-contact-row"><span class="cv-contact-label">Location</span><span>${escapeHtml(contact.location)}</span></div>`);
   }
-  const lines: string[] = ['<header class="page-keep">', `<h1 class="cv-name">${name}</h1>`];
-  if (title) lines.push(`<p class="cv-title">${title}</p>`);
-  if (contactLines.length > 0) {
-    lines.push(`<div class="contact-bar">${contactLines.join('<span class="contact-sep">&middot;</span>')}</div>`);
+  const lines: string[] = ['<header class="page-keep">', '<div class="cv-header">'];
+  lines.push('<div class="cv-header-left">', `<h1 class="cv-name">${escapeHtml(name)}</h1>`);
+  if (title) lines.push(`<p class="cv-title">${escapeHtml(title)}</p>`);
+  lines.push('</div>');
+  if (contactRows.length > 0) {
+    lines.push('<div class="cv-header-right">', ...contactRows, '</div>');
   }
-  lines.push('</header>', '<hr class="cv-divider" />');
+  lines.push('</div>', '</header>', '<hr class="cv-divider" />');
   return lines.join("\n");
 }
 
