@@ -54,20 +54,24 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [followUpMessages, setFollowUpMessages] = useState<ChatMessage[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
-  // Load sessions asynchronously from IndexedDB when profile changes
+  // Load sessions from IndexedDB when profile changes
   useEffect(() => {
     async function load() {
       const userSessions = await getSessions(activeProfileId);
       setSessions(userSessions);
     }
     setDraftJobPosting(profileData.draftJobPosting);
+    load();
+  }, [activeProfileId]);
+  // Reset analysis view on profile switch (separate effect avoids
+  // reset when loadSession syncs draftJobPosting to profileData)
+  useEffect(() => {
     setCurrentResult(null);
     setCurrentMarkdown(null);
     setActiveSessionId(null);
     setError(null);
     setFollowUpMessages([]);
-    load();
-  }, [activeProfileId, profileData.draftJobPosting]);
+  }, [activeProfileId]);
 
   const persistDraft = useCallback(
     (value: string) => {
