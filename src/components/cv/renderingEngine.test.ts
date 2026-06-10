@@ -209,7 +209,7 @@ describe("CV Rendering Engine", () => {
     
     expect(html).toContain("mailto:test@test.com");
     expect(html).toContain("123-456");
-    expect(html).toContain("LinkedIn");
+    expect(html).toContain("linkedin.com/test");
   });
 
 });

@@ -39,7 +39,7 @@ const PRINT_STYLES = `
     .no-print { display: none !important; }
     .page-break { page-break-before: always; }
     .page-keep { page-break-inside: avoid; break-inside: avoid; }
-    a { text-decoration: none !important; color: inherit !important; }
+    a.contact-link { text-decoration: underline !important; color: #2563eb !important; }
   }
 `;
 
@@ -119,9 +119,12 @@ function getCvThemeStyles(themeId: string, pc: string): string {
 function cvHeaderHtml(name: string, title: string, contact: Extract<CVSection, { type: "contact" }> | undefined): string {
   const contactLines: string[] = [];
   if (contact) {
-    if (contact.email) contactLines.push(`<a href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a>`);
+    if (contact.email) contactLines.push(`<a class="contact-link" href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a>`);
     if (contact.phone) contactLines.push(`<span>${escapeHtml(contact.phone)}</span>`);
-    if (contact.linkedin) contactLines.push(`<a href="${escapeHtml(contact.linkedin)}">LinkedIn</a>`);
+    if (contact.linkedin) {
+      const linkedinLabel = contact.linkedin.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      contactLines.push(`<a class="contact-link" href="${escapeHtml(contact.linkedin)}">${escapeHtml(linkedinLabel)}</a>`);
+    }
     if (contact.location) contactLines.push(`<span>${escapeHtml(contact.location)}</span>`);
   }
   const lines: string[] = ['<header class="page-keep">', `<h1 class="cv-name">${name}</h1>`];

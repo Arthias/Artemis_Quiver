@@ -53,7 +53,15 @@ export function CLBuilder() {
   });
   const printIframeRef = useRef<HTMLIFrameElement>(null);
   const [printHtml, setPrintHtml] = useState("");
-  const printPendingRef = useRef(false);
+
+  useEffect(() => {
+    if (!printHtml) return;
+    const timer = setTimeout(() => {
+      printIframeRef.current?.contentWindow?.focus();
+      printIframeRef.current?.contentWindow?.print();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [printHtml]);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -165,18 +173,9 @@ export function CLBuilder() {
     });
   }, [clContent]);
 
-  const handleIframeLoad = useCallback(() => {
-    if (printPendingRef.current && printIframeRef.current?.contentWindow) {
-      printPendingRef.current = false;
-      printIframeRef.current.contentWindow.focus();
-      printIframeRef.current.contentWindow.print();
-    }
-  }, []);
-
   const printPDF = useCallback(() => {
     if (!clContent) return;
     const html = renderCLToHTML(clContent, themeConfig);
-    printPendingRef.current = true;
     setPrintHtml(html);
   }, [clContent, themeConfig]);
 
@@ -297,7 +296,6 @@ export function CLBuilder() {
                 <iframe
                   ref={printIframeRef}
                   srcDoc={printHtml || "<!DOCTYPE html><html><head></head><body></body></html>"}
-                  onLoad={handleIframeLoad}
                   style={{ position: "absolute", width: 0, height: 0, border: "none" }}
                   title="Print frame"
                 />
