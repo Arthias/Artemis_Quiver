@@ -1,6 +1,13 @@
-import type { CVContent } from "../../types/cv";
+import type { CVContent, CVSection } from "../../types/cv";
 import type { CLContent } from "../../types/cl";
 import type { ThemeConfig } from "../../types/cv";
+
+function findSection<T extends CVSection["type"]>(
+  sections: CVSection[],
+  type: T
+): Extract<CVSection, { type: T }> | undefined {
+  return sections.find((s): s is Extract<CVSection, { type: T }> => s.type === type);
+}
 
 const escapeHtml = (str: string): string => {
   const map: Record<string, string> = {
@@ -109,7 +116,7 @@ function getCvThemeStyles(themeId: string, pc: string): string {
   }
 }
 
-function cvHeaderHtml(name: string, title: string, contact: any): string {
+function cvHeaderHtml(name: string, title: string, contact: Extract<CVSection, { type: "contact" }> | undefined): string {
   const contactLines: string[] = [];
   if (contact) {
     if (contact.email) contactLines.push(`<a href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a>`);
@@ -215,12 +222,12 @@ export const renderCVToHTML = (
   const themeId = theme.templateId || "modern";
   const pc = safeColor(theme.primaryColor);
 
-  const contact = content.sections.find(s => s.type === "contact") as any;
-  const summary = content.sections.find(s => s.type === "summary") as any;
-  const skills = content.sections.find(s => s.type === "skills") as any;
-  const experience = content.sections.find(s => s.type === "experience") as any;
-  const education = content.sections.find(s => s.type === "education") as any;
-  const certifications = content.sections.find(s => s.type === "certifications") as any;
+  const contact = findSection(content.sections, "contact");
+  const summary = findSection(content.sections, "summary");
+  const skills = findSection(content.sections, "skills");
+  const experience = findSection(content.sections, "experience");
+  const education = findSection(content.sections, "education");
+  const certifications = findSection(content.sections, "certifications");
 
   const name = escapeHtml(content.name || "Your Name");
   const title = escapeHtml(content.title || "");
