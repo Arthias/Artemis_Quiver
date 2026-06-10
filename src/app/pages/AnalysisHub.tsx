@@ -46,7 +46,7 @@ export function AnalysisHub() {
     sendFollowUpMessage,
   } = useAnalysis();
   const { setHandoff } = useBuilderHandoff();
-  const { tryClearByText } = useExtensionBridge();
+  const { clearOpenPending } = useExtensionBridge();
 
   const result = currentResult;
   const hasResult = result !== null;
@@ -54,10 +54,10 @@ export function AnalysisHub() {
   useEffect(() => {
     if (result && !prevResultRef.current) {
       prevResultRef.current = true;
-      tryClearByText(draftJobPosting);
+      clearOpenPending();
     }
     if (!result) prevResultRef.current = false;
-  }, [result, draftJobPosting, tryClearByText]);
+  }, [result, clearOpenPending]);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [followUpInput, setFollowUpInput] = useState("");
 
