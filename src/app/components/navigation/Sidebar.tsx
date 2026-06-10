@@ -55,7 +55,6 @@ export function Sidebar() {
   const handleRunPending = (pending: PendingImport) => {
     clearCurrent();
     setDraftJobPosting(pending.text);
-    clearPendingImport(pending.id);
     navigate("/");
   };
 
