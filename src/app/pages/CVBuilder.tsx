@@ -80,6 +80,7 @@ export function CVBuilder() {
       }
       setCvContent(parsedContent);
       setIsGenerated(true);
+      window.scrollTo(0, 0);
     } catch (err) {
       logAppError(err, { phase: "generateCV" });
       if (err instanceof AppError) {
