@@ -9,7 +9,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "build:ext": "vite build --config vite.ext.config.ts"
+    "build:ext": "vite build --config vite.ext.config.ts",
+    "qa": "powershell -File scripts/qa.ps1",
+    "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./dist-ext"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.6",
@@ -32,6 +34,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "4.1.12",
     "@types/chrome": "^0.1.42",
     "@types/react": "^19.2.15",
