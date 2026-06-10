@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "build:ext": "vite build --config vite.ext.config.ts",
     "qa": "powershell -File scripts/qa.ps1",
-    "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./dist-ext"
+    "qa:all": "powershell -File scripts/qa.ps1 -Suite all",
+    "qa:hub": "powershell -File scripts/qa.ps1 -Suite analysis-hub",
+    "qa:cv": "powershell -File scripts/qa.ps1 -Suite cv-builder",
+    "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./dist-ext",
+    "qa:headless": "powershell -File scripts/qa.ps1 -Suite all -Headless"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.6",
