@@ -347,6 +347,9 @@ Pre-Kanban code hardening sprint.
 
 **Goal:** Address technical debt, improve test coverage, tighten types, and harden the codebase before building the Kanban pipeline tracker.
 
+> [!IMPORTANT] Cleanup phase mandate
+> Every cleanup sprint **must** end with a full Fallow sweep (`npx fallow && npx fallow dead-code && npx fallow dupes && npx fallow health`). Multi-agent coding leaves residue (dead exports, clones, orphaned files). Fix all violations before closing. See `40-Development/Coding Standards.md` for details.
+
 **Tasks:**
 
 #### Test Coverage
@@ -368,7 +371,7 @@ Pre-Kanban code hardening sprint.
 - [x] **Popup fingerprint error display** — Shows actual error message when fingerprint generation fails
 - [x] **Auto-fill site from tab URL** — Popup pre-fills new-site input with current tab's hostname+path
 - [x] **Import `DEFAULT_JOB_SITES` from extension** — Config.tsx no longer duplicates the list
-- [ ] **Remove legacy localStorage code** — After migration is stable, remove `workspaceStorage.ts` fallback paths
+- [x] **Remove legacy localStorage code** — Confirmed: all localStorage calls removed from source. `workspaceStorage.ts` renamed to `profileDefaults.ts` (pure helpers, no storage access). `migrations.ts` no longer reads localStorage. Remaining references are in docs only — updated.
 - [ ] **Audit `any` types** — Search for unchecked `any` casts, add proper types (especially in service layers)
 - [ ] **Standardize error handling in extension** — Port `AppError` pattern to `background.ts` for consistent error reporting
 - [ ] **Lint & typecheck CI** — Add GitHub Action running `tsc --noEmit` and `vitest run` on PRs
@@ -383,8 +386,11 @@ Pre-Kanban code hardening sprint.
 - [ ] **Add missing JSDoc** — Public API surfaces in `llmService.ts`, `jobAnalysisService.ts`, `cvBuilderService.ts`
 - [ ] **Standardize import aliases** — Use `@/` path alias consistently across all files
 
+#### Cleanup Sweep
+- [ ] **Full Fallow sweep** — Run `npx fallow && npx fallow dead-code && npx fallow dupes && npx fallow health`. Fix all violations (dead exports, clones, orphaned files, MI regressions) before closing the sprint.
+
 **Key Files to Touch:**
-- `src/app/utils/workspaceStorage.ts` — audit/remove
+- ~~`src/app/utils/workspaceStorage.ts` — audit/remove~~ (done — removed)
 - `src/extension/background.ts` — error handling
 - `src/app/hooks/useExtensionImport.ts` — tests
 - `vite.config.ts` — lazy-load routes, bundle report
@@ -595,7 +601,7 @@ Package as downloadable desktop app with one-time purchase.
 | Path | Role |
 |---|---|
 | [WorkspaceProfileContext.tsx](file:///F:/Dev/Artemis_Quiver/src/app/context/WorkspaceProfileContext.tsx) | Handles multi-profile storage orchestration. |
-| [workspaceStorage.ts](file:///F:/Dev/Artemis_Quiver/src/app/utils/workspaceStorage.ts) | Performs low-level localStorage actions (read, write, migrate, evict). |
+| [profileDefaults.ts](file:///F:/Dev/Artemis_Quiver/src/app/utils/profileDefaults.ts) | Default data factories: `createEmptyProfileData()`, `MAX_WORKSPACE_PROFILES`, `profileInitials()`. Replaced `workspaceStorage.ts` after IndexedDB migration. |
 | [ProfileSwitcherModal.tsx](file:///F:/Dev/Artemis_Quiver/src/app/components/workspace/ProfileSwitcherModal.tsx) | The UI modal for adding and choosing profiles. |
 | [BuilderHandoffContext.tsx](file:///F:/Dev/Artemis_Quiver/src/app/context/BuilderHandoffContext.tsx) | Manages job parameters passing between route views. |
 | [profileMergeService.ts](file:///F:/Dev/Artemis_Quiver/src/app/services/profileMergeService.ts) | Performs smart merging of text payloads via LLM. |

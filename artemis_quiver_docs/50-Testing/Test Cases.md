@@ -12,13 +12,13 @@ This document describes the manual validation scenarios and criteria for testing
 
 ## 🗂️ 1. Workspace Profile Switching & Eviction
 
-### Test Case 1.1: Default Profile Migration
-* **Goal:** Verify that legacy data is automatically ported to a new "Default" workspace.
-* **Preconditions:** Clear local storage except for single legacy keys: `artemis-profile` (set to any test CV text) and `artemis-llm-config` (set to custom server URLs).
+### Test Case 1.1: Default Profile Initialization
+* **Goal:** Verify that a fresh install creates a default profile.
+* **Preconditions:** Clear IndexedDB (via browser dev tools → Application → IndexedDB → ArtemisQuiverDB → Delete database). No legacy localStorage keys.
 * **Steps:**
   1. Load the application home page (`/`).
   2. Inspect the sidebar footer profile initials.
-* **Expected Result:** The profile initializes with a profile named **"Default"**. Check local storage: legacy keys must be deleted, and a new global `artemis-workspace` manifest and `artemis-profile-data-[UUID]` key must exist, containing the legacy data.
+* **Expected Result:** The profile initializes with a profile named **"Default"**. Check IndexedDB: `profiles` table has one record with the name "Default". `metadata` table has `activeProfileId` set to that profile's ID.
 
 ### Test Case 1.2: Profile Lifecycle (Create, Switch)
 * **Goal:** Ensure profiles can be created and switched seamlessly.
@@ -37,7 +37,7 @@ This document describes the manual validation scenarios and criteria for testing
   3. Touch Profile C.
   4. Touch Profile B. (LRU order: Profile A is oldest, then C, then B is newest).
   5. Click the profile switcher, input "Profile D", and click Create.
-* **Expected Result:** Profile D is created and activated. Profile A is evicted. Check the switcher list: Profile A is no longer available. `localStorage.getItem("artemis-profile-data-[ID_OF_A]")` must be null.
+* **Expected Result:** Profile D is created and activated. Profile A is evicted. Check the switcher list: Profile A is no longer available. Query IndexedDB `profiles` table — Profile A's record and its associated `analysisSessions` must be gone.
 
 ---
 

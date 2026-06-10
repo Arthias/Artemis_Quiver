@@ -38,7 +38,7 @@ export function extractBaseUrl(url: string): string {
   return `${u.protocol}//${u.host}`;
 }
 
-function domainMatches(entryDomain: string, hostname: string): boolean {
+export function domainMatches(entryDomain: string, hostname: string): boolean {
   return hostname === entryDomain || hostname.endsWith("." + entryDomain);
 }
 
