@@ -1,7 +1,7 @@
 ---
 tags: [index, bugfixes, issues, resolved]
 status: completed
-last_updated: 2026-05-28
+last_updated: 2026-06-10
 ---
 
 # 🐛 Bugs & Fixes — Resolution Log

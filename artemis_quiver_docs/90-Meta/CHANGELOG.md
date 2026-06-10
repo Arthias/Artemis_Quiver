@@ -6,6 +6,35 @@ last_updated: 2026-06-04
 
 # Changelog
 
+## [v3.2.0] - June 10, 2026
+
+### Sprint 9a — Code Revision & Cleanup
+
+#### Refactoring
+- **Extracted `InlineEdit` shared component** — `InlineInput` and `InlineTextarea` moved to `src/components/cv/InlineEdit.tsx`, removing 158 lines of duplicate code between `InteractiveCVPreview` and `InteractiveCLPreview`.
+- **Overlay imports from `job-sites` eliminated** — Content scripts in MV3 cannot use ES module imports. Reverted to inlining `matchJobSite`, `parseSiteEntry`, `domainMatches` with explanatory comment. Exported `domainMatches` from `job-sites.ts` for use by background script.
+- **Added `.fallowrc.json`** — Proper entry points for both app and extension builds so Fallow scans ignore false positives.
+
+#### Type Safety
+- **`renderingEngine.ts`** — Replaced 6 `as any` casts with type-safe `findSection<T>()` helper using discriminated union over CVSection types. `cvHeaderHtml` contact parameter now typed as `Extract<CVSection, { type: "contact" }> | undefined`.
+- **`ExtensionBridgeContext.tsx`** — Replaced `msg: any` with `ArtemisMessage` union type, `resp: any` with proper response type.
+- **`ErrorLogContext.tsx`** — Replaced `msg: any` with typed message payload.
+
+#### Bug Fixes
+- **Sidebar session click shows pre-analysis state** — Split `useEffect` in `AnalysisContext` into two effects. Removed `profileData.draftJobPosting` from deps to prevent `loadSession()` from retriggering a state reset. (Regression of Issue #11.)
+- **Scroll to top after generation** — Added `window.scrollTo(0, 0)` after analysis, CV generation, and CL generation.
+- **Last pending import not cleared** — Replaced text-matching `tryClearByText` (fragile, missed last import) with ID-based tracking: `markPendingOpen`/`clearOpenPending` in `ExtensionBridgeContext`. Pending imports now persist until analysis completes.
+- **LinkedIn invisible in PDF export** — Changed `cvHeaderHtml` to render actual URL (stripped of protocol) instead of bare "LinkedIn" text. Print CSS changed from blanket `a { color: inherit }` to specific `.contact-link` styling with underline + blue color.
+- **PDF header layout** — Rewrote from single-column stacked to two-column flex layout matching the interactive preview. Added inline SVG icons for email, phone, LinkedIn, and location.
+- **Export PDF button stops working after first use** — Replaced fragile `printPendingRef` + iframe `onLoad` pattern (browser-dependent, broke on second click) with direct `doc.write()` to iframe + `requestAnimationFrame`. Applied to both CV Builder and CL Builder.
+
+#### Documentation
+- **Removed legacy localStorage references** — Updated `Local Storage.md`, `Profile Workspace.md`, `Plan.md`, `Test Cases.md`, `Coding Standards.md` to reflect IndexedDB-only storage.
+- **Added cleanup mandate** — Coding Standards.md and Plan.md now mandate a full Fallow sweep (`npx fallow && npx fallow dead-code && npx fallow dupes && npx fallow health`) at the end of every cleanup sprint.
+- **Documented PDF vs preview limitation** — Added Known Limitations section to bug tracker explaining dual rendering engine divergence.
+
+---
+
 ## [v3.1.0] - June 5, 2026
 
 ### Refactoring
