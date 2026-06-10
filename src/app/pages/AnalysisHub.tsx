@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -46,18 +46,8 @@ export function AnalysisHub() {
     sendFollowUpMessage,
   } = useAnalysis();
   const { setHandoff } = useBuilderHandoff();
-  const { tryClearByText } = useExtensionBridge();
 
-  const result = currentResult;
-  const hadResult = useRef(false);
-  useEffect(() => {
-    if (result && !hadResult.current) {
-      hadResult.current = true;
-      tryClearByText(draftJobPosting);
-    }
-    if (!result) hadResult.current = false;
-  }, [result, draftJobPosting, tryClearByText]);
-  const hasResult = result !== null;
+  const hasResult = currentResult !== null;
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [followUpInput, setFollowUpInput] = useState("");
 
