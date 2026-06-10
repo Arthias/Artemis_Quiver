@@ -8,6 +8,18 @@ last_updated: 2026-06-04
 
 ## [v3.2.0] - June 10, 2026
 
+### Strategic Shift: Local-First Approach
+**Removed Desktop App (Sprint 13) plans** — Focusing on Chrome extension as primary delivery model. Non-technical users can now run local models directly in the browser without needing technical CLI setups or API keys.
+
+### Sprint 9b — WebLLM Direct Download (High Priority)
+Evolving Sprint 9: Now prioritizing **direct model download via WebLLM** for non-technical users. Instead of requiring users to run LMStudio/Ollama servers, users will:
+1. Install extension → see onboarding flow offering "Run AI locally in browser"
+2. Pick a small model from catalog (Llama 3.2 3B ~2.3 GB)
+3. One-click download & load via WebLLM engine (no local server needed)
+4. Privacy-first: all inference happens in-browser, never leaves device
+
+**Original Sprint 9 plan retained:** Remote LLM fallback still available for users who prefer cloud models.
+
 ### Sprint 9a — Code Revision & Cleanup
 
 #### Refactoring

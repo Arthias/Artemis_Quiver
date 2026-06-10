@@ -1,4 +1,4 @@
-export type ProviderType = "openai-compatible" | "anthropic" | "google-gemini";
+export type ProviderType = "openai-compatible" | "anthropic" | "google-gemini" | "webllm";
 
 export interface ModelEndpoint {
   label: string;

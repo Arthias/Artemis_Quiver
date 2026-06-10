@@ -31,12 +31,11 @@ This document maps out the roadmap, completed milestones, and pending backlog it
 | **Sprint 6b** | Code Quality & Technical Debt Cleanup | ✅ **Done** |
 | **Sprint 7** | Chrome Extension — One-Click Job Import | **Done** |
 | **Sprint 8** | LLM Provider Rebuild — Multi-Provider Config | **Done** |
-| **Sprint 9** | Direct Download — WebLLM In-Browser Model | **Planned** |
 | **Sprint 9a** | Code Revision & Cleanup | **✅ Done** |
+| **Sprint 9b** | Direct Download — WebLLM In-Browser Models | **HIGH PRIORITY** |
 | **Sprint 10** | Application Kanban — Pipeline Tracker | **Planned** |
 | **Sprint 11** | Outreach Generator — Cold Messages | **Planned** |
 | **Sprint 12** | Interview Simulator — STAR + Technical | **Future** |
-| **Sprint 13** | Desktop App — Tauri Wrap & Monetize | **Future** |
 
 ---
 
@@ -529,30 +528,6 @@ Interactive mock interviews with structured STAR feedback.
 - `src/app/context/InterviewContext.tsx`
 
 **Dependencies:** Sprint 6 (IndexedDB), Sprint 8 (pipeline → interview linking)
-
----
-
-### Sprint 12 — Desktop App & Monetization
-Package as downloadable desktop app with one-time purchase.
-
-**Goal:** Users download and install Artemis Quiver as a native app. Monetize via buy-once license.
-
-**Tasks:**
-- [ ] Choose wrapper: **Tauri** (Rust, smaller binary, better perf) vs Electron (larger ecosystem)
-- [ ] Scaffold Tauri/Electron project
-- [ ] Port Vite dev config to Tauri/Electron build pipeline
-- [ ] Native file system access (for exports, profile imports)
-- [ ] Auto-update mechanism (Tauri updater or electron-updater)
-- [ ] License key validation (simple offline check or Gumroad API)
-- [ ] Landing page: `artemis-quiver.dev` — features, screenshots, demo video
-- [ ] Gumroad / LemonSqueezy product page — $19 one-time
-- [ ] Trial mode: 14-day full-featured trial, then lock behind license
-- [ ] Distribution: Windows (MSI), macOS (DMG), Linux (AppImage)
-- [ ] Test: install from fresh download on all 3 platforms
-- [ ] Test: auto-update from v1 → v2 (schema migration on upgrade)
-- [ ] Test: offline functionality (no internet = full access with local LLM)
-
-**Dependencies:** All previous sprints (stable feature set before packaging)
 
 ---
 
