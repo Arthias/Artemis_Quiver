@@ -60,9 +60,23 @@ src/
 
 Two independently configured `ModelEndpoint` slots (primary + secondary). `SecondaryUse` controls routing: `never | fallback | quick-tasks | always`. Adapter factory in `src/app/services/provider/registry.ts`.
 
+Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **Local** (single webllm endpoint, secondary forced to "never"). Switching modes snapshots cloud settings in `savedCloudEndpoints` for round-trip preservation.
+
 ```typescript
-type ProviderType = "openai-compatible" | "anthropic" | "google-gemini";
+type ProviderType = "openai-compatible" | "anthropic" | "google-gemini" | "webllm";
 ```
+
+### WebLLM GPU Device-Lost Handling
+
+WebLLM (`WebLLMAdapter.ts`) can crash the GPU adapter (DXGI_ERROR_DEVICE_REMOVED) when the model exceeds VRAM. The adapter:
+- Catches `requestDevice` / `DXGI_ERROR` failures in `init()`, `ensureEngine()`, and `chatCompletion()`
+- Sets an in-memory `_deviceLost` flag (lost on page refresh) that short-circuits all subsequent calls with a friendly message
+- Does NOT retry device-lost errors (was making it worse)
+- Still retries transient "model not loaded" errors once
+
+Config.tsx has a fallback `formatTestError()` helper that catches any raw DXGI/device-lost errors that slip through the adapter and replaces them with: `"WebGPU device crashed. Close other GPU-heavy tabs, restart Chrome, and try a smaller model."`
+
+Known issue: "Object has already been disposed" errors appear after device loss — the WebLLM engine's GPU context is destroyed and the JS engine object is dead. `_deviceLost` flag catches this on subsequent calls, but if the page is refreshed, the flag resets and the engine is gone. User must re-download the model or use a smaller one.
 
 ## Testing
 

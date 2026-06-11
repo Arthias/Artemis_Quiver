@@ -53,6 +53,9 @@ coverage/
 .vite/
 *.tgz
 
+# Chrome DevTools snapshot artifacts
+snapshot.txt
+
 # Temp files
 tmp/
 temp/

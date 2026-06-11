@@ -36,7 +36,8 @@ University of Technology, 2018
 `;
 
 export const DEFAULT_LLM_CONFIG: LlmConfig = {
-  primary: DEFAULT_PRIMARY_ENDPOINT,
+  providerMode: "local",
+  primary: { ...DEFAULT_PRIMARY_ENDPOINT, provider: "webllm", model: "Llama-3.2-3B-Instruct-q4f32_1-MLC", baseUrl: "" },
   secondary: DEFAULT_SECONDARY_ENDPOINT,
   secondaryUse: "never",
   autoSaveProfile: true,

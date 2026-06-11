@@ -16,6 +16,7 @@ import { Switch } from "../components/ui/switch";
 import { useConfig } from "../context/ConfigContext";
 import { listModels as listModelsApi, testConnection } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
+import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
 import { DEFAULT_JOB_SITES } from "../../extension/job-sites";
 import { getAdapter } from "../services/provider/registry";
@@ -225,7 +226,33 @@ const WEBLLM_CATALOG = [
   { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
 ] as const;
 
+/** Common models for non-WebLLM providers (Ollama, LM Studio, etc.) */
+const COMMON_MODELS = [
+  { id: "google/gemma-4-e2b", label: "Gemma 4 E2B" },
+  { id: "llama3.2:3b", label: "Llama 3.2 (3B)" },
+  { id: "llama3.2:1b", label: "Llama 3.2 (1B)" },
+  { id: "mistral:7b", label: "Mistral (7B)" },
+  { id: "qwen2.5:7b", label: "Qwen 2.5 (7B)" },
+  { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)" },
+  { id: "deepseek-r1:7b", label: "DeepSeek R1 (7B)" },
+] as const;
+
+/** Detect raw WebGPU device-lost / DXGI errors and replace with a user-friendly message */
+function formatTestError(raw: unknown): string {
+  const msg = raw instanceof Error ? raw.message : raw != null ? String(raw) : "";
+  if (/device lost|device removed|requestDevice|DXGI_ERROR/i.test(msg)) {
+    return "WebGPU device crashed. Close other GPU-heavy tabs, restart Chrome, and try a smaller model.";
+  }
+  return msg || "Test failed.";
+}
+
+/** Check if a model ID is in our known catalog (reject stale IDs from prior versions) */
+function isValidWebLLMModel(modelId: string): boolean {
+  return WEBLLM_CATALOG.some(m => m.id === modelId);
+}
+
 function isWebLLMCached(modelId: string): boolean {
+  if (!isValidWebLLMModel(modelId)) return false;
   try {
     const cached = JSON.parse(localStorage.getItem("artemis:webllmCache") || "{}");
     return !!cached[modelId];
@@ -248,6 +275,8 @@ const PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
   { value: "webllm", label: "Use Local Model (in-browser, no API key)" },
 ];
 
+const CLOUD_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter(o => o.value !== "webllm");
+
 const SECONDARY_USE_OPTIONS: { value: SecondaryUse; label: string; desc: string }[] = [
   { value: "never", label: "Never", desc: "Always use primary model" },
   { value: "fallback", label: "Fallback", desc: "Use secondary if primary fails" },
@@ -259,10 +288,12 @@ function ModelEndpointCard({
   label,
   endpoint,
   onChange,
+  providerOptions = PROVIDER_OPTIONS,
 }: {
   label: string;
   endpoint: ModelEndpoint;
   onChange: (patch: Partial<ModelEndpoint>) => void;
+  providerOptions?: { value: ProviderType; label: string }[];
 }) {
   const [expanded, setExpanded] = useState(true);
   const [models, setModels] = useState<string[] | null>(null);
@@ -279,7 +310,7 @@ function ModelEndpointCard({
       const reply = await testConnection(endpoint);
       setTestMessage(`OK: "${reply}"`);
     } catch (err) {
-      setTestError(err instanceof Error ? err.message : "Connection test failed.");
+      setTestError(formatTestError(err));
     } finally {
       setTesting(false);
     }
@@ -293,7 +324,7 @@ function ModelEndpointCard({
       setModels(list);
     } catch (err) {
       setModels([]);
-      setTestError(err instanceof Error ? err.message : "Failed to list models.");
+      setTestError(formatTestError(err));
     } finally {
       setListingModels(false);
     }
@@ -316,13 +347,19 @@ function ModelEndpointCard({
             <Label className="mb-2 block">Provider</Label>
             <Select
               value={endpoint.provider}
-              onValueChange={(v) => onChange({ provider: v as ProviderType })}
+              onValueChange={(v) => {
+                const patch: Partial<ModelEndpoint> = { provider: v as ProviderType };
+                if (v === "webllm" && !isValidWebLLMModel(endpoint.model || "")) {
+                  patch.model = WEBLLM_CATALOG[0].id;
+                }
+                onChange(patch);
+              }}
             >
               <SelectTrigger className="bg-input-background">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PROVIDER_OPTIONS.map((opt) => (
+                {providerOptions.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -361,7 +398,7 @@ function ModelEndpointCard({
             {endpoint.provider === "webllm" ? (
               <div className="flex flex-col gap-2">
                 <Select
-                  value={endpoint.model || WEBLLM_CATALOG[0].id}
+                  value={isValidWebLLMModel(endpoint.model || "") ? endpoint.model! : WEBLLM_CATALOG[0].id}
                   onValueChange={(v) => onChange({ model: v })}
                 >
                   <SelectTrigger className="bg-input-background font-mono text-sm">
@@ -407,7 +444,7 @@ function ModelEndpointCard({
                           setWebLLMCache(targetId, true);
                           setTesting(false);
                         } catch (err: any) {
-                          setTestError(err?.message || "Download failed. Check browser supports WebGPU.");
+                          setTestError(formatTestError(err));
                           setTesting(false);
                         }
                       }}
@@ -438,17 +475,35 @@ function ModelEndpointCard({
                 </div>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={endpoint.model}
-                  onChange={(e) => onChange({ model: e.target.value })}
-                  placeholder="google/gemma-4-e2b"
-                  className="bg-input-background border-border flex-1"
-                />
-                <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? "Close model list" : "List available models"}>
-                  {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={endpoint.model}
+                    onChange={(e) => onChange({ model: e.target.value })}
+                    placeholder="google/gemma-4-e2b"
+                    className="bg-input-background border-border flex-1"
+                  />
+                  <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? "Close model list" : "List available models"}>
+                    {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {COMMON_MODELS.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                        endpoint.model === m.id
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                      }`}
+                      onClick={() => onChange({ model: m.id })}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -594,6 +649,33 @@ export function Config() {
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
+  // Migrate stale webllm model IDs on mount
+  useEffect(() => {
+    let dirty = false;
+    if (config.primary.provider === "webllm" && !isValidWebLLMModel(config.primary.model || "")) {
+      updateConfig({ primary: { ...config.primary, model: WEBLLM_CATALOG[0].id } });
+      dirty = true;
+    }
+    if (config.secondary.provider === "webllm" && !isValidWebLLMModel(config.secondary.model || "")) {
+      updateConfig({ secondary: { ...config.secondary, model: WEBLLM_CATALOG[0].id } });
+      dirty = true;
+    }
+    if (dirty) {
+      // Clear stale localStorage cache keys
+      Object.keys(localStorage).forEach(k => {
+        if (k === "artemis:webllmCache") {
+          try {
+            const cached = JSON.parse(localStorage.getItem(k) || "{}");
+            const clean = Object.fromEntries(
+              Object.entries(cached).filter(([id]) => isValidWebLLMModel(id))
+            );
+            localStorage.setItem(k, JSON.stringify(clean));
+          } catch {}
+        }
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleTest = async () => {
     setTestMessage(null);
     setTestError(null);
@@ -610,7 +692,7 @@ export function Config() {
         const reply = await testConnection(ep);
         results.push(`${ep.label} (${ep.model}): OK ("${reply}")`);
       } catch (err) {
-        errors.push(`${ep.label}: ${err instanceof Error ? err.message : "Failed"}`);
+        errors.push(`${ep.label}: ${formatTestError(err)}`);
       }
     }
 
@@ -653,69 +735,180 @@ export function Config() {
               <h2 className="text-lg font-semibold">LLM Provider</h2>
             </div>
 
-            <div className="space-y-4">
-              <ModelEndpointCard
-                label="Primary Model"
-                endpoint={config.primary}
-                onChange={updatePrimary}
-              />
-
-              <ModelEndpointCard
-                label="Secondary Model"
-                endpoint={config.secondary}
-                onChange={updateSecondary}
-              />
-
-              <div className="flex items-center justify-between border-t pt-4">
-                <div>
-                  <Label className="mb-1 block">Secondary Use</Label>
-                  <p className="text-xs text-muted-foreground">
-                    How should the secondary model be used?
-                  </p>
-                </div>
-                <Select
-                  value={config.secondaryUse}
-                  onValueChange={(v) => updateConfig({ secondaryUse: v as SecondaryUse })}
-                >
-                  <SelectTrigger className="w-[180px] bg-input-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SECONDARY_USE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <p className="text-xs text-muted-foreground -mt-2">
-                {SECONDARY_USE_OPTIONS.find((o) => o.value === config.secondaryUse)?.desc}
-              </p>
-
-              <div className="flex gap-2 items-center pt-2 border-t">
-                <Button variant="outline" onClick={handleTest} disabled={testing}>
-                  {testing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Testing models...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      Test Models
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {testMessage && (
-                <p className="text-sm text-green-700 dark:text-green-400">{testMessage}</p>
-              )}
-              {testError && (
-                <p className="text-sm text-destructive">{testError}</p>
-              )}
+            {/* Mode tabs */}
+            <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1 w-fit">
+              <button
+                type="button"
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  config.providerMode === "cloud"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => {
+                  if (config.providerMode === "local") {
+                    updateConfig({
+                      providerMode: "cloud",
+                      ...(config.savedCloudEndpoints ?? {
+                        primary: { ...DEFAULT_PRIMARY_ENDPOINT },
+                        secondary: { ...DEFAULT_SECONDARY_ENDPOINT },
+                        secondaryUse: "never" as SecondaryUse,
+                      }),
+                      savedCloudEndpoints: undefined,
+                    });
+                  }
+                }}
+              >
+                ☁️ Cloud
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  config.providerMode === "local"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => {
+                  if (config.providerMode === "cloud") {
+                    updateConfig({
+                      providerMode: "local",
+                      savedCloudEndpoints: {
+                        primary: { ...config.primary },
+                        secondary: { ...config.secondary },
+                        secondaryUse: config.secondaryUse,
+                      },
+                      primary: {
+                        label: "Primary",
+                        provider: "webllm",
+                        model: WEBLLM_CATALOG[0].id,
+                        baseUrl: "",
+                        temperature: 0.7,
+                      },
+                      secondary: { ...config.secondary, provider: "webllm" },
+                      secondaryUse: "never" as SecondaryUse,
+                    });
+                  }
+                }}
+              >
+                💻 Local
+              </button>
             </div>
+
+            {config.providerMode === "cloud" ? (
+              /* ── Cloud mode ── */
+              <div className="space-y-4">
+                <ModelEndpointCard
+                  label="Primary Model"
+                  endpoint={config.primary}
+                  onChange={updatePrimary}
+                  providerOptions={CLOUD_PROVIDER_OPTIONS}
+                />
+
+                <ModelEndpointCard
+                  label="Secondary Model"
+                  endpoint={config.secondary}
+                  onChange={updateSecondary}
+                  providerOptions={CLOUD_PROVIDER_OPTIONS}
+                />
+
+                <div className="flex items-center justify-between border-t pt-4">
+                  <div>
+                    <Label className="mb-1 block">Secondary Use</Label>
+                    <p className="text-xs text-muted-foreground">
+                      How should the secondary model be used?
+                    </p>
+                  </div>
+                  <Select
+                    value={config.secondaryUse}
+                    onValueChange={(v) => updateConfig({ secondaryUse: v as SecondaryUse })}
+                  >
+                    <SelectTrigger className="w-[180px] bg-input-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECONDARY_USE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  {SECONDARY_USE_OPTIONS.find((o) => o.value === config.secondaryUse)?.desc}
+                </p>
+
+                <div className="flex gap-2 items-center pt-2 border-t">
+                  <Button variant="outline" onClick={handleTest} disabled={testing}>
+                    {testing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Testing models...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Test Models
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {testMessage && (
+                  <p className="text-sm text-green-700 dark:text-green-400">{testMessage}</p>
+                )}
+                {testError && (
+                  <p className="text-sm text-destructive">{testError}</p>
+                )}
+              </div>
+            ) : (
+              /* ── Local mode ── */
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Download a model to run entirely in-browser via WebGPU. No API key or external server needed.
+                </p>
+                <ModelEndpointCard
+                  label="Local Model"
+                  endpoint={config.primary}
+                  onChange={updatePrimary}
+                  providerOptions={[{ value: "webllm" as ProviderType, label: "Use Local Model (in-browser, no API key)" }]}
+                />
+
+                <div className="flex gap-2 items-center pt-2 border-t">
+                  <Button variant="outline" onClick={async () => {
+                    setTestMessage(null);
+                    setTestError(null);
+                    setTesting(true);
+                    try {
+                      const reply = await testConnection(config.primary);
+                      setTestMessage(`OK: "${reply}"`);
+                    } catch (err) {
+                      setTestError(formatTestError(err));
+                    } finally {
+                      setTesting(false);
+                    }
+                  }} disabled={testing}>
+                    {testing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Testing...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Test Model
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {testMessage && (
+                  <p className="text-sm text-green-700 dark:text-green-400">{testMessage}</p>
+                )}
+                {testError && (
+                  <p className="text-sm text-destructive">{testError}</p>
+                )}
+              </div>
+            )}
           </Card>
 
           <Card className="p-6 space-y-6">

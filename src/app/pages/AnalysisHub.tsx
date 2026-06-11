@@ -118,8 +118,7 @@ export function AnalysisHub() {
                       <p className="font-medium">Analysis failed</p>
                       <p className="mt-1 text-destructive/90">{error}</p>
                       <p className="mt-2 text-muted-foreground">
-                        Check Settings → Test connection. Ensure LMStudio is running with model{" "}
-                        <code className="text-xs">google/gemma-4-e2b</code>.
+                        Check Settings → Test connection to verify your AI provider is running.
                       </p>
                     </div>
                   </div>

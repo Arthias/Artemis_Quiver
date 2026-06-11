@@ -12,10 +12,19 @@ export interface ModelEndpoint {
 
 export type SecondaryUse = "never" | "fallback" | "quick-tasks" | "always";
 
+export type ProviderMode = "cloud" | "local";
+
 export interface LlmConfig {
+  providerMode: ProviderMode;
   primary: ModelEndpoint;
   secondary: ModelEndpoint;
   secondaryUse: SecondaryUse;
+  /** Snapshot of cloud endpoints saved when switching to local mode */
+  savedCloudEndpoints?: {
+    primary: ModelEndpoint;
+    secondary: ModelEndpoint;
+    secondaryUse: SecondaryUse;
+  };
   autoSaveProfile: boolean;
 }
 
