@@ -176,15 +176,29 @@ Default to Gemma 4 E2B for the quick functional pass. Only invoke vision for the
 
 | Feature | URL | Key Checks |
 |---------|-----|------------|
-| Analysis Hub | `localhost:5173/` | Sidebar collapse, prompt cards load, scrolling |
-| CV Builder | `localhost:5173/cv-builder` | Form fields, InlineEdit, preview rendering |
-| CL Builder | `localhost:5173/cl-builder` | Same as CV + multi-section |
+| Analysis Hub | `localhost:5173/` | Sidebar collapse, prompt cards load, empty state, scrolling |
+| Profile | `localhost:5173/#/profile` | Tabs (Editor/AI Assistant), edit toggle, markdown render |
+| CV Builder | `localhost:5173/#/cv-builder` | Form accordion, generate button, How-to guide |
+| CL Builder | `localhost:5173/#/cl-builder` | Company/position/description form, generate button |
+| Settings | `localhost:5173/#/config` | Cloud/Local toggle, provider config, model list, error log |
 | Extension popup | `chrome-extension://<id>/popup.html` | Extract button, settings |
 | Extension options | `chrome-extension://<id>/options.html` | Provider config, theme |
 | Content script overlay | LinkedIn job page | Overlay appears, data extracted |
 | SPA ← Extension handoff | Both surfaces | Data flows from ext → SPA correctly |
-| Profile Workspace | `localhost:5173/profile` | Match scoring, filters, sorting |
+| Profile Workspace | `localhost:5173/#/profile` | Profile management, import/export |
 | Extension import | LinkedIn + analyze URL | Job extraction → analysis sync |
+
+## Available QA Suites
+
+| Command | Suite | File |
+|---------|-------|------|
+| `npm run qa:hub` | Analysis Hub | `qa_prompts/verify-analysis-hub.md` |
+| `npm run qa:profile` | Profile | `qa_prompts/verify-profile.md` |
+| `npm run qa:cv` | CV Builder | `qa_prompts/verify-cv-builder.md` |
+| `npm run qa:cl` | CL Builder | `qa_prompts/verify-cl-builder.md` |
+| `npm run qa:config` | Settings | `qa_prompts/verify-config.md` |
+| `npm run qa:ext` | Extension Overlay | `qa_prompts/verify-extension-overlay.md` |
+| `npm run qa:all` | All suites | — |
 
 ## Troubleshooting
 

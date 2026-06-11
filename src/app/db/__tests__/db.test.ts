@@ -16,6 +16,7 @@ import {
 } from "../sessionRepo";
 import { ensureDbInitialized } from "../migrations";
 import { DEFAULT_LLM_CONFIG } from "../../config/defaults";
+import type { ProviderMode } from "../../types/llm";
 
 describe("Database Repository & Init Tests", () => {
   beforeEach(async () => {
@@ -61,6 +62,25 @@ describe("Database Repository & Init Tests", () => {
       const deleted = await getProfile(profileId);
       expect(deleted).toBeNull();
     });
+
+    it("should create new profiles with providerMode set by default", async () => {
+      const profileId = crypto.randomUUID();
+      await createProfile({
+        id: profileId,
+        name: "Fresh Profile",
+        createdAt: new Date().toISOString(),
+        lastUsedAt: new Date().toISOString(),
+        lastModifiedAt: new Date().toISOString(),
+        profileMarkdown: "# Fresh",
+        settings: { ...DEFAULT_LLM_CONFIG, theme: "dark" as const },
+        draftJobPosting: "",
+        profileChat: [],
+      });
+
+      const loaded = await getProfile(profileId);
+      expect(loaded).not.toBeNull();
+      expect(loaded!.settings.providerMode).toBe("local");
+    });
   });
 
   describe("Session Repository CRUD", () => {
@@ -96,13 +116,14 @@ describe("Database Repository & Init Tests", () => {
     });
   });
 
-  describe("Database Initialization", () => {
-    it("should create a default profile when DB is empty", async () => {
+  describe("Database Initialization & Migration", () => {
+    it("should create a default profile with providerMode when DB is empty", async () => {
       await ensureDbInitialized();
 
       const profiles = await getProfiles();
       expect(profiles.length).toBe(1);
       expect(profiles[0].name).toBe("Default");
+      expect(profiles[0].settings.providerMode).toBe("local");
 
       const activeId = await getActiveProfileId();
       expect(activeId).toBe(profiles[0].id);
@@ -127,6 +148,110 @@ describe("Database Repository & Init Tests", () => {
       const profiles = await getProfiles();
       expect(profiles.length).toBe(1);
       expect(profiles[0].name).toBe("Existing");
+    });
+
+    describe("backfillProviderMode migration", () => {
+      async function createProfileWithoutProviderMode(
+        id: string,
+        name: string,
+        primaryProvider: string
+      ) {
+        await createProfile({
+          id,
+          name,
+          createdAt: new Date().toISOString(),
+          lastUsedAt: new Date().toISOString(),
+          lastModifiedAt: new Date().toISOString(),
+          profileMarkdown: "# " + name,
+          settings: {
+            autoSaveProfile: true,
+            theme: "dark" as const,
+            providerMode: undefined as unknown as ProviderMode,
+            primary: {
+              label: "Primary",
+              provider: primaryProvider as any,
+              baseUrl: "http://localhost:11434",
+              model: "test-model",
+              temperature: 0.7,
+            },
+            secondary: {
+              label: "Secondary",
+              provider: "openai-compatible",
+              baseUrl: "http://localhost:11434",
+              model: "test-model-2",
+              temperature: 0.5,
+            },
+            secondaryUse: "never" as const,
+          },
+          draftJobPosting: "",
+          profileChat: [],
+        });
+      }
+
+      it("should backfill providerMode='cloud' for profiles with non-webllm primary provider", async () => {
+        const id = crypto.randomUUID();
+        await createProfileWithoutProviderMode(id, "Cloud User", "openai-compatible");
+
+        await ensureDbInitialized();
+
+        const profile = await getProfile(id);
+        expect(profile).not.toBeNull();
+        expect(profile!.settings.providerMode).toBe("cloud");
+      });
+
+      it("should backfill providerMode='local' for profiles with webllm primary provider", async () => {
+        const id = crypto.randomUUID();
+        await createProfileWithoutProviderMode(id, "Local User", "webllm");
+
+        await ensureDbInitialized();
+
+        const profile = await getProfile(id);
+        expect(profile).not.toBeNull();
+        expect(profile!.settings.providerMode).toBe("local");
+      });
+
+      it("should NOT overwrite providerMode on profiles that already have it set", async () => {
+        const id = crypto.randomUUID();
+        await createProfile({
+          id,
+          name: "Already Configured",
+          createdAt: new Date().toISOString(),
+          lastUsedAt: new Date().toISOString(),
+          lastModifiedAt: new Date().toISOString(),
+          profileMarkdown: "# Already Configured",
+          settings: { ...DEFAULT_LLM_CONFIG, theme: "dark" as const },
+          draftJobPosting: "",
+          profileChat: [],
+        });
+
+        // Verify it starts with "local" from DEFAULT_LLM_CONFIG
+        let profile = await getProfile(id);
+        expect(profile!.settings.providerMode).toBe("local");
+
+        // Change to "cloud" to simulate user having toggled it
+        profile!.settings.providerMode = "cloud";
+        await saveProfile(profile!);
+
+        // Run migration — should NOT reset to "local"
+        await ensureDbInitialized();
+
+        profile = await getProfile(id);
+        expect(profile!.settings.providerMode).toBe("cloud");
+      });
+
+      it("should backfill ALL providerMode-missing profiles, not just the first", async () => {
+        const id1 = crypto.randomUUID();
+        const id2 = crypto.randomUUID();
+        await createProfileWithoutProviderMode(id1, "User A", "anthropic");
+        await createProfileWithoutProviderMode(id2, "User B", "webllm");
+
+        await ensureDbInitialized();
+
+        const profile1 = await getProfile(id1);
+        const profile2 = await getProfile(id2);
+        expect(profile1!.settings.providerMode).toBe("cloud");
+        expect(profile2!.settings.providerMode).toBe("local");
+      });
     });
   });
 });

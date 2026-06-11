@@ -11,6 +11,9 @@ $ErrorActionPreference = "Continue"
 $suites = @{
   "analysis-hub"   = "qa_prompts\verify-analysis-hub.md"
   "cv-builder"     = "qa_prompts\verify-cv-builder.md"
+  "cl-builder"     = "qa_prompts\verify-cl-builder.md"
+  "profile"        = "qa_prompts\verify-profile.md"
+  "config"         = "qa_prompts\verify-config.md"
   "ext-overlay"    = "qa_prompts\verify-extension-overlay.md"
 }
 
