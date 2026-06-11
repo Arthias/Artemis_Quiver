@@ -14,14 +14,10 @@ const registry: Record<ProviderType, ProviderAdapter> = {
   "webllm": webllmAdapterInstance,
 };
 
-export function getAdapter(provider: ProviderType, endpoint?: ModelEndpoint): ProviderAdapter {
+export function getAdapter(provider: ProviderType, _endpoint?: ModelEndpoint): ProviderAdapter {
   const adapter = registry[provider];
   if (!adapter) {
     throw new Error(`No adapter registered for provider type: "${provider}"`);
-  }
-  // Initialize WebLLM engine if needed
-  if (provider === "webllm") {
-    endpoint && adapter.init(endpoint as any).catch(() => {});
   }
   return adapter;
 }

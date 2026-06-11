@@ -11,6 +11,7 @@ const mockEndpoint: ModelEndpoint = {
 };
 
 const mockConfig: LlmConfig = {
+  providerMode: "cloud",
   primary: mockEndpoint,
   secondary: { ...mockEndpoint, label: "Secondary", baseUrl: "http://localhost:11434", model: "small-model" },
   secondaryUse: "never",
