@@ -18,6 +18,7 @@ import { listModels as listModelsApi, testConnection } from "../services/llmServ
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
 import { DEFAULT_JOB_SITES } from "../../extension/job-sites";
+import { getAdapter } from "../services/provider/registry";
 
 function ExtensionSettingsCard() {
   const [customSites, setCustomSites] = useState<string[]>([]);
@@ -216,11 +217,12 @@ function ExtensionSettingsCard() {
   );
 }
 
+/** Models that @mlc-ai/web-llm actually supports */
 const WEBLLM_CATALOG = [
-  { id: "gemma-4-e2b-instruct-q8f32_1-mlc", name: "Gemma 4 e2b", sizeGB: 4.0, desc: "(4 GB download - Recommended)" },
-  { id: "llama-3.2-1b-instruct-q8f32_1-mlc", name: "Llama 3.2", sizeGB: 1.6, desc: "(1.6 GB download - Faster/lightweight)" },
-  { id: "mistral-nemo-12b-instruct-q8f32_1-mlc", name: "Mistral Nemo", sizeGB: 7.2, desc: "(7.2 GB download - Advanced)" },
-  { id: "phi-3.5-mini-q8f32-mlc", name: "Phi-3.5 Mini", sizeGB: 4.1, desc: "(4.1 GB download - Balanced)" },
+  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, desc: "(2.3 GB download - Recommended)" },
+  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, desc: "(0.88 GB download - Lightweight)" },
+  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, desc: "(4.8 GB - Advanced)" },
+  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
 ] as const;
 
 function isWebLLMCached(modelId: string): boolean {
@@ -382,24 +384,32 @@ function ModelEndpointCard({
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => {
+                      onClick={async () => {
                         setTestError("");
                         setTestMessage("Downloading... 0%");
+                        setTesting(true);
                         const targetId = endpoint.model || WEBLLM_CATALOG[0].id;
                         const target = WEBLLM_CATALOG.find(m => m.id === targetId);
-                        let pct = 0;
-                        const interval = setInterval(() => {
-                          pct += Math.floor(Math.random() * 8) + 2;
-                          if (pct >= 100) {
-                            pct = 100;
-                            clearInterval(interval);
-                            setTestMessage(`Download complete! ${target?.name} cached in browser.`);
-                            setWebLLMCache(targetId, true);
-                            setTesting(false);
-                          } else {
-                            setTestMessage(`Downloading ${target?.name || "model"}... ${pct}%`);
+                        try {
+                          const adapter = getAdapter("webllm") as any;
+                          if (adapter.setProgressCallback) {
+                            adapter.setProgressCallback((pct: number) => {
+                              setTestMessage(`Downloading ${target?.name || "model"}... ${pct}%`);
+                              if (pct >= 100) {
+                                setTestMessage(`Download complete! ${target?.name} cached in browser.`);
+                                setWebLLMCache(targetId, true);
+                                setTesting(false);
+                              }
+                            });
                           }
-                        }, 300);
+                          await adapter.init({ ...endpoint, model: targetId, baseUrl: "" });
+                          setTestMessage(`Download complete! ${target?.name} cached in browser.`);
+                          setWebLLMCache(targetId, true);
+                          setTesting(false);
+                        } catch (err: any) {
+                          setTestError(err?.message || "Download failed. Check browser supports WebGPU.");
+                          setTesting(false);
+                        }
                       }}
                       disabled={testing}
                     >
