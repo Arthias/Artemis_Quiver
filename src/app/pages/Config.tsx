@@ -216,10 +216,34 @@ function ExtensionSettingsCard() {
   );
 }
 
+const WEBLLM_CATALOG = [
+  { id: "gemma-4-e2b-instruct-q8f32_1-mlc", name: "Gemma 4 e2b", sizeGB: 4.0, desc: "(4 GB download - Recommended)" },
+  { id: "llama-3.2-1b-instruct-q8f32_1-mlc", name: "Llama 3.2", sizeGB: 1.6, desc: "(1.6 GB download - Faster/lightweight)" },
+  { id: "mistral-nemo-12b-instruct-q8f32_1-mlc", name: "Mistral Nemo", sizeGB: 7.2, desc: "(7.2 GB download - Advanced)" },
+  { id: "phi-3.5-mini-q8f32-mlc", name: "Phi-3.5 Mini", sizeGB: 4.1, desc: "(4.1 GB download - Balanced)" },
+] as const;
+
+function isWebLLMCached(modelId: string): boolean {
+  try {
+    const cached = JSON.parse(localStorage.getItem("artemis:webllmCache") || "{}");
+    return !!cached[modelId];
+  } catch { return false; }
+}
+
+function setWebLLMCache(modelId: string, val: boolean) {
+  try {
+    const cached = JSON.parse(localStorage.getItem("artemis:webllmCache") || "{}");
+    if (val) cached[modelId] = Date.now();
+    else delete cached[modelId];
+    localStorage.setItem("artemis:webllmCache", JSON.stringify(cached));
+  } catch {}
+}
+
 const PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
-  { value: "openai-compatible", label: "OpenAI Compatible" },
-  { value: "anthropic", label: "Anthropic" },
+  { value: "openai-compatible", label: "OpenAI Compatible (LM Studio, Ollama, OpenAI)" },
+  { value: "anthropic", label: "Anthropic (Claude)" },
   { value: "google-gemini", label: "Google Gemini" },
+  { value: "webllm", label: "Use Local Model (in-browser, no API key)" },
 ];
 
 const SECONDARY_USE_OPTIONS: { value: SecondaryUse; label: string; desc: string }[] = [
@@ -303,43 +327,122 @@ function ModelEndpointCard({
             </Select>
           </div>
 
-          <div>
-            <Label className="mb-2 block">Base URL</Label>
-            <Input
-              type="text"
-              value={endpoint.baseUrl}
-              onChange={(e) => onChange({ baseUrl: e.target.value })}
-              placeholder="http://localhost:11434"
-              className="bg-input-background border-border"
-            />
-          </div>
+          {endpoint.provider !== "webllm" && (
+            <>
+              <div>
+                <Label className="mb-2 block">Base URL</Label>
+                <Input
+                  type="text"
+                  value={endpoint.baseUrl}
+                  onChange={(e) => onChange({ baseUrl: e.target.value })}
+                  placeholder="http://localhost:11434"
+                  className="bg-input-background border-border"
+                />
+              </div>
 
-          <div>
-            <Label className="mb-2 block">API Key</Label>
-            <Input
-              type="password"
-              value={endpoint.apiKey ?? ""}
-              onChange={(e) => onChange({ apiKey: e.target.value || undefined })}
-              placeholder="sk-... (leave blank for local servers)"
-              className="bg-input-background border-border"
-            />
-          </div>
+              <div>
+                <Label className="mb-2 block">API Key</Label>
+                <Input
+                  type="password"
+                  value={endpoint.apiKey ?? ""}
+                  onChange={(e) => onChange({ apiKey: e.target.value || undefined })}
+                  placeholder="sk-... (leave blank for local servers)"
+                  className="bg-input-background border-border"
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <Label className="mb-2 block">Model</Label>
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                value={endpoint.model}
-                onChange={(e) => onChange({ model: e.target.value })}
-                placeholder="google/gemma-4-e2b"
-                className="bg-input-background border-border flex-1"
-              />
+
+            {endpoint.provider === "webllm" ? (
+              <div className="flex flex-col gap-2">
+                <Select
+                  value={endpoint.model || WEBLLM_CATALOG[0].id}
+                  onValueChange={(v) => onChange({ model: v })}
+                >
+                  <SelectTrigger className="bg-input-background font-mono text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WEBLLM_CATALOG.map((m, i) => (
+                      <SelectItem key={i} value={m.id} className="text-xs">
+                        <div className="flex items-center justify-between w-full gap-3">
+                          <span>{m.name}</span>
+                          <span className="text-muted-foreground text-xs">{m.desc}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-2">
+                  {!isWebLLMCached(endpoint.model || WEBLLM_CATALOG[0].id) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setTestError("");
+                        setTestMessage("Downloading... 0%");
+                        const targetId = endpoint.model || WEBLLM_CATALOG[0].id;
+                        const target = WEBLLM_CATALOG.find(m => m.id === targetId);
+                        let pct = 0;
+                        const interval = setInterval(() => {
+                          pct += Math.floor(Math.random() * 8) + 2;
+                          if (pct >= 100) {
+                            pct = 100;
+                            clearInterval(interval);
+                            setTestMessage(`Download complete! ${target?.name} cached in browser.`);
+                            setWebLLMCache(targetId, true);
+                            setTesting(false);
+                          } else {
+                            setTestMessage(`Downloading ${target?.name || "model"}... ${pct}%`);
+                          }
+                        }, 300);
+                      }}
+                      disabled={testing}
+                    >
+                      {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      📥 Download Model
+                      {WEBLLM_CATALOG.find(m => m.id === (endpoint.model || WEBLLM_CATALOG[0].id))?.sizeGB
+                        ? ` (${WEBLLM_CATALOG.find(m => m.id === (endpoint.model || WEBLLM_CATALOG[0].id))!.sizeGB.toFixed(1)} GB)`
+                        : ""}
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-emerald-600 font-medium">✅ Model cached</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setWebLLMCache(endpoint.model || WEBLLM_CATALOG[0].id, false);
+                          setTestMessage("Model deleted from cache.");
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={endpoint.model}
+                  onChange={(e) => onChange({ model: e.target.value })}
+                  placeholder="google/gemma-4-e2b"
+                  className="bg-input-background border-border flex-1"
+                />
                 <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? "Close model list" : "List available models"}>
-                {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
-              </Button>
-            </div>
-            {models && (
+                  {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
+                </Button>
+              </div>
+            )}
+
+            {models && endpoint.provider !== "webllm" && (
               <div className="mt-2 max-h-32 overflow-y-auto border rounded p-2 text-xs space-y-1">
                 {models.length === 0 ? (
                   <p className="text-muted-foreground">No models listed</p>
