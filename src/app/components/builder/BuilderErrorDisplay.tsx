@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { AppError } from "../../utils/errors";
@@ -9,6 +10,7 @@ interface BuilderErrorDisplayProps {
 }
 
 export function BuilderErrorDisplay({ error, retryableError, onRetry }: BuilderErrorDisplayProps) {
+  const { t } = useTranslation();
   if (!error) return null;
 
   return (
@@ -22,7 +24,7 @@ export function BuilderErrorDisplay({ error, retryableError, onRetry }: BuilderE
             className="flex-shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10"
             onClick={onRetry}
           >
-            Retry
+            {t("builder.retry")}
           </Button>
         )}
       </div>

@@ -32,8 +32,11 @@ import {
 import { clearAllData } from "../db";
 import { ensureDbInitialized } from "../db";
 import { useOnboarding } from "../context/OnboardingContext";
+import { useTranslation } from "react-i18next";
+import { LanguageSelector } from "../components/ui/LanguageSelector";
 
 function ExtensionSettingsCard() {
+  const { t } = useTranslation();
   const configCtx = useConfig();
   const workspace = useWorkspace();
   const [customSites, setCustomSites] = useState<string[]>([]);
@@ -65,8 +68,8 @@ function ExtensionSettingsCard() {
     try {
       const markdown = workspace.profileData?.profileMarkdown;
       const endpoint = configCtx.config.primary;
-      if (!markdown) { setFpError("No profile markdown available. Create/save a profile first."); return; }
-      if (!endpoint.baseUrl || !endpoint.model) { setFpError("Primary LLM endpoint not configured."); return; }
+      if (!markdown) { setFpError(t("config.fingerprintNoProfile")); return; }
+      if (!endpoint.baseUrl || !endpoint.model) { setFpError(t("config.fingerprintNoEndpoint")); return; }
 
       const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${markdown.slice(0, 4000)}`;
       const result = await chatCompletion([{ role: "user", content: prompt }], endpoint, { timeoutMs: 120000 });
@@ -181,10 +184,10 @@ function ExtensionSettingsCard() {
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <Globe className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-semibold">Extension</h2>
+          <h2 className="text-lg font-semibold">{t("config.extension")}</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Extension settings are available when running as a Chrome extension.
+          {t("config.extensionNotAvailable")}
         </p>
       </Card>
     );
@@ -194,14 +197,14 @@ function ExtensionSettingsCard() {
     <Card className="p-6 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <Globe className="w-5 h-5 text-blue-500" />
-        <h2 className="text-lg font-semibold">Extension Overlay</h2>
+        <h2 className="text-lg font-semibold">{t("config.extensionOverlay")}</h2>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <Label>Show overlay on job sites</Label>
+          <Label>{t("config.showOverlay")}</Label>
           <p className="text-sm text-muted-foreground">
-            Floating badge with match scoring and import
+            {t("config.showOverlayDesc")}
           </p>
         </div>
         <Switch
@@ -218,13 +221,13 @@ function ExtensionSettingsCard() {
       </div>
 
       <div>
-        <Label className="mb-2 block">Job sites</Label>
+        <Label className="mb-2 block">{t("config.jobSites")}</Label>
         <p className="text-xs text-muted-foreground mb-3">
-          The extension overlay appears on these sites when you visit job pages.
+          {t("config.jobSitesDesc")}
         </p>
         <div className="flex flex-wrap gap-2">
           {allSites.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No job sites configured. Add one below.</p>
+            <p className="text-xs text-muted-foreground">{t("config.noJobSites")}</p>
           ) : (
             allSites.map((site) =>
               editingSite === site ? (
@@ -263,13 +266,13 @@ function ExtensionSettingsCard() {
       </div>
 
       <div>
-        <Label className="mb-2 block">Add custom site</Label>
+        <Label className="mb-2 block">{t("config.addCustomSite")}</Label>
         <div className="flex gap-2">
           <Input
             value={newSite}
             onChange={(e) => setNewSite(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSite()}
-            placeholder="linkedin.com/jobs/*"
+            placeholder={t("config.sitePlaceholder")}
             className="bg-input-background flex-1"
           />
           <Button variant="outline" size="icon" onClick={addSite}>
@@ -283,10 +286,10 @@ function ExtensionSettingsCard() {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Fingerprint className="w-5 h-5 text-purple-500" />
-          <h3 className="text-base font-semibold">Profile Fingerprint</h3>
+          <h3 className="text-base font-semibold">{t("config.profileFingerprint")}</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Generates a compact profile summary for job matching. Overlay uses it when background LLM is unavailable.
+          {t("config.fingerprintDesc")}
         </p>
 
         {fingerprint && (
@@ -307,11 +310,11 @@ function ExtensionSettingsCard() {
             disabled={fpLoading}
           >
             {fpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
-            {fpLoading ? "Generating..." : "Generate Fingerprint"}
+            {fpLoading ? t("config.generating") : t("config.generateFingerprint")}
           </Button>
           {fingerprint && fpStorageKey && (
             <span className="text-xs text-muted-foreground">
-              Updated {new Date(fpStorageKey).toLocaleDateString()}
+              {t("config.updated")} {new Date(fpStorageKey).toLocaleDateString()}
             </span>
           )}
         </div>
@@ -322,10 +325,10 @@ function ExtensionSettingsCard() {
 
 /** Models that @mlc-ai/web-llm actually supports */
 const WEBLLM_CATALOG = [
-  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, desc: "(2.3 GB download - Recommended)" },
-  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, desc: "(0.88 GB download - Lightweight)" },
-  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, desc: "(4.8 GB - Advanced)" },
-  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
+  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, descKey: "config.webllmRecommended" },
+  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, descKey: "config.webllmLite" },
+  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, descKey: "config.webllmAdvanced" },
+  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, descKey: "config.webllmExpert" },
 ] as const;
 
 /** Common models for non-WebLLM providers (Ollama, LM Studio, etc.) */
@@ -340,12 +343,12 @@ const COMMON_MODELS = [
 ] as const;
 
 /** Detect raw WebGPU device-lost / DXGI errors and replace with a user-friendly message */
-function formatTestError(raw: unknown): string {
+function formatTestError(raw: unknown, tFn: (key: string) => string): string {
   const msg = raw instanceof Error ? raw.message : raw != null ? String(raw) : "";
   if (/device lost|device removed|requestDevice|DXGI_ERROR/i.test(msg)) {
-    return "WebGPU device crashed. Close other GPU-heavy tabs, restart Chrome, and try a smaller model.";
+    return tFn("config.webgpuCrash");
   }
-  return msg || "Test failed.";
+  return msg || tFn("config.testFailed");
 }
 
 /** Check if a model ID is in our known catalog (reject stale IDs from prior versions) */
@@ -370,20 +373,20 @@ function setWebLLMCache(modelId: string, val: boolean) {
   } catch {}
 }
 
-const PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
-  { value: "openai-compatible", label: "OpenAI Compatible (LM Studio, Ollama, OpenAI)" },
-  { value: "anthropic", label: "Anthropic (Claude)" },
-  { value: "google-gemini", label: "Google Gemini" },
-  { value: "webllm", label: "Use Local Model (in-browser, no API key)" },
+const PROVIDER_OPTIONS: { value: ProviderType; labelKey: string }[] = [
+  { value: "openai-compatible", labelKey: "config.openaiCompatible" },
+  { value: "anthropic", labelKey: "config.anthropic" },
+  { value: "google-gemini", labelKey: "config.googleGemini" },
+  { value: "webllm", labelKey: "config.webllm" },
 ];
 
 const CLOUD_PROVIDER_OPTIONS = PROVIDER_OPTIONS.filter(o => o.value !== "webllm");
 
-const SECONDARY_USE_OPTIONS: { value: SecondaryUse; label: string; desc: string }[] = [
-  { value: "never", label: "Never", desc: "Always use primary model" },
-  { value: "fallback", label: "Fallback", desc: "Use secondary if primary fails" },
-  { value: "quick-tasks", label: "Quick Tasks", desc: "Classification/scoring to secondary" },
-  { value: "always", label: "Always", desc: "Always use secondary model" },
+const SECONDARY_USE_OPTIONS: { value: SecondaryUse; labelKey: string; descKey: string }[] = [
+  { value: "never", labelKey: "config.never", descKey: "config.neverDesc" },
+  { value: "fallback", labelKey: "config.fallback", descKey: "config.fallbackDesc" },
+  { value: "quick-tasks", labelKey: "config.quickTasks", descKey: "config.quickTasksDesc" },
+  { value: "always", labelKey: "config.always", descKey: "config.alwaysDesc" },
 ];
 
 function ModelEndpointCard({
@@ -395,8 +398,9 @@ function ModelEndpointCard({
   label: string;
   endpoint: ModelEndpoint;
   onChange: (patch: Partial<ModelEndpoint>) => void;
-  providerOptions?: { value: ProviderType; label: string }[];
+  providerOptions?: { value: ProviderType; labelKey: string }[];
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
   const [models, setModels] = useState<string[] | null>(null);
   const [listingModels, setListingModels] = useState(false);
@@ -410,9 +414,9 @@ function ModelEndpointCard({
     setTesting(true);
     try {
       const reply = await testConnection(endpoint);
-      setTestMessage(`OK: "${reply}"`);
+      setTestMessage(t("config.testOk", { reply }));
     } catch (err) {
-      setTestError(formatTestError(err));
+      setTestError(formatTestError(err, t));
     } finally {
       setTesting(false);
     }
@@ -426,7 +430,7 @@ function ModelEndpointCard({
       setModels(list);
     } catch (err) {
       setModels([]);
-      setTestError(formatTestError(err));
+      setTestError(formatTestError(err, t));
     } finally {
       setListingModels(false);
     }
@@ -446,7 +450,7 @@ function ModelEndpointCard({
       {expanded && (
         <div className="space-y-4 pl-6">
           <div>
-            <Label className="mb-2 block">Provider</Label>
+            <Label className="mb-2 block">{t("config.provider")}</Label>
             <Select
               value={endpoint.provider}
               onValueChange={(v) => {
@@ -462,7 +466,7 @@ function ModelEndpointCard({
               </SelectTrigger>
               <SelectContent>
                 {providerOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -471,7 +475,7 @@ function ModelEndpointCard({
           {endpoint.provider !== "webllm" && (
             <>
               <div>
-                <Label className="mb-2 block">Base URL</Label>
+                <Label className="mb-2 block">{t("config.baseUrl")}</Label>
                 <Input
                   type="text"
                   value={endpoint.baseUrl}
@@ -482,12 +486,12 @@ function ModelEndpointCard({
               </div>
 
               <div>
-                <Label className="mb-2 block">API Key</Label>
+                <Label className="mb-2 block">{t("config.apiKey")}</Label>
                 <Input
                   type="password"
                   value={endpoint.apiKey ?? ""}
                   onChange={(e) => onChange({ apiKey: e.target.value || undefined })}
-                  placeholder="sk-... (leave blank for local servers)"
+                  placeholder={t("config.apiKeyPlaceholder")}
                   className="bg-input-background border-border"
                 />
               </div>
@@ -495,7 +499,7 @@ function ModelEndpointCard({
           )}
 
           <div>
-            <Label className="mb-2 block">Model</Label>
+            <Label className="mb-2 block">{t("config.model")}</Label>
 
             {endpoint.provider === "webllm" ? (
               <div className="flex flex-col gap-2">
@@ -511,7 +515,7 @@ function ModelEndpointCard({
                       <SelectItem key={i} value={m.id} className="text-xs">
                         <div className="flex items-center justify-between w-full gap-3">
                           <span>{m.name}</span>
-                          <span className="text-muted-foreground text-xs">{m.desc}</span>
+                          <span className="text-muted-foreground text-xs">{t(m.descKey)}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -525,7 +529,7 @@ function ModelEndpointCard({
                       size="sm"
                       onClick={async () => {
                         setTestError("");
-                        setTestMessage("Downloading... 0%");
+                        setTestMessage(t("config.downloadZero"));
                         setTesting(true);
                         const targetId = endpoint.model || WEBLLM_CATALOG[0].id;
                         const target = WEBLLM_CATALOG.find(m => m.id === targetId);
@@ -533,44 +537,42 @@ function ModelEndpointCard({
                           const adapter = getAdapter("webllm") as any;
                           if (adapter.setProgressCallback) {
                             adapter.setProgressCallback((pct: number) => {
-                              setTestMessage(`Downloading ${target?.name || "model"}... ${pct}%`);
+                              setTestMessage(t("config.downloadProgress", { name: target?.name || "model", pct }));
                               if (pct >= 100) {
-                                setTestMessage(`Download complete! ${target?.name} cached in browser.`);
+                                setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
                                 setWebLLMCache(targetId, true);
                                 setTesting(false);
                               }
                             });
                           }
                           await adapter.init({ ...endpoint, model: targetId, baseUrl: "" });
-                          setTestMessage(`Download complete! ${target?.name} cached in browser.`);
+                          setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
                           setWebLLMCache(targetId, true);
                           setTesting(false);
                         } catch (err: any) {
-                          setTestError(formatTestError(err));
+                          setTestError(formatTestError(err, t));
                           setTesting(false);
                         }
                       }}
                       disabled={testing}
                     >
                       {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      📥 Download Model
-                      {WEBLLM_CATALOG.find(m => m.id === (endpoint.model || WEBLLM_CATALOG[0].id))?.sizeGB
-                        ? ` (${WEBLLM_CATALOG.find(m => m.id === (endpoint.model || WEBLLM_CATALOG[0].id))!.sizeGB.toFixed(1)} GB)`
-                        : ""}
+                      📥 {t("config.downloadModel")}
+                      {(() => { const m = WEBLLM_CATALOG.find(mm => mm.id === (endpoint.model || WEBLLM_CATALOG[0].id)); return m ? ` (${m.sizeGB.toFixed(1)} GB)` : ""; })()}
                     </Button>
                   ) : (
                     <div className="flex items-center gap-3 text-sm">
-                      <span className="text-emerald-600 font-medium">✅ Model cached</span>
+                      <span className="text-emerald-600 font-medium">✅ {t("config.modelCached")}</span>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => {
                           setWebLLMCache(endpoint.model || WEBLLM_CATALOG[0].id, false);
-                          setTestMessage("Model deleted from cache.");
+                          setTestMessage(t("config.modelDeletedFromCache"));
                         }}
                       >
-                        Delete
+                        {t("config.delete")}
                       </Button>
                     </div>
                   )}
@@ -583,10 +585,10 @@ function ModelEndpointCard({
                     type="text"
                     value={endpoint.model}
                     onChange={(e) => onChange({ model: e.target.value })}
-                    placeholder="google/gemma-4-e2b"
+                    placeholder={t("config.model")}
                     className="bg-input-background border-border flex-1"
                   />
-                  <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? "Close model list" : "List available models"}>
+                  <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? t("config.closeModelList") : t("config.listModels")}>
                     {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
                   </Button>
                 </div>
@@ -612,7 +614,7 @@ function ModelEndpointCard({
             {models && endpoint.provider !== "webllm" && (
               <div className="mt-2 max-h-32 overflow-y-auto border rounded p-2 text-xs space-y-1">
                 {models.length === 0 ? (
-                  <p className="text-muted-foreground">No models listed</p>
+                  <p className="text-muted-foreground">{t("config.noModelsListed")}</p>
                 ) : (
                   models.map((m) => (
                     <button
@@ -631,7 +633,7 @@ function ModelEndpointCard({
 
           <div>
             <Label className="mb-2 block">
-              Temperature: {endpoint.temperature.toFixed(1)}
+              {t("config.temperature")}: {endpoint.temperature.toFixed(1)}
             </Label>
             <Input
               type="range"
@@ -647,7 +649,7 @@ function ModelEndpointCard({
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
               {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              Test
+              {t("config.test")}
             </Button>
           </div>
 
@@ -672,20 +674,21 @@ const SOURCE_COLORS: Record<string, string> = {
 };
 
 function DevModeLogViewer() {
+  const { t } = useTranslation();
   const { devMode, setDevMode, logs, clearLogs } = useErrorLog();
 
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <Bug className="w-5 h-5 text-amber-500" />
-        <h2 className="text-lg font-semibold">Developer Mode</h2>
+        <h2 className="text-lg font-semibold">{t("config.devMode")}</h2>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <Label>Error Log</Label>
+          <Label>{t("config.errorLog")}</Label>
           <p className="text-sm text-muted-foreground">
-            Captures errors from the app, LLM connections, overlay, and popup
+            {t("config.errorLogDesc")}
           </p>
         </div>
         <Switch checked={devMode} onCheckedChange={setDevMode} />
@@ -694,10 +697,10 @@ function DevModeLogViewer() {
       {devMode && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{logs.length} entries</span>
+            <span className="text-xs text-muted-foreground">{t("config.entries", { n: logs.length })}</span>
             <Button variant="outline" size="sm" onClick={clearLogs}>
               <Trash2 className="w-3 h-3 mr-1" />
-              Clear Log
+              {t("config.clearLog")}
             </Button>
           </div>
 
@@ -706,7 +709,7 @@ function DevModeLogViewer() {
             style={{ maxHeight: "400px", fontFamily: "ui-monospace, SFMono-Regular, monospace", fontSize: "12px", lineHeight: "1.5" }}
           >
             {logs.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No errors captured yet</p>
+              <p className="text-muted-foreground text-center py-8">{t("config.noErrors")}</p>
             ) : (
               logs.map((entry) => (
                 <div key={entry.id} className="border-b border-border last:border-0 py-2 px-1">
@@ -731,7 +734,7 @@ function DevModeLogViewer() {
                   <div className="text-foreground break-all">{entry.message}</div>
                   {entry.stack && (
                     <details className="mt-1">
-                      <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">Stack</summary>
+                      <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">{t("config.stack")}</summary>
                       <pre className="text-[10px] text-muted-foreground mt-1 whitespace-pre-wrap break-all max-h-24 overflow-auto">{entry.stack}</pre>
                     </details>
                   )}
@@ -746,6 +749,7 @@ function DevModeLogViewer() {
 }
 
 function ClearAllDataSection() {
+  const { t } = useTranslation();
   const { resetOnboarding } = useOnboarding();
   const [showDialog, setShowDialog] = useState(false);
   const [confirmText, setConfirmText] = useState("");
@@ -770,36 +774,36 @@ function ClearAllDataSection() {
       <Card className="p-6 border-destructive/30">
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="w-5 h-5 text-destructive" />
-          <h2 className="text-lg font-semibold text-destructive">Danger Zone</h2>
+          <h2 className="text-lg font-semibold text-destructive">{t("config.dangerZone")}</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Clear all data and reset the application to its factory state. This removes all profiles, analysis sessions, and settings. This action cannot be undone.
+          {t("config.dangerZoneDesc")}
         </p>
         <Button
           variant="destructive"
           onClick={() => setShowDialog(true)}
         >
           <Trash2 className="w-4 h-4 mr-1" />
-          Clear All Data
+          {t("config.clearAllData")}
         </Button>
       </Card>
 
       <Dialog open={showDialog} onOpenChange={(open) => { if (!open && !clearing) { setShowDialog(false); setConfirmText(""); } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Clear All Data?</DialogTitle>
+            <DialogTitle>{t("config.clearAllDataTitle")}</DialogTitle>
             <DialogDescription>
-              This will permanently delete all profiles, analysis sessions, settings, and error logs. The app will reset to factory state. This cannot be undone.
+              {t("config.clearAllDataDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <p className="text-sm font-medium">
-              Type <span className="font-mono text-destructive">DELETE</span> to confirm:
+              {t("config.typeToConfirm")} <span className="font-mono text-destructive">DELETE</span> {t("config.toConfirm")}
             </p>
             <Input
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Type DELETE"
+              placeholder={t("config.typeToConfirm")}
               className="font-mono"
             />
           </div>
@@ -809,7 +813,7 @@ function ClearAllDataSection() {
               onClick={() => { setShowDialog(false); setConfirmText(""); }}
               disabled={clearing}
             >
-              Cancel
+              {t("config.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -819,10 +823,10 @@ function ClearAllDataSection() {
               {clearing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Clearing...
+                  {t("config.clearing")}
                 </>
               ) : (
-                "Clear Everything"
+                t("config.clearEverything")
               )}
             </Button>
           </DialogFooter>
@@ -833,6 +837,7 @@ function ClearAllDataSection() {
 }
 
 export function Config() {
+  const { t } = useTranslation();
   const { config, updateConfig } = useConfig();
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
@@ -879,9 +884,9 @@ export function Config() {
     ) {
       try {
         const reply = await testConnection(ep);
-        results.push(`${ep.label} (${ep.model}): OK ("${reply}")`);
+        results.push(`${ep.label} (${ep.model}): ${t("config.testOk", { reply })}`);
       } catch (err) {
-        errors.push(`${ep.label}: ${formatTestError(err)}`);
+        errors.push(`${ep.label}: ${formatTestError(err, t)}`);
       }
     }
 
@@ -907,9 +912,9 @@ export function Config() {
               <Settings className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold">Settings</h1>
+              <h1 className="text-xl font-semibold">{t("config.title")}</h1>
               <p className="text-sm text-muted-foreground">
-                Changes saved automatically
+                {t("config.autoSave")}
               </p>
             </div>
           </div>
@@ -921,7 +926,7 @@ export function Config() {
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Zap className="w-5 h-5 text-orange-500" />
-              <h2 className="text-lg font-semibold">LLM Provider</h2>
+              <h2 className="text-lg font-semibold">{t("config.llmProvider")}</h2>
             </div>
 
             {/* Mode tabs */}
@@ -947,7 +952,7 @@ export function Config() {
                   }
                 }}
               >
-                ☁️ Cloud
+                ☁️ {t("config.cloud")}
               </button>
               <button
                 type="button"
@@ -978,7 +983,7 @@ export function Config() {
                   }
                 }}
               >
-                💻 Local
+                💻 {t("config.local")}
               </button>
             </div>
 
@@ -986,14 +991,14 @@ export function Config() {
               /* ── Cloud mode ── */
               <div className="space-y-4">
                 <ModelEndpointCard
-                  label="Primary Model"
+                  label={t("config.primaryModel")}
                   endpoint={config.primary}
                   onChange={updatePrimary}
                   providerOptions={CLOUD_PROVIDER_OPTIONS}
                 />
 
                 <ModelEndpointCard
-                  label="Secondary Model"
+                  label={t("config.secondaryModel")}
                   endpoint={config.secondary}
                   onChange={updateSecondary}
                   providerOptions={CLOUD_PROVIDER_OPTIONS}
@@ -1001,9 +1006,9 @@ export function Config() {
 
                 <div className="flex items-center justify-between border-t pt-4">
                   <div>
-                    <Label className="mb-1 block">Secondary Use</Label>
+                    <Label className="mb-1 block">{t("config.secondaryUse")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      How should the secondary model be used?
+                      {t("config.secondaryUseDesc")}
                     </p>
                   </div>
                   <Select
@@ -1016,14 +1021,14 @@ export function Config() {
                     <SelectContent>
                       {SECONDARY_USE_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
+                          {t(opt.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <p className="text-xs text-muted-foreground -mt-2">
-                  {SECONDARY_USE_OPTIONS.find((o) => o.value === config.secondaryUse)?.desc}
+                  {t(SECONDARY_USE_OPTIONS.find((o) => o.value === config.secondaryUse)?.descKey || "")}
                 </p>
 
                 <div className="flex gap-2 items-center pt-2 border-t">
@@ -1031,12 +1036,12 @@ export function Config() {
                     {testing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Testing models...
+                        {t("config.testingModels")}
                       </>
                     ) : (
                       <>
                         <Zap className="w-4 h-4" />
-                        Test Models
+                        {t("config.testModels")}
                       </>
                     )}
                   </Button>
@@ -1053,13 +1058,13 @@ export function Config() {
               /* ── Local mode ── */
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Download a model to run entirely in-browser via WebGPU. No API key or external server needed.
+                  {t("config.localModelDesc")}
                 </p>
                 <ModelEndpointCard
-                  label="Local Model"
+                  label={t("config.localModel")}
                   endpoint={config.primary}
                   onChange={updatePrimary}
-                  providerOptions={[{ value: "webllm" as ProviderType, label: "Use Local Model (in-browser, no API key)" }]}
+                  providerOptions={[{ value: "webllm" as ProviderType, labelKey: "config.webllm" }]}
                 />
 
                 <div className="flex gap-2 items-center pt-2 border-t">
@@ -1069,9 +1074,9 @@ export function Config() {
                     setTesting(true);
                     try {
                       const reply = await testConnection(config.primary);
-                      setTestMessage(`OK: "${reply}"`);
+                      setTestMessage(t("config.testOk", { reply }));
                     } catch (err) {
-                      setTestError(formatTestError(err));
+                      setTestError(formatTestError(err, t));
                     } finally {
                       setTesting(false);
                     }
@@ -1079,12 +1084,12 @@ export function Config() {
                     {testing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Testing...
+                        {t("config.testing")}
                       </>
                     ) : (
                       <>
                         <Zap className="w-4 h-4" />
-                        Test Model
+                        {t("config.testModel")}
                       </>
                     )}
                   </Button>
@@ -1101,13 +1106,13 @@ export function Config() {
           </Card>
 
           <Card className="p-6 space-y-6">
-            <h2 className="text-lg font-semibold">General</h2>
+            <h2 className="text-lg font-semibold">{t("config.general")}</h2>
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Theme</Label>
+                <Label>{t("config.theme")}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Light or dark appearance for this profile
+                  {t("config.themeDesc")}
                 </p>
               </div>
               <Select
@@ -1120,17 +1125,27 @@ export function Config() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="light">{t("config.light")}</SelectItem>
+                  <SelectItem value="dark">{t("config.dark")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label>{t("config.language")}</Label>
+                <p className="text-sm text-muted-foreground">
+                  {t("config.languageDesc")}
+                </p>
+              </div>
+              <LanguageSelector />
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
-                <Label>Auto-save profile</Label>
+                <Label>{t("config.autoSaveProfile")}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Save profile edits to IndexedDB after you stop typing
+                  {t("config.autoSaveProfileDesc")}
                 </p>
               </div>
               <Switch

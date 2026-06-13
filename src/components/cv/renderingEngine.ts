@@ -2,6 +2,19 @@ import type { CVContent, CVSection } from "../../types/cv";
 import type { CLContent } from "../../types/cl";
 import type { ThemeConfig } from "../../types/cv";
 
+const SECTION_LABELS: Record<string, Record<string, string>> = {
+  summary: { en: "Professional Summary", es: "Resumen Profesional" },
+  experience: { en: "Professional Experience", es: "Experiencia Profesional" },
+  skillsCat: { en: "Technical Proficiencies", es: "Competencias Técnicas" },
+  skills: { en: "Skills", es: "Habilidades" },
+  education: { en: "Education", es: "Educación" },
+  certifications: { en: "Certifications", es: "Certificaciones" },
+};
+
+function label(key: string, lang: string): string {
+  return SECTION_LABELS[key]?.[lang] ?? SECTION_LABELS[key]?.en ?? key;
+}
+
 function findSection<T extends CVSection["type"]>(
   sections: CVSection[],
   type: T
@@ -150,10 +163,10 @@ function cvSectionHtml(tag: string, content: string): string {
   return `<section class="page-keep"><h2 class="section-title">${tag}</h2>${content}</section><hr class="cv-divider" />`;
 }
 
-function cvExperienceHtml(experience: any): string {
+function cvExperienceHtml(experience: any, lang = "en"): string {
   const items = experience?.experience ?? [];
   if (items.length === 0) return "";
-  const lines: string[] = ['<section>', '<h2 class="section-title">Professional Experience</h2>'];
+  const lines: string[] = ['<section>', `<h2 class="section-title">${label("experience", lang)}</h2>`];
   for (const exp of items) {
     lines.push(
       '<div class="exp-item page-keep">',
@@ -182,11 +195,11 @@ function cvExperienceHtml(experience: any): string {
   return lines.join("\n");
 }
 
-function cvSkillsHtml(skills: any): string {
+function cvSkillsHtml(skills: any, lang = "en"): string {
   if (!skills) return "";
   const cats = skills.categories;
   if (cats?.length > 0) {
-    const lines: string[] = ['<h2 class="section-title">Technical Proficiencies</h2>',
+    const lines: string[] = [`<h2 class="section-title">${label("skillsCat", lang)}</h2>`,
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;">'];
     for (const cat of cats) {
       lines.push('<div>', `<p class="skill-cat-title">${escapeHtml(cat.name)}</p>`, '<div>');
@@ -194,16 +207,16 @@ function cvSkillsHtml(skills: any): string {
       lines.push('</div></div>');
     }
     lines.push('</div>');
-    return cvSectionHtml("Technical Proficiencies", lines.join("\n"));
+    return cvSectionHtml(label("skillsCat", lang), lines.join("\n"));
   }
   if (skills.skills?.length > 0) {
     const tags = skills.skills.map((s: string) => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("");
-    return cvSectionHtml("Skills", `<div>${tags}</div>`);
+    return cvSectionHtml(label("skills", lang), `<div>${tags}</div>`);
   }
   return "";
 }
 
-function cvEducationHtml(education: any): string {
+function cvEducationHtml(education: any, lang = "en"): string {
   const items = education?.education ?? [];
   if (items.length === 0) return "";
   const lines: string[] = [];
@@ -218,19 +231,20 @@ function cvEducationHtml(education: any): string {
     if (edu.period) lines.push(`<p style="font-size:0.75rem;color:#94a3b8;margin:0;">${escapeHtml(edu.period)}</p>`);
     lines.push('</div>');
   }
-  return cvSectionHtml("Education", lines.join("\n"));
+  return cvSectionHtml(label("education", lang), lines.join("\n"));
 }
 
-function cvCertificationsHtml(certifications: any): string {
+function cvCertificationsHtml(certifications: any, lang = "en"): string {
   const items = certifications?.certifications ?? [];
   if (items.length === 0) return "";
   const lis = items.map((c: string) => `<li style="font-size:0.85rem;color:#475569;margin-bottom:0.2rem;">${escapeHtml(c)}</li>`).join("");
-  return `<section class="page-keep"><h2 class="section-title">Certifications</h2><ul style="margin:0;padding-left:1rem;list-style:disc;">${lis}</ul></section>`;
+  return `<section class="page-keep"><h2 class="section-title">${label("certifications", lang)}</h2><ul style="margin:0;padding-left:1rem;list-style:disc;">${lis}</ul></section>`;
 }
 
 export const renderCVToHTML = (
   content: CVContent,
-  theme: CvTheme
+  theme: CvTheme,
+  lang = "en"
 ): string => {
   const themeId = theme.templateId || "modern";
   const pc = safeColor(theme.primaryColor);
@@ -246,21 +260,21 @@ export const renderCVToHTML = (
   const title = escapeHtml(content.title || "");
 
   const themeStyles = getCvThemeStyles(themeId, pc);
-  const summaryHtml = summary ? cvSectionHtml("Professional Summary", `<p style="font-size:0.85rem;color:#475569;line-height:1.6;margin:0;">${escapeHtml(summary.content)}</p>`) : "";
+  const summaryHtml = summary ? cvSectionHtml(label("summary", lang), `<p style="font-size:0.85rem;color:#475569;line-height:1.6;margin:0;">${escapeHtml(summary.content)}</p>`) : "";
 
   const parts: string[] = [
     '<!DOCTYPE html>',
-    '<html lang="en">',
+    `<html lang="${lang}">`,
     `<head><meta charset="utf-8"><title>CV - ${escapeHtml(content.name || "Resume")}</title>`,
     `<style>${PRINT_STYLES}${CV_COMMON_STYLES}${themeStyles}</style>`,
     '</head><body>',
     '<div class="cv-sheet">',
     cvHeaderHtml(name, title, contact),
     summaryHtml,
-    cvExperienceHtml(experience),
-    cvSkillsHtml(skills),
-    cvEducationHtml(education),
-    cvCertificationsHtml(certifications),
+    cvExperienceHtml(experience, lang),
+    cvSkillsHtml(skills, lang),
+    cvEducationHtml(education, lang),
+    cvCertificationsHtml(certifications, lang),
     '</div></body></html>',
   ];
 
@@ -318,7 +332,8 @@ function getClThemeStyles(themeId: string, pc: string): string {
 
 export const renderCLToHTML = (
   content: CLContent,
-  theme: ThemeConfig
+  theme: ThemeConfig,
+  lang = "en"
 ): string => {
   const themeId = theme.templateId || "modern";
   const pc = safeColor(theme.primaryColor);
@@ -326,7 +341,7 @@ export const renderCLToHTML = (
 
   const parts: string[] = [
     '<!DOCTYPE html>',
-    '<html lang="en">',
+    `<html lang="${lang}">`,
     `<head><meta charset="utf-8"><title>Cover Letter - ${escapeHtml(content.senderName)}</title>`,
     `<style>${PRINT_STYLES}${CL_COMMON_STYLES}${themeStyles}</style>`,
     '</head><body>',

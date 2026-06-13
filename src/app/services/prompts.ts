@@ -23,6 +23,7 @@ export interface PromptContext {
   recommendations?: string[];
   previousField?: string;
   newField?: string;
+  locale?: string;
 }
 
 // ============================================================================

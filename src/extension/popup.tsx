@@ -2,6 +2,7 @@
 import { createRoot } from "react-dom/client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { parseSiteEntry } from "./job-sites";
+import { loadTranslations, t } from "./i18n";
 
 function logErrorToApp(message: string, stack?: string, code?: string) {
   try {
@@ -36,12 +37,6 @@ const defaultConfig: OverlayConfig = {
   fallbackMode: "basic",
 };
 
-const FALLBACK_LABELS: Record<string, string> = {
-  basic: "Basic (import only, no AI)",
-  secondary: "Use app's secondary model routing",
-  primary: "Use app's primary model",
-};
-
 function Popup() {
   const [config, setConfig] = useState<OverlayConfig>(defaultConfig);
   const [newSite, setNewSite] = useState("");
@@ -61,6 +56,10 @@ function Popup() {
     setSaved(true);
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     savedTimerRef.current = setTimeout(() => setSaved(false), 1500);
+  }, []);
+
+  useEffect(() => {
+    loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -143,9 +142,9 @@ function Popup() {
             borderRadius: "6px", background: "transparent", color: "#93c5fd",
             fontSize: "12px", cursor: "pointer", whiteSpace: "nowrap",
           }}
-          title="Open Artemis Quiver app"
+          title={t("extension.openAppTitle")}
         >
-          Open App →
+          {t("extension.openApp")}
         </button>
       </div>
 
@@ -156,12 +155,12 @@ function Popup() {
           onChange={(e) => { saveConfig((c) => ({ ...c, enabled: e.target.checked })); }}
           style={{ width: "16px", height: "16px" }}
         />
-        <span>Show overlay on job pages</span>
+        <span>{t("extension.showOverlay")}</span>
       </label>
 
       <div>
         <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", fontWeight: "500", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Profile Fingerprint
+          {t("extension.profileFingerprint")}
         </div>
         <button
           onClick={generateFingerprint}
@@ -174,10 +173,10 @@ function Popup() {
             width: "100%", textAlign: "center",
           }}
         >
-          {genStatus === "idle" && (config.fingerprint ? "Regenerate fingerprint" : "Generate fingerprint")}
-          {genStatus === "generating" && "Generating..."}
-          {genStatus === "done" && "✓ Generated"}
-          {genStatus === "error" && "Error — try again"}
+          {genStatus === "idle" && (config.fingerprint ? t("extension.regenerateFingerprint") : t("extension.generateFingerprint"))}
+          {genStatus === "generating" && t("extension.generating")}
+          {genStatus === "done" && t("extension.generated")}
+          {genStatus === "error" && t("extension.errorTryAgain")}
         </button>
         {genStatus === "error" && genError && (
           <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>
@@ -193,7 +192,7 @@ function Popup() {
 
       <div>
         <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", fontWeight: "500", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Fallback (when Gemini Nano unavailable)
+          {t("extension.fallbackWhenUnavailable")}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           {(["basic", "secondary", "primary"] as const).map((mode) => (
@@ -204,7 +203,7 @@ function Popup() {
                 checked={config.fallbackMode === mode}
                 onChange={() => { saveConfig((c) => ({ ...c, fallbackMode: mode })); }}
               />
-              <span style={{ fontSize: "13px" }}>{FALLBACK_LABELS[mode]}</span>
+              <span style={{ fontSize: "13px" }}>{mode === "basic" ? t("extension.basic") : mode === "secondary" ? t("extension.secondary") : t("extension.primary")}</span>
             </label>
           ))}
         </div>
@@ -212,14 +211,14 @@ function Popup() {
 
       <div>
         <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", fontWeight: "500", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Custom Job Sites
+          {t("extension.customJobSites")}
         </div>
         <div style={{ display: "flex", gap: "4px", marginBottom: "6px" }}>
           <input
             value={newSite}
             onChange={(e) => setNewSite(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addSite()}
-            placeholder="e.g., myjobboard.com or myjobboard.com/jobs/*"
+            placeholder={t("extension.sitePlaceholder")}
             style={{
               flex: 1, padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)",
               background: "#1e293b", color: "#f1f5f9", fontSize: "13px", outline: "none",
@@ -228,7 +227,7 @@ function Popup() {
           <button onClick={addSite} style={{
             padding: "6px 12px", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px",
             background: "#1e293b", color: "#e2e8f0", fontSize: "13px", cursor: "pointer",
-          }}>Add</button>
+          }}>{t("extension.add")}</button>
         </div>
         {config.jobSites.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
@@ -276,7 +275,7 @@ function Popup() {
 
       {saved && (
         <div style={{ textAlign: "center", fontSize: "12px", color: "#22c55e", padding: "6px" }}>
-          ✓ Saved
+          {t("extension.saved")}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Plus, Trash2, User } from "lucide-react";
 import {
   Dialog,
@@ -21,6 +22,7 @@ interface ProfileSwitcherModalProps {
 }
 
 export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModalProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { profiles, activeProfileId, switchProfile, createProfile, deleteProfile } = useWorkspace();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -54,7 +56,7 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
   const handleAdd = async () => {
     const trimmed = newName.trim();
     if (!trimmed) {
-      setAddError("Enter a profile name.");
+      setAddError(t("workspace.enterName"));
       return;
     }
     try {
@@ -65,7 +67,7 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
       onOpenChange(false);
       navigate("/profile", { state: { edit: true, isNewProfile: true } });
     } catch (err) {
-      setAddError(err instanceof Error ? err.message : "Could not create profile.");
+      setAddError(err instanceof Error ? err.message : t("workspace.couldNotCreate"));
     }
   };
 
@@ -74,10 +76,9 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Workspace profiles</DialogTitle>
+            <DialogTitle>{t("workspace.profiles")}</DialogTitle>
             <DialogDescription>
-              Switch between up to {MAX_WORKSPACE_PROFILES} local profiles. Each has its own
-              settings, master profile, and analysis history.
+              {t("workspace.profileDesc", { max: MAX_WORKSPACE_PROFILES })}
             </DialogDescription>
           </DialogHeader>
 
@@ -102,11 +103,11 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Used {formatRelativeTime(p.lastUsedAt)}
+                      {t("workspace.used")} {formatRelativeTime(p.lastUsedAt)}
                     </p>
                   </div>
                   {p.id === activeProfileId && (
-                    <span className="text-xs text-primary font-medium">Active</span>
+                    <span className="text-xs text-primary font-medium">{t("workspace.active")}</span>
                   )}
                 </button>
                 {profiles.length > 1 && (
@@ -114,7 +115,7 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
                     type="button"
                     onClick={() => setDeleteConfirmId(p.id)}
                     className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    title="Delete profile"
+                    title={t("workspace.deleteProfile")}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -130,12 +131,11 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="w-4 h-4" />
-              Add profile
+              {t("workspace.addProfile")}
             </Button>
             {profiles.length >= MAX_WORKSPACE_PROFILES && (
               <p className="text-xs text-muted-foreground text-center">
-                Maximum {MAX_WORKSPACE_PROFILES} profiles. Adding one removes the least recently
-                used.
+                {t("workspace.maxProfiles", { max: MAX_WORKSPACE_PROFILES })}
               </p>
             )}
           </DialogFooter>
@@ -145,9 +145,9 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>New profile</DialogTitle>
+            <DialogTitle>{t("workspace.newProfile")}</DialogTitle>
             <DialogDescription>
-              Name your workspace profile. You will open the editor to import your data.
+              {t("workspace.newProfileDesc")}
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -156,7 +156,7 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
               setNewName(e.target.value);
               setAddError(null);
             }}
-            placeholder="e.g., Job search 2026"
+            placeholder={t("workspace.profilePlaceholder")}
             maxLength={40}
             className="bg-input-background"
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
@@ -164,11 +164,11 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
           {addError && <p className="text-sm text-destructive">{addError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Cancel
+              {t("workspace.cancel")}
             </Button>
             <Button onClick={handleAdd} className="gap-2">
               <User className="w-4 h-4" />
-              Create & edit profile
+              {t("workspace.createAndEdit")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -177,19 +177,18 @@ export function ProfileSwitcherModal({ open, onOpenChange }: ProfileSwitcherModa
       <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete profile</DialogTitle>
+            <DialogTitle>{t("workspace.deleteProfileTitle")}</DialogTitle>
             <DialogDescription>
-              This permanently deletes the profile and all its analysis history. This cannot be
-              undone.
+              {t("workspace.deleteProfileDesc")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
-              Cancel
+              {t("workspace.cancel")}
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
               <Trash2 className="w-4 h-4" />
-              Delete
+              {t("workspace.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

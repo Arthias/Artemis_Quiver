@@ -83,6 +83,7 @@ export interface ErrorRecord {
   severity: ErrorSeverity;
   message: string;
   userMessage: string;
+  userMessageKey?: string;
   retryable: boolean;
   retryStrategy?: "immediate" | "corrective" | "backoff";
   httpStatus?: number;
@@ -554,6 +555,7 @@ export class AppError extends Error {
   public readonly record: ErrorRecord;
   public readonly timestamp: number;
   public metadata: Record<string, unknown>;
+  public readonly userMessageKey: string | undefined;
 
   constructor(code: ErrorCode, message?: string, metadata?: Record<string, unknown>) {
     const record = ERROR_CATALOG[code];
@@ -571,6 +573,7 @@ export class AppError extends Error {
     this.record = record;
     this.timestamp = Date.now();
     this.metadata = metadata ?? {};
+    this.userMessageKey = record.userMessageKey;
   }
 
   get userMessage(): string {

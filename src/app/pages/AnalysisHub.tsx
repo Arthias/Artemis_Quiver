@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -22,14 +23,15 @@ import { useAnalysis } from "../context/AnalysisContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { useExtensionBridge } from "../context/ExtensionBridgeContext";
 
-function matchLabel(score: number): string {
-  if (score >= 80) return "Strong Match";
-  if (score >= 60) return "Good Match";
-  if (score >= 40) return "Moderate Match";
-  return "Stretch Role";
+function matchLabel(t: ReturnType<typeof useTranslation>["t"], score: number): string {
+  if (score >= 80) return t("analysis.strongMatch");
+  if (score >= 60) return t("analysis.goodMatch");
+  if (score >= 40) return t("analysis.moderateMatch");
+  return t("analysis.stretchRole");
 }
 
 export function AnalysisHub() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const {
     draftJobPosting,
@@ -85,9 +87,9 @@ export function AnalysisHub() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold">Job Analysis</h1>
+              <h1 className="text-xl font-semibold">{t("analysis.title")}</h1>
               <p className="text-sm text-muted-foreground">
-                Analyze postings against your saved profile via local LLM
+                {t("analysis.subtitle")}
               </p>
             </div>
           </div>
@@ -101,11 +103,11 @@ export function AnalysisHub() {
           {!hasResult ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Job Posting</label>
+                <label className="block text-sm font-medium mb-2">{t("analysis.jobPosting")}</label>
                 <Textarea
                   value={draftJobPosting}
                   onChange={(e) => setDraftJobPosting(e.target.value)}
-                  placeholder="Paste the full job description here..."
+                  placeholder={t("analysis.placeholder")}
                   className="min-h-[300px] resize-none bg-input-background border-border"
                 />
               </div>
@@ -115,10 +117,10 @@ export function AnalysisHub() {
                   <div className="flex items-start gap-2 text-sm text-destructive">
                     <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium">Analysis failed</p>
+                      <p className="font-medium">{t("analysis.analysisFailed")}</p>
                       <p className="mt-1 text-destructive/90">{error}</p>
                       <p className="mt-2 text-muted-foreground">
-                        Check Settings → Test connection to verify your AI provider is running.
+                        {t("analysis.checkSettings")}
                       </p>
                     </div>
                   </div>
@@ -135,23 +137,23 @@ export function AnalysisHub() {
                   {analyzing ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Analyzing...
+                      {t("analysis.analyzing")}
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      Analyze Job Posting
+                      {t("analysis.analyze")}
                     </>
                   )}
                 </Button>
               </div>
 
               <Card className="p-6 bg-muted/30 border-dashed">
-                <h3 className="font-medium mb-2">What happens next?</h3>
+                <h3 className="font-medium mb-2">{t("analysis.whatHappensNext")}</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>Your saved profile is sent to the local LLM configured in Settings.</li>
-                  <li>Results are stored in the browser and exported as Markdown.</li>
-                  <li>First run: open Settings and run Test connection before analyzing.</li>
+                  <li>{t("analysis.infoStep1")}</li>
+                  <li>{t("analysis.infoStep2")}</li>
+                  <li>{t("analysis.infoStep3")}</li>
                 </ul>
               </Card>
             </div>
@@ -168,7 +170,7 @@ export function AnalysisHub() {
                   ) : (
                     <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   )}
-                  <span className="text-sm font-medium">Analyzed Job Posting</span>
+                  <span className="text-sm font-medium">{t("analysis.analyzedJobPosting")}</span>
                 </button>
                 <div
                   className={`overflow-auto transition-all ${
@@ -183,7 +185,7 @@ export function AnalysisHub() {
 
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                  <h2 className="text-lg font-semibold">Match Analysis</h2>
+                  <h2 className="text-lg font-semibold">{t("analysis.matchAnalysis")}</h2>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -192,10 +194,10 @@ export function AnalysisHub() {
                       onClick={exportCurrentAnalysis}
                     >
                       <Download className="w-4 h-4" />
-                      Export .md
+                      {t("analysis.exportMd")}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={clearCurrent}>
-                      New Analysis
+                      {t("app.newAnalysis")}
                     </Button>
                   </div>
                 </div>
@@ -227,13 +229,13 @@ export function AnalysisHub() {
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center flex-col">
                       <span className="text-3xl font-bold">{result.score}%</span>
-                      <span className="text-xs text-muted-foreground">Match</span>
+                      <span className="text-xs text-muted-foreground">{t("analysis.match")}</span>
                     </div>
                   </div>
 
                   <div className="flex-1">
                     <Badge className="mb-2" variant="secondary">
-                      {matchLabel(result.score)}
+                      {matchLabel(t, result.score)}
                     </Badge>
                     <p className="text-muted-foreground mb-3">
                       {result.summary ??
@@ -241,7 +243,7 @@ export function AnalysisHub() {
                     </p>
                     <div className="flex items-center gap-2 text-sm">
                       <TrendingUp className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">Salary Range:</span>
+                      <span className="font-medium">{t("analysis.salaryRange")}</span>
                       <span className="text-muted-foreground">{result.salaryRange}</span>
                     </div>
                   </div>
@@ -249,7 +251,7 @@ export function AnalysisHub() {
               </Card>
 
               <Card className="p-6">
-                <h2 className="text-lg font-semibold mb-4">Interview Preparation Tips</h2>
+                <h2 className="text-lg font-semibold mb-4">{t("analysis.interviewTips")}</h2>
                 <ul className="space-y-3">
                   {result.tips.map((tip, idx) => (
                     <li key={idx} className="flex items-start gap-3">
@@ -264,7 +266,7 @@ export function AnalysisHub() {
 
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">CV Optimization</h2>
+                  <h2 className="text-lg font-semibold">{t("analysis.cvOptimization")}</h2>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -275,7 +277,7 @@ export function AnalysisHub() {
                       }}
                     >
                       <User className="w-4 h-4" />
-                      Edit Profile
+                      {t("analysis.editProfile")}
                     </Button>
                     <Button
                       variant="default"
@@ -292,7 +294,7 @@ export function AnalysisHub() {
                       }}
                     >
                       <FileText className="w-4 h-4" />
-                      Generate CV with Recommendations
+                      {t("analysis.generateCV")}
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   </div>
@@ -311,7 +313,7 @@ export function AnalysisHub() {
 
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Cover Letter Draft</h2>
+                  <h2 className="text-lg font-semibold">{t("analysis.coverLetterDraft")}</h2>
                   <Button
                     variant="outline"
                     size="sm"
@@ -326,7 +328,7 @@ export function AnalysisHub() {
                     }}
                   >
                     <Mail className="w-4 h-4" />
-                    Edit in Builder
+                    {t("analysis.editInBuilder")}
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -340,14 +342,14 @@ export function AnalysisHub() {
               <Card className="p-6">
                 <div className="flex items-center gap-2 mb-1">
                   <MessageCircle className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-lg font-semibold">Follow-up Questions</h2>
+                  <h2 className="text-lg font-semibold">{t("analysis.followUpQuestions")}</h2>
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Ask follow-up questions about this job posting, practice interview answers, or generate side content.
+                  {t("analysis.followUpSubtitle")}
                 </p>
 
                 <div className="space-y-3 mb-4">
-                  <p className="text-xs text-muted-foreground font-medium">Quick questions</p>
+                  <p className="text-xs text-muted-foreground font-medium">{t("analysis.quickQuestions")}</p>
                   <div className="flex flex-wrap gap-2">
                     {followUpSuggestions.map((suggestion) => (
                       <button
@@ -369,7 +371,7 @@ export function AnalysisHub() {
                   {followUpMessages.length === 0 ? (
                     <div className="p-6 text-center text-sm text-muted-foreground">
                       <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                      <p>No follow-up questions yet. Pick a suggestion above or type your own.</p>
+                      <p>{t("analysis.noFollowUpYet")}</p>
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
@@ -398,7 +400,7 @@ export function AnalysisHub() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-muted-foreground mb-1">
-                                {msg.role === "user" ? "You" : "Assistant"}
+                                {msg.role === "user" ? t("analysis.you") : t("analysis.assistant")}
                               </p>
                               <pre className="whitespace-pre-wrap text-sm font-sans text-foreground">
                                 {msg.content}
@@ -413,7 +415,7 @@ export function AnalysisHub() {
                             <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0">
                               <div className="w-3 h-3 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin" />
                             </div>
-                            <span className="text-sm text-muted-foreground">Thinking...</span>
+                            <span className="text-sm text-muted-foreground">{t("analysis.thinking")}</span>
                           </div>
                         </div>
                       )}
@@ -432,7 +434,7 @@ export function AnalysisHub() {
                         handleFollowUpSubmit();
                       }
                     }}
-                    placeholder="Ask a follow-up question..."
+                    placeholder={t("analysis.followUpPlaceholder")}
                     className="flex-1 text-sm border border-border rounded-lg px-3 py-2 bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     disabled={followUpLoading}
                   />
@@ -443,7 +445,7 @@ export function AnalysisHub() {
                     className="gap-1"
                   >
                     <Send className="w-4 h-4" />
-                    Send
+                    {t("analysis.send")}
                   </Button>
                 </div>
               </Card>

@@ -4,6 +4,38 @@
 // If you add imports here, the build will produce dynamic import()
 // statements that Chrome's isolated world rejects.
 
+const _ot: Record<string, string> = {
+  "overlay.matchScore": "Match Score",
+  "overlay.scoreFailed": "Score Failed",
+  "overlay.analyzing": "Analyzing...",
+  "overlay.notConfigured": "Not Configured",
+  "overlay.jobPosting": "Job posting",
+  "overlay.clickToExpand": "Click to expand",
+  "overlay.close": "Close",
+  "overlay.noFingerprint": "No profile fingerprint.",
+  "overlay.noFingerprintDesc": "Open the Artemis Quiver popup and generate a fingerprint to get AI match scores.",
+  "overlay.scoringFailed": "Match scoring failed.",
+  "overlay.nanUnavailable": "Gemini Nano is unavailable. Switch the fallback mode in the extension popup to enable AI scoring.",
+  "overlay.checkEndpoint": "Check that your LLM endpoint is configured in settings and the server is running.",
+  "overlay.retry": "Retry",
+  "overlay.analyzingMatch": "Analyzing job match\u2026",
+  "overlay.breakdown": "Breakdown",
+  "overlay.skills": "Skills",
+  "overlay.exp": "Exp.",
+  "overlay.company": "Company:",
+  "overlay.salary": "Salary:",
+  "overlay.importing": "Importing...",
+  "overlay.importToArtemis": "Import to Artemis",
+  "overlay.openInArtemis": "Open in Artemis \u2192",
+  "overlay.imported": "\u2713 Imported",
+  "overlay.testing": "Testing...",
+  "overlay.testChromeAI": "Test Chrome AI",
+  "overlay.bridgeNotLoaded": "\u2717 Bridge not loaded",
+  "overlay.nanoAvailable": "\u2713 Available",
+  "overlay.nanoErrorTimedOut": "\u2717 Error (timed out)",
+};
+function ot(key: string): string { return _ot[key] || key; }
+
 const STORAGE_KEY = "artemis:overlayConfig";
 const POSITION_KEY = "artemis:overlayPosition";
 
@@ -211,10 +243,10 @@ function extractJobData(text: string): { title: string; company: string; salary:
 }
 
 function statusLabel(): string {
-  if (matchScore !== null) return "Match Score";
-  if (scoringFailed) return "Score Failed";
-  if (hasFingerprint) return "Analyzing...";
-  return "Not Configured";
+  if (matchScore !== null) return ot("overlay.matchScore");
+  if (scoringFailed) return ot("overlay.scoreFailed");
+  if (hasFingerprint) return ot("overlay.analyzing");
+  return ot("overlay.notConfigured");
 }
 
 function ringHTML(): string {
@@ -244,9 +276,9 @@ function render() {
       ${ringHTML()}
       <div class="ao-header-info">
         <div class="ao-label">${statusLabel()}</div>
-        <div class="ao-value">${esc(extracted.title || (isExpanded ? "Job posting" : "Click to expand"))}</div>
+        <div class="ao-value">${esc(extracted.title || (isExpanded ? ot("overlay.jobPosting") : ot("overlay.clickToExpand")))}</div>
       </div>
-      <button class="ao-close" data-action="close" title="Close">✕</button>
+      <button class="ao-close" data-action="close" title="${ot("overlay.close")}">✕</button>
       <span class="ao-expand-hint">${isExpanded ? "▲" : "▼"}</span>
     </div>
     ${isExpanded ? `
@@ -254,47 +286,47 @@ function render() {
         ${!hasFingerprint ? `
         <div class="ao-body-section">
           <div class="ao-info-box">
-            <strong>No profile fingerprint.</strong><br>
-            Open the Artemis Quiver popup and generate a fingerprint to get AI match scores.
+            <strong>${ot("overlay.noFingerprint")}</strong><br>
+            ${ot("overlay.noFingerprintDesc")}
           </div>
         </div>
         ` : scoringFailed ? `
         <div class="ao-body-section">
           <div class="ao-info-box" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444">
-            <strong>Match scoring failed.</strong> ${currentFallbackMode === "basic" ? "Gemini Nano is unavailable. Switch the fallback mode in the extension popup to enable AI scoring." : "Check that your LLM endpoint is configured in settings and the server is running."}
-            <br><button class="ao-sec-btn" data-action="retry" style="margin-top:8px;width:auto;display:inline-block;padding:4px 12px;font-size:12px">Retry</button>
+            <strong>${ot("overlay.scoringFailed")}</strong> ${currentFallbackMode === "basic" ? ot("overlay.nanUnavailable") : ot("overlay.checkEndpoint")}
+            <br><button class="ao-sec-btn" data-action="retry" style="margin-top:8px;width:auto;display:inline-block;padding:4px 12px;font-size:12px">${ot("overlay.retry")}</button>
           </div>
         </div>
         ` : matchScore === null ? `
         <div class="ao-body-section">
           <div class="ao-info-box" style="border-color:rgba(234,179,8,0.3);background:rgba(234,179,8,0.08);color:#eab308">
-            Analyzing job match&hellip;
+            ${ot("overlay.analyzingMatch")}
           </div>
         </div>
         ` : `
         <div class="ao-body-section">
-          <h4>Breakdown</h4>
+          <h4>${ot("overlay.breakdown")}</h4>
           <div class="ao-breakdown-row">
-            <span style="width:60px">Skills</span>
+            <span style="width:60px">${ot("overlay.skills")}</span>
             <div class="ao-bar"><div class="ao-bar-fill" style="width:${Math.min(matchScore + 10, 100)}%;background:#3b82f6"></div></div>
           </div>
           <div class="ao-breakdown-row">
-            <span style="width:60px">Exp.</span>
+            <span style="width:60px">${ot("overlay.exp")}</span>
             <div class="ao-bar"><div class="ao-bar-fill" style="width:${Math.min(matchScore, 100)}%;background:#8b5cf6"></div></div>
           </div>
         </div>
         `}
-        ${extracted.company ? `<div class="ao-extract-item"><strong>Company:</strong> ${esc(extracted.company)}</div>` : ""}
-        ${extracted.salary ? `<div class="ao-extract-item"><strong>Salary:</strong> ${esc(extracted.salary)}</div>` : ""}
+        ${extracted.company ? `<div class="ao-extract-item"><strong>${ot("overlay.company")}</strong> ${esc(extracted.company)}</div>` : ""}
+        ${extracted.salary ? `<div class="ao-extract-item"><strong>${ot("overlay.salary")}</strong> ${esc(extracted.salary)}</div>` : ""}
         <div class="ao-action-row">
-          ${!isImported ? `<button class="ao-sec-btn" data-action="import">${isImporting ? "Importing..." : "Import to Artemis"}</button>` : ""}
-          ${isImported ? `<button class="ao-sec-btn" data-action="open-app">Open in Artemis →</button>` : ""}
+          ${!isImported ? `<button class="ao-sec-btn" data-action="import">${isImporting ? ot("overlay.importing") : ot("overlay.importToArtemis")}</button>` : ""}
+          ${isImported ? `<button class="ao-sec-btn" data-action="open-app">${ot("overlay.openInArtemis")}</button>` : ""}
         </div>
-        ${isImported ? `<div style="text-align:center;margin-top:6px;font-size:12px;color:#059669">✓ Imported</div>` : ""}
+        ${isImported ? `<div style="text-align:center;margin-top:6px;font-size:12px;color:#059669">${ot("overlay.imported")}</div>` : ""}
         <div class="ao-body-section">
           <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;margin-top:4px">
             ${nanoTestResult !== null ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${esc(nanoTestResult)}</div>` : ""}
-            <button class="ao-sec-btn" data-action="test-nano" style="width:auto;display:inline-block;padding:3px 10px;font-size:11px">${nanoTesting ? "Testing..." : "Test Chrome AI"}</button>
+            <button class="ao-sec-btn" data-action="test-nano" style="width:auto;display:inline-block;padding:3px 10px;font-size:11px">${nanoTesting ? ot("overlay.testing") : ot("overlay.testChromeAI")}</button>
           </div>
         </div>
       </div>
@@ -630,7 +662,7 @@ async function testNano() {
     try {
       await postMessageToNano("nano-ping", undefined, undefined, 3000);
     } catch {
-      nanoTestResult = "✗ Bridge not loaded";
+      nanoTestResult = ot("overlay.bridgeNotLoaded");
       nanoTesting = false;
       render();
       return;
@@ -644,10 +676,10 @@ async function testNano() {
     }, 120000);
     const r = typeof raw === "string" ? JSON.parse(raw) : raw;
     nanoTestResult = r.ok
-      ? "✓ Available"
+      ? ot("overlay.nanoAvailable")
       : "✗ " + (r.error || "unavailable");
   } catch {
-    nanoTestResult = "✗ Error (timed out)";
+    nanoTestResult = ot("overlay.nanoErrorTimedOut");
   }
   nanoTesting = false;
   render();
