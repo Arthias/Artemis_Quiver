@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint } from "lucide-react";
 import { useErrorLog } from "../context/ErrorLogContext";
 import {
   Select,
@@ -14,20 +14,83 @@ import {
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { useConfig } from "../context/ConfigContext";
-import { listModels as listModelsApi, testConnection } from "../services/llmService";
+import { useWorkspace } from "../context/WorkspaceProfileContext";
+import { chatCompletion, listModels as listModelsApi, testConnection } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
 import { DEFAULT_JOB_SITES } from "../../extension/job-sites";
 import { getAdapter } from "../services/provider/registry";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { clearAllData } from "../db";
+import { ensureDbInitialized } from "../db";
+import { useOnboarding } from "../context/OnboardingContext";
 
 function ExtensionSettingsCard() {
+  const configCtx = useConfig();
+  const workspace = useWorkspace();
   const [customSites, setCustomSites] = useState<string[]>([]);
   const [excludedSites, setExcludedSites] = useState<string[]>([]);
   const [newSite, setNewSite] = useState("");
   const [overlayEnabled, setOverlayEnabled] = useState(true);
   const [editingSite, setEditingSite] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const [fpLoading, setFpLoading] = useState(false);
+  const [fpError, setFpError] = useState<string | null>(null);
+  const [fpStorageKey, setFpStorageKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
+    if (!isExt) return;
+    chrome.storage.local.get("artemis:overlayConfig").then((result) => {
+      const cfg = (result as any)["artemis:overlayConfig"] || {};
+      setFingerprint(cfg.fingerprint ?? null);
+      setFpStorageKey(cfg.lastFingerprintUpdate ?? null);
+    });
+  }, []);
+
+  async function generateFingerprint() {
+    setFpLoading(true);
+    setFpError(null);
+    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
+
+    try {
+      const markdown = workspace.profileData?.profileMarkdown;
+      const endpoint = configCtx.config.primary;
+      if (!markdown) { setFpError("No profile markdown available. Create/save a profile first."); return; }
+      if (!endpoint.baseUrl || !endpoint.model) { setFpError("Primary LLM endpoint not configured."); return; }
+
+      const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${markdown.slice(0, 4000)}`;
+      const result = await chatCompletion([{ role: "user", content: prompt }], endpoint, { timeoutMs: 120000 });
+
+      setFingerprint(result);
+
+      if (isExt) {
+        const stored = await chrome.storage.local.get("artemis:overlayConfig");
+        const cfg: any = stored["artemis:overlayConfig"] || {};
+        cfg.fingerprint = result;
+        cfg.lastFingerprintUpdate = new Date().toISOString();
+        cfg.primaryEndpoint = { baseUrl: endpoint.baseUrl, model: endpoint.model, apiKey: endpoint.apiKey };
+        if (configCtx.config.secondary?.baseUrl) {
+          cfg.secondaryEndpoint = { baseUrl: configCtx.config.secondary.baseUrl, model: configCtx.config.secondary.model, apiKey: configCtx.config.secondary.apiKey };
+        }
+        await chrome.storage.local.set({ "artemis:overlayConfig": cfg });
+        setFpStorageKey(cfg.lastFingerprintUpdate);
+      }
+    } catch (err) {
+      setFpError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFpLoading(false);
+    }
+  }
 
   useEffect(() => {
     const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
@@ -212,6 +275,45 @@ function ExtensionSettingsCard() {
           <Button variant="outline" size="icon" onClick={addSite}>
             <Plus className="w-4 h-4" />
           </Button>
+        </div>
+      </div>
+
+      <hr className="border-t border-border" />
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Fingerprint className="w-5 h-5 text-purple-500" />
+          <h3 className="text-base font-semibold">Profile Fingerprint</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Generates a compact profile summary for job matching. Overlay uses it when background LLM is unavailable.
+        </p>
+
+        {fingerprint && (
+          <div className="bg-muted rounded p-3 text-xs font-mono break-all">
+            {fingerprint}
+          </div>
+        )}
+        {fpError && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded p-3 text-xs text-destructive">
+            {fpError}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            onClick={generateFingerprint}
+            disabled={fpLoading}
+          >
+            {fpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+            {fpLoading ? "Generating..." : "Generate Fingerprint"}
+          </Button>
+          {fingerprint && fpStorageKey && (
+            <span className="text-xs text-muted-foreground">
+              Updated {new Date(fpStorageKey).toLocaleDateString()}
+            </span>
+          )}
         </div>
       </div>
     </Card>
@@ -643,6 +745,93 @@ function DevModeLogViewer() {
   );
 }
 
+function ClearAllDataSection() {
+  const { resetOnboarding } = useOnboarding();
+  const [showDialog, setShowDialog] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [clearing, setClearing] = useState(false);
+
+  const handleClear = async () => {
+    if (confirmText !== "DELETE" || clearing) return;
+    setClearing(true);
+    try {
+      await clearAllData();
+      await ensureDbInitialized();
+      await resetOnboarding();
+      window.location.reload();
+    } catch {
+      setClearing(false);
+      setShowDialog(false);
+    }
+  };
+
+  return (
+    <>
+      <Card className="p-6 border-destructive/30">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="w-5 h-5 text-destructive" />
+          <h2 className="text-lg font-semibold text-destructive">Danger Zone</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Clear all data and reset the application to its factory state. This removes all profiles, analysis sessions, and settings. This action cannot be undone.
+        </p>
+        <Button
+          variant="destructive"
+          onClick={() => setShowDialog(true)}
+        >
+          <Trash2 className="w-4 h-4 mr-1" />
+          Clear All Data
+        </Button>
+      </Card>
+
+      <Dialog open={showDialog} onOpenChange={(open) => { if (!open && !clearing) { setShowDialog(false); setConfirmText(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear All Data?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete all profiles, analysis sessions, settings, and error logs. The app will reset to factory state. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Type <span className="font-mono text-destructive">DELETE</span> to confirm:
+            </p>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type DELETE"
+              className="font-mono"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setShowDialog(false); setConfirmText(""); }}
+              disabled={clearing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={confirmText !== "DELETE" || clearing}
+              onClick={handleClear}
+            >
+              {clearing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                "Clear Everything"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function Config() {
   const { config, updateConfig } = useConfig();
   const [testing, setTesting] = useState(false);
@@ -955,6 +1144,7 @@ export function Config() {
 
           <ExtensionSettingsCard />
           <DevModeLogViewer />
+          <ClearAllDataSection />
         </div>
       </div>
     </div>

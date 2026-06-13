@@ -1,0 +1,479 @@
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Card } from "../ui/card";
+import { Label } from "../ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Loader2, Zap } from "lucide-react";
+import { useOnboarding } from "../../context/OnboardingContext";
+import { useConfig } from "../../context/ConfigContext";
+import { useProfile } from "../../context/ProfileContext";
+import { useWorkspace } from "../../context/WorkspaceProfileContext";
+import { saveProfile as saveProfileToDb, getProfile } from "../../db";
+import type { ProviderType, SecondaryUse } from "../../types/llm";
+import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../../types/llm";
+import { testConnection } from "../../services/llmService";
+import { getAdapter } from "../../services/provider/registry";
+import type { WebLLMAdapter } from "../../services/provider/WebLLMAdapter";
+
+const STEPS = ["Welcome", "AI Setup", "Profile"];
+
+const WEBLLM_CATALOG = [
+  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, desc: "(2.3 GB download - Recommended)" },
+  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, desc: "(0.88 GB download - Lightweight)" },
+  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, desc: "(4.8 GB - Advanced)" },
+  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
+] as const;
+
+const CLOUD_PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
+  { value: "openai-compatible", label: "OpenAI Compatible (LM Studio, Ollama, OpenAI)" },
+  { value: "anthropic", label: "Anthropic (Claude)" },
+  { value: "google-gemini", label: "Google Gemini" },
+];
+
+const COMMON_MODELS = [
+  { id: "google/gemma-4-e2b", label: "Gemma 4 E2B" },
+  { id: "llama3.2:3b", label: "Llama 3.2 (3B)" },
+  { id: "llama3.2:1b", label: "Llama 3.2 (1B)" },
+  { id: "mistral:7b", label: "Mistral (7B)" },
+  { id: "qwen2.5:7b", label: "Qwen 2.5 (7B)" },
+  { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)" },
+  { id: "deepseek-r1:7b", label: "DeepSeek R1 (7B)" },
+] as const;
+
+function StepDots({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          className={`w-2 h-2 rounded-full transition-colors ${
+            i === current ? "bg-primary" : "bg-muted-foreground/30"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WelcomeStep({ name, setName }: { name: string; setName: (v: string) => void }) {
+  return (
+    <div className="flex flex-col items-center text-center gap-6 max-w-lg mx-auto">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+        <span className="text-2xl font-bold text-white">AQ</span>
+      </div>
+      <h2 className="text-2xl font-semibold">Welcome to Artemis Quiver</h2>
+      <p className="text-muted-foreground">
+        Your AI-powered job application companion. Analyze job postings, build tailored CVs and cover letters, and get match scoring — all from your browser.
+      </p>
+
+      <div className="w-full text-left">
+        <Label className="mb-1.5 block text-sm">What's your name?</Label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter your name"
+          className="bg-input-background text-center text-lg py-6"
+          autoFocus
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 w-full mt-2">
+        <div className="border rounded-lg p-4 text-left">
+          <p className="text-sm font-medium mb-1">Job Analysis</p>
+          <p className="text-xs text-muted-foreground">Paste a job posting, get detailed analysis and match scoring against your profile.</p>
+        </div>
+        <div className="border rounded-lg p-4 text-left">
+          <p className="text-sm font-medium mb-1">CV & Cover Letters</p>
+          <p className="text-xs text-muted-foreground">Generate tailored CVs and cover letters using your profile and AI.</p>
+        </div>
+        <div className="border rounded-lg p-4 text-left">
+          <p className="text-sm font-medium mb-1">Chrome Extension</p>
+          <p className="text-xs text-muted-foreground">Get match scores on job sites with the optional browser extension.</p>
+        </div>
+        <div className="border rounded-lg p-4 text-left">
+          <p className="text-sm font-medium mb-1">100% Local</p>
+          <p className="text-xs text-muted-foreground">All data stored in your browser. No servers, no accounts required.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AiSetupStep() {
+  const { config, updateConfig } = useConfig();
+  const [testing, setTesting] = useState(false);
+  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  // Clear stale test results when config changes
+  const prevConfigRef = useRef({ provider: config.primary.provider, baseUrl: config.primary.baseUrl, model: config.primary.model });
+  useEffect(() => {
+    const curr = { provider: config.primary.provider, baseUrl: config.primary.baseUrl, model: config.primary.model };
+    if (curr.provider !== prevConfigRef.current.provider || curr.baseUrl !== prevConfigRef.current.baseUrl || curr.model !== prevConfigRef.current.model) {
+      setTestMessage(null);
+      setTestError(null);
+      prevConfigRef.current = curr;
+    }
+  }, [config.primary.provider, config.primary.baseUrl, config.primary.model]);
+
+  function isValidWebLLMModel(modelId: string): boolean {
+    return WEBLLM_CATALOG.some(m => m.id === modelId);
+  }
+
+  // Resolve current WebLLM catalog entry for download button
+  const currentWebLLMModelId = config.primary.model && isValidWebLLMModel(config.primary.model)
+    ? config.primary.model
+    : WEBLLM_CATALOG[0].id;
+  const currentWebLLMModel = WEBLLM_CATALOG.find(m => m.id === currentWebLLMModelId);
+
+  const handleTest = useCallback(async () => {
+    setTestMessage(null);
+    setTestError(null);
+    setTesting(true);
+    try {
+      const reply = await testConnection(config.primary);
+      setTestMessage(`OK: "${reply}"`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestError(msg || "Test failed.");
+    } finally {
+      setTesting(false);
+    }
+  }, [config.primary]);
+
+  return (
+    <div className="flex flex-col items-center gap-6 w-full max-w-xl mx-auto">
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold mb-2">Connect Your AI</h2>
+        <p className="text-muted-foreground text-sm">
+          Choose how Artemis connects to an AI model for analysis and generation.
+        </p>
+      </div>
+
+      <div className="flex gap-1 bg-muted rounded-lg p-1">
+        <button
+          type="button"
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            config.providerMode === "cloud"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => {
+            if (config.providerMode === "local") {
+              updateConfig({
+                providerMode: "cloud",
+                primary: { ...DEFAULT_PRIMARY_ENDPOINT },
+                secondary: { ...DEFAULT_SECONDARY_ENDPOINT },
+                secondaryUse: "never" as SecondaryUse,
+              });
+            }
+          }}
+        >
+          ☁️ Cloud
+        </button>
+        <button
+          type="button"
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            config.providerMode === "local"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => {
+            if (config.providerMode === "cloud") {
+              updateConfig({
+                providerMode: "local",
+                primary: {
+                  label: "Primary",
+                  provider: "webllm",
+                  model: WEBLLM_CATALOG[0].id,
+                  baseUrl: "",
+                  temperature: 0.7,
+                },
+                secondaryUse: "never" as SecondaryUse,
+              });
+            }
+          }}
+        >
+          💻 Local
+        </button>
+      </div>
+
+      {config.providerMode === "cloud" ? (
+        <Card className="p-4 w-full space-y-4">
+          <p className="text-sm font-medium">Primary Model</p>
+
+          <div>
+            <Label className="mb-1.5 block text-xs">Provider</Label>
+            <Select
+              value={config.primary.provider}
+              onValueChange={(v) => updateConfig({ primary: { ...config.primary, provider: v as ProviderType } })}
+            >
+              <SelectTrigger className="bg-input-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[200]">
+                {CLOUD_PROVIDER_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="mb-1.5 block text-xs">Base URL</Label>
+            <Input
+              value={config.primary.baseUrl}
+              onChange={(e) => updateConfig({ primary: { ...config.primary, baseUrl: e.target.value } })}
+              placeholder="http://localhost:11434"
+              className="bg-input-background"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-1.5 block text-xs">API Key (optional for local servers)</Label>
+            <Input
+              type="password"
+              value={config.primary.apiKey ?? ""}
+              onChange={(e) => updateConfig({ primary: { ...config.primary, apiKey: e.target.value || undefined } })}
+              placeholder="sk-..."
+              className="bg-input-background"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-1.5 block text-xs">Model</Label>
+            <Input
+              value={config.primary.model}
+              onChange={(e) => updateConfig({ primary: { ...config.primary, model: e.target.value } })}
+              placeholder="google/gemma-4-e2b"
+              className="bg-input-background mb-2"
+            />
+            <div className="flex flex-wrap gap-1">
+              {COMMON_MODELS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                    config.primary.model === m.id
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                  }`}
+                  onClick={() => updateConfig({ primary: { ...config.primary, model: m.id } })}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card className="p-4 w-full space-y-4">
+          <p className="text-sm font-medium">Local Model (WebGPU)</p>
+          <p className="text-xs text-muted-foreground">
+            Download a model to run entirely in-browser. No API key or external server needed.
+          </p>
+
+          <div>
+            <Label className="mb-1.5 block text-xs">Model</Label>
+            <Select
+              value={currentWebLLMModelId}
+              onValueChange={(v) => updateConfig({ primary: { ...config.primary, model: v } })}
+            >
+              <SelectTrigger className="bg-input-background font-mono text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[200]">
+                {WEBLLM_CATALOG.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    <span>{m.name}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{m.desc}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            onClick={async () => {
+              setTestError("");
+              setTestMessage("Downloading... 0%");
+              setTesting(true);
+              const targetId = config.primary.model || WEBLLM_CATALOG[0].id;
+              const target = WEBLLM_CATALOG.find(m => m.id === targetId);
+              try {
+                const adapter = getAdapter("webllm") as unknown as WebLLMAdapter;
+                if (adapter.setProgressCallback) {
+                  adapter.setProgressCallback((pct: number) => {
+                    setTestMessage(`Downloading ${target?.name || "model"}... ${pct}%`);
+                    if (pct >= 100) {
+                      setTestMessage(`Download complete! ${target?.name} cached.`);
+                      setTesting(false);
+                    }
+                  });
+                }
+                await adapter.init({ ...config.primary, model: targetId, baseUrl: "" });
+                setTestMessage(`Download complete! ${target?.name} cached.`);
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                setTestError(msg);
+              } finally {
+                setTesting(false);
+              }
+            }}
+            disabled={testing}
+          >
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            Download Model ({currentWebLLMModel?.sizeGB.toFixed(1)} GB)
+          </Button>
+        </Card>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
+          {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+          Test Connection
+        </Button>
+      </div>
+
+      {testMessage && <p className="text-sm text-green-700 dark:text-green-400 text-center">{testMessage}</p>}
+      {testError && <p className="text-sm text-destructive text-center">{testError}</p>}
+    </div>
+  );
+}
+
+function ProfileStep() {
+  const { profile, setProfile, saveProfile } = useProfile();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleImportClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setProfile(text);
+        saveProfile();
+      }
+    } catch {
+      // Clipboard API may be unavailable
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-6 w-full max-w-xl mx-auto">
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold mb-2">Build Your Profile</h2>
+        <p className="text-muted-foreground text-sm">
+          Paste your resume or professional summary. This is what Artemis uses to analyze job fit.
+        </p>
+      </div>
+
+      <div className="w-full">
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs text-muted-foreground">Profile Markdown</Label>
+          <Button variant="outline" size="sm" onClick={handleImportClipboard}>
+            Import from Clipboard
+          </Button>
+        </div>
+        <textarea
+          ref={textareaRef}
+          value={profile}
+          onChange={(e) => setProfile(e.target.value)}
+          className="w-full h-64 p-3 rounded-lg border border-border bg-input-background text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder="# Your Professional Profile
+
+## Overview
+Write a brief summary of your background...
+
+## Skills
+- Skill 1
+- Skill 2
+
+## Experience
+### Job Title | Company
+*Dates*
+- Key achievement"
+        />
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center">
+        Your profile is auto-saved. You can always edit it later from the Profile page.
+      </p>
+    </div>
+  );
+}
+
+export function OnboardingWizard() {
+  const { completeOnboarding } = useOnboarding();
+  const { saveProfile } = useProfile();
+  const { activeProfileId } = useWorkspace();
+  const [step, setStep] = useState(0);
+  const [profileName, setProfileName] = useState("");
+
+  const handleNext = useCallback(() => {
+    if (step < STEPS.length - 1) {
+      setStep((s) => s + 1);
+    }
+  }, [step]);
+
+  const handlePrev = useCallback(() => {
+    if (step > 0) {
+      setStep((s) => s - 1);
+    }
+  }, [step]);
+
+  const handleComplete = useCallback(async () => {
+    saveProfile();
+    const name = profileName.trim();
+    if (name) {
+      const profile = await getProfile(activeProfileId);
+      if (profile) {
+        await saveProfileToDb({ ...profile, name: name.slice(0, 40) });
+      }
+    }
+    await completeOnboarding();
+    window.location.reload();
+  }, [completeOnboarding, saveProfile, profileName, activeProfileId]);
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+        {step === 0 && <WelcomeStep name={profileName} setName={setProfileName} />}
+        {step === 1 && <AiSetupStep />}
+        {step === 2 && <ProfileStep />}
+      </div>
+
+      <div className="border-t border-border px-6 py-4 bg-card">
+        <div className="flex items-center justify-between max-w-xl mx-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePrev}
+            disabled={step === 0}
+          >
+            ← Back
+          </Button>
+
+          <StepDots current={step} total={STEPS.length} />
+
+          {step < STEPS.length - 1 ? (
+            <Button variant="default" size="sm" onClick={handleNext}>
+              Next →
+            </Button>
+          ) : (
+            <Button variant="default" size="sm" onClick={handleComplete}>
+              Let's Go!
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

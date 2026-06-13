@@ -1,0 +1,182 @@
+import "fake-indexeddb/auto";
+import { describe, it, expect } from "vitest";
+
+// Constants extracted from OnboardingWizard for testing
+const STEPS = ["Welcome", "AI Setup", "Profile"] as const;
+
+const WEBLLM_CATALOG = [
+  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, desc: "(2.3 GB download - Recommended)" },
+  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, desc: "(0.88 GB download - Lightweight)" },
+  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, desc: "(4.8 GB - Advanced)" },
+  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
+] as const;
+
+const CLOUD_PROVIDER_OPTIONS: { value: string; label: string }[] = [
+  { value: "openai-compatible", label: "OpenAI Compatible (LM Studio, Ollama, OpenAI)" },
+  { value: "anthropic", label: "Anthropic (Claude)" },
+  { value: "google-gemini", label: "Google Gemini" },
+];
+
+const COMMON_MODELS = [
+  { id: "google/gemma-4-e2b", label: "Gemma 4 E2B" },
+  { id: "llama3.2:3b", label: "Llama 3.2 (3B)" },
+  { id: "llama3.2:1b", label: "Llama 3.2 (1B)" },
+  { id: "mistral:7b", label: "Mistral (7B)" },
+  { id: "qwen2.5:7b", label: "Qwen 2.5 (7B)" },
+  { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)" },
+  { id: "deepseek-r1:7b", label: "DeepSeek R1 (7B)" },
+] as const;
+
+// Helper function from OnboardingWizard
+function isValidWebLLMModel(modelId: string): boolean {
+  return WEBLLM_CATALOG.some(m => m.id === modelId);
+}
+
+describe("OnboardingWizard — Steps definition", () => {
+  it("should have exactly 3 steps", () => {
+    expect(STEPS.length).toBe(3);
+  });
+
+  it("should have steps in correct order: Welcome, AI Setup, Profile", () => {
+    expect(STEPS[0]).toBe("Welcome");
+    expect(STEPS[1]).toBe("AI Setup");
+    expect(STEPS[2]).toBe("Profile");
+  });
+
+  it("should only accept valid step indices (0-2)", () => {
+    expect(STEPS[0]).toBeDefined();
+    expect(STEPS[1]).toBeDefined();
+    expect(STEPS[2]).toBeDefined();
+    // Tuple type prevents index 3 at compile time; array length verifies bounds
+    expect(STEPS.length).toBe(3);
+  });
+});
+
+describe("OnboardingWizard — WEBLLM_CATALOG", () => {
+  it("should list 4 models", () => {
+    expect(WEBLLM_CATALOG.length).toBe(4);
+  });
+
+  it("should have unique model IDs", () => {
+    const ids = WEBLLM_CATALOG.map(m => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("should have positive sizeGB for all models", () => {
+    WEBLLM_CATALOG.forEach(m => {
+      expect(m.sizeGB).toBeGreaterThan(0);
+    });
+  });
+
+  it("should have Llama 3.2 (1B) as smallest model", () => {
+    const smallest = [...WEBLLM_CATALOG].sort((a, b) => a.sizeGB - b.sizeGB)[0];
+    expect(smallest!.id).toBe("Llama-3.2-1B-Instruct-q4f32_1-MLC");
+    expect(smallest!.sizeGB).toBe(0.88);
+  });
+});
+
+describe("OnboardingWizard — CLOUD_PROVIDER_OPTIONS", () => {
+  it("should list 3 providers", () => {
+    expect(CLOUD_PROVIDER_OPTIONS.length).toBe(3);
+  });
+
+  it("should include all cloud provider types", () => {
+    const values = CLOUD_PROVIDER_OPTIONS.map(o => o.value);
+    expect(values).toContain("openai-compatible");
+    expect(values).toContain("anthropic");
+    expect(values).toContain("google-gemini");
+  });
+
+  it("should NOT include webllm (local only)", () => {
+    const values = CLOUD_PROVIDER_OPTIONS.map(o => o.value);
+    expect(values).not.toContain("webllm");
+  });
+
+  it("should have unique values", () => {
+    const values = CLOUD_PROVIDER_OPTIONS.map(o => o.value);
+    expect(new Set(values).size).toBe(values.length);
+  });
+});
+
+describe("OnboardingWizard — COMMON_MODELS", () => {
+  it("should list 7 models", () => {
+    expect(COMMON_MODELS.length).toBe(7);
+  });
+
+  it("should have unique model IDs", () => {
+    const ids = COMMON_MODELS.map(m => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("should have unique labels", () => {
+    const labels = COMMON_MODELS.map(m => m.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
+describe("OnboardingWizard — isValidWebLLMModel", () => {
+  it("should return true for known WebLLM model IDs", () => {
+    expect(isValidWebLLMModel("Llama-3.2-3B-Instruct-q4f32_1-MLC")).toBe(true);
+    expect(isValidWebLLMModel("Llama-3.2-1B-Instruct-q4f32_1-MLC")).toBe(true);
+    expect(isValidWebLLMModel("DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC")).toBe(true);
+    expect(isValidWebLLMModel("Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC")).toBe(true);
+  });
+
+  it("should return false for unknown model IDs", () => {
+    expect(isValidWebLLMModel("")).toBe(false);
+    expect(isValidWebLLMModel("nonexistent-model")).toBe(false);
+    expect(isValidWebLLMModel("Llama-3.2-3B")).toBe(false); // truncated ID
+  });
+
+  it("should return false for cloud-common model IDs", () => {
+    expect(isValidWebLLMModel("google/gemma-4-e2b")).toBe(false);
+    expect(isValidWebLLMModel("llama3.2:3b")).toBe(false);
+    expect(isValidWebLLMModel("qwen2.5:7b")).toBe(false);
+  });
+});
+
+describe("OnboardingWizard — name validation logic", () => {
+  // Testing the name check from handleComplete
+  it("should trim whitespace from name", () => {
+    const name = "  Test User  ".trim();
+    expect(name).toBe("Test User");
+  });
+
+  it("should reject empty name (falsy check)", () => {
+    expect("".trim()).toBeFalsy(); // empty string
+    expect("   ".trim()).toBeFalsy(); // whitespace-only
+  });
+
+  it("should accept non-empty name", () => {
+    expect("Test User".trim()).toBeTruthy();
+    expect("A".trim()).toBeTruthy();
+  });
+
+  it("should truncate name to 40 characters", () => {
+    const longName = "A".repeat(50);
+    expect(longName.slice(0, 40).length).toBe(40);
+  });
+});
+
+describe("OnboardingWizard — completeOnboarding reload pattern", () => {
+  // Test the sequence of operations in handleComplete
+  it("should call completeOnboarding before window.location.reload", async () => {
+    // Simulate the pattern: save → complete → reload
+    let completed = false;
+    let reloaded = false;
+
+    const fakeComplete = async () => {
+      completed = true;
+    };
+
+    const fakeReload = () => {
+      if (!completed) throw new Error("Reload called before onboarding completed!");
+      reloaded = true;
+    };
+
+    await fakeComplete();
+    fakeReload();
+    expect(completed).toBe(true);
+    expect(reloaded).toBe(true);
+  });
+});

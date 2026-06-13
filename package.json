@@ -17,6 +17,7 @@
     "qa:cl": "powershell -File scripts/qa.ps1 -Suite cl-builder",
     "qa:profile": "powershell -File scripts/qa.ps1 -Suite profile",
     "qa:config": "powershell -File scripts/qa.ps1 -Suite config",
+    "qa:onboarding": "powershell -File scripts/qa.ps1 -Suite onboarding",
     "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./dist-ext",
     "qa:headless": "powershell -File scripts/qa.ps1 -Suite all -Headless"
   },

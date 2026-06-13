@@ -1,5 +1,9 @@
 # Agent Context — Artemis Quiver
 
+> **Caveman mode active.** This repo uses `/caveman full` for all agent interactions. Filler/pleasantries/hedging stripped. Fragments OK. Technical terms exact. See "Caveman Persistence" at bottom for rules.
+
+
+
 > Handoff doc. Read `README.md` + `artemis_quiver_docs/` before changes.
 
 ## TL;DR
@@ -195,3 +199,11 @@ If the overlay shows as a non-interactive rectangle:
 - Context providers own global state; components never access localStorage directly
 - Services are stateless; prompts + LLM fetch in `src/app/services/`
 - Strict TypeScript (no `any`)
+
+## Caveman Persistence
+
+`/caveman full` active every response. No revert after many turns. No filler drift. Rules:
+- Drop articles (a/an/the), filler (just/really/basically), pleasantries, hedging
+- Fragments OK. Short synonyms. Technical terms exact.
+- Drop caveman for: security warnings, irreversible actions, multi-step where order ambiguous
+- Pattern: `[thing] [action] [reason]. [next step].`
