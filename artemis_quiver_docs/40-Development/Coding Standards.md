@@ -114,3 +114,22 @@ Fallow auto-detects project structure. No config file is required. When customiz
 ```
 
 The `.fallow/` directory and `cache.bin` / `churn.bin` are gitignored automatically.
+
+---
+
+## Architectural Guardrails
+
+- **Client-side only**: No remote databases (MongoDB, PostgreSQL) or external auth (Firebase, Auth0) unless explicitly instructed.
+- **State flow**: Route profile/config ops through context provider chain. Views use `useWorkspace()`, `useConfig()`, `useProfile()` — never direct localStorage.
+- **Prompt integrity**: Instruct models to stay factual, use only profile data. No hallucinations.
+
+## UI Conventions
+
+- **Theme compliance**: All components read shadcn theme tokens (`bg-background`, `text-foreground`, `border-border`) for light/dark mode support. Use `theme.ts` for runtime class updates.
+- **Responsive layout**: Flexbox + Grid, modular components.
+- **Button tiers**: Primary (key actions, filled brand color), Secondary (helper options, outlined), Ghost (soft interactions, no border).
+
+## Performance & Safety
+
+- **Max 3 profiles**, capped at 50 analysis sessions each.
+- **LLM timeout**: 120s generation, 30s test connection. Use `AbortController` always.

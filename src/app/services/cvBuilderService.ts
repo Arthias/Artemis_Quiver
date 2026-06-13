@@ -1,7 +1,7 @@
 import type { ModelEndpoint } from "../types/llm";
 import type { ChatMessage } from "../types/llm";
 import { chatCompletion } from "./llmService";
-import { AppError, ErrorCodes } from "../utils/errors";
+import { AppError, ErrorCodes, type ErrorCode } from "../utils/errors";
 import {
   cvEditPrompt,
   selectPrompt,
