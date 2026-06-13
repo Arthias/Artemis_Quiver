@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { cpSync, mkdirSync } from "fs";
+import { cpSync, mkdirSync, readdirSync } from "fs";
 
 function figmaAssetResolver() {
   return {
@@ -34,6 +34,18 @@ function extensionAssets() {
       const srcPopup = path.resolve(out, "src/extension/popup.html");
       const dstPopup = path.resolve(out, "popup.html");
       try { cpSync(srcPopup, dstPopup, { force: true }); } catch { /* popup may be at root already */ }
+
+      // Copy i18n locale files for extension use
+      const localesDir = path.resolve(__dirname, "src/app/i18n/locales");
+      const outLocales = path.join(out, "locales");
+      mkdirSync(outLocales, { recursive: true });
+      try {
+        for (const file of readdirSync(localesDir)) {
+          if (file.endsWith(".json")) {
+            cpSync(path.join(localesDir, file), path.join(outLocales, file), { force: true });
+          }
+        }
+      } catch { /* locales dir may not exist */ }
     },
   };
 }

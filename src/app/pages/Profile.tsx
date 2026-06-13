@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "../components/ui/button";
@@ -20,6 +21,7 @@ import {
 import type { ChatMessage } from "../types/llm";
 
 export function Profile() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navState = location.state as { edit?: boolean; isNewProfile?: boolean } | null;
   const { profile, setProfile, saveProfile, exportProfile, lastSavedAt, isDirty } =
@@ -61,11 +63,11 @@ export function Profile() {
     if (!file) return;
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext !== "md" && ext !== "txt") {
-      setChatError("Only .md and .txt files are supported.");
+      setChatError(t("profile.onlyMdTxt"));
       return;
     }
     if (file.size > 500_000) {
-      setChatError("File is too large (max 500KB). Consider splitting the content.");
+      setChatError(t("profile.fileTooLarge"));
       return;
     }
     setChatError(null);
@@ -75,7 +77,7 @@ export function Profile() {
       const merged = await mergeProfileFromUpload(profile, text, getActiveEndpoint(config));
       setMergePreview(merged);
     } catch (err) {
-      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Merge failed.");
+      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : t("profile.mergeFailed"));
     } finally {
       setMerging(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -105,7 +107,7 @@ export function Profile() {
       const assistantMsg: ChatMessage = { role: "assistant", content: reply };
       persistChat([...nextMessages, assistantMsg]);
     } catch (err) {
-      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Chat failed.");
+      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : t("profile.chatFailed"));
     } finally {
       setChatLoading(false);
     }
@@ -130,9 +132,9 @@ export function Profile() {
                 <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold">Profile Management</h1>
+                <h1 className="text-xl font-semibold">{t("profile.title")}</h1>
                 <p className="text-sm text-muted-foreground">
-                  Master profile stored as Markdown in your browser
+                  {t("profile.subtitle")}
                 </p>
               </div>
             </div>
@@ -155,24 +157,24 @@ export function Profile() {
                 ) : (
                   <Upload className="w-4 h-4" />
                 )}
-                Import file
+                {t("profile.importFile")}
               </Button>
               <Button variant="outline" className="gap-2" onClick={exportProfile}>
                 <Download className="w-4 h-4" />
-                Export profile.md
+                {t("profile.exportProfile")}
               </Button>
               {(isEditing || isDirty) && (
                 <Button onClick={handleSave} className="gap-2">
                   <Save className="w-4 h-4" />
-                  Save Changes
+                  {t("profile.saveChanges")}
                 </Button>
               )}
             </div>
           </div>
           {lastSavedAt && (
             <p className="text-xs text-muted-foreground mt-2 max-w-6xl mx-auto px-6 pb-2">
-              Last saved {new Date(lastSavedAt).toLocaleString()}
-              {isDirty ? " · unsaved changes" : ""}
+              {t("profile.lastSaved")} {new Date(lastSavedAt).toLocaleString()}
+              {isDirty ? ` · ${t("profile.unsavedChanges")}` : ""}
             </p>
           )}
         </div>
@@ -183,8 +185,7 @@ export function Profile() {
           {showOnboarding && (
             <Card className="p-4 mb-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
               <p className="text-sm text-muted-foreground">
-                <strong className="text-foreground">New profile.</strong> Paste your CV or
-                resume below, or use Import file to merge an existing .md or .txt document.
+                <strong className="text-foreground">{t("profile.newProfile")}</strong> {t("profile.newProfileHint")}
               </p>
               <Button
                 variant="ghost"
@@ -192,25 +193,25 @@ export function Profile() {
                 className="mt-2"
                 onClick={() => setShowOnboarding(false)}
               >
-                Dismiss
+                {t("app.dismiss")}
               </Button>
             </Card>
           )}
 
           {mergePreview && (
             <Card className="p-4 mb-6 border-primary/30">
-              <h3 className="font-medium mb-2">Review merged profile</h3>
+              <h3 className="font-medium mb-2">{t("profile.reviewMergedProfile")}</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Confirm before replacing your current profile.
+                {t("profile.confirmMerge")}
               </p>
               <pre className="text-xs bg-muted/30 p-3 rounded max-h-48 overflow-auto whitespace-pre-wrap mb-3">
                 {mergePreview.slice(0, 2000)}
                 {mergePreview.length > 2000 ? "\n…" : ""}
               </pre>
               <div className="flex gap-2">
-                <Button onClick={applyMerge}>Apply merge</Button>
+                <Button onClick={applyMerge}>{t("profile.applyMerge")}</Button>
                 <Button variant="outline" onClick={() => setMergePreview(null)}>
-                  Cancel
+                  {t("profile.cancel")}
                 </Button>
               </div>
             </Card>
@@ -224,27 +225,27 @@ export function Profile() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList>
-              <TabsTrigger value="editor" className="gap-2">
-                <FileText className="w-4 h-4" />
-                Profile Editor
-              </TabsTrigger>
-              <TabsTrigger value="chat" className="gap-2">
-                <Sparkles className="w-4 h-4" />
-                AI Assistant
-              </TabsTrigger>
+                <TabsTrigger value="editor" className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  {t("profile.profileEditor")}
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  {t("profile.aiAssistant")}
+                </TabsTrigger>
             </TabsList>
 
             <TabsContent value="editor" className="space-y-4">
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-lg font-semibold">Master Profile</h2>
+                    <h2 className="text-lg font-semibold">{t("profile.masterProfile")}</h2>
                     <p className="text-sm text-muted-foreground">
-                      Edit your professional profile in Markdown format
+                      {t("profile.editHint")}
                     </p>
                   </div>
                   <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
-                    {isEditing ? "Preview" : "Edit"}
+                    {isEditing ? t("profile.preview") : t("profile.edit")}
                   </Button>
                 </div>
 
@@ -269,8 +270,7 @@ export function Profile() {
                 <div className="flex-1 overflow-auto space-y-4 mb-4">
                   {messages.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      Ask the assistant to improve sections, add metrics, or reorganize your
-                      profile. When it suggests an update, use Apply to editor.
+                      {t("profile.assistantHint")}
                     </p>
                   ) : (
                     messages.map((msg, i) => (
@@ -293,7 +293,7 @@ export function Profile() {
                             className="mt-2"
                             onClick={() => applyAssistantProfile(msg.content)}
                           >
-                            Apply to editor
+                            {t("profile.applyToEditor")}
                           </Button>
                         )}
                       </div>
@@ -302,7 +302,7 @@ export function Profile() {
                   {chatLoading && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Thinking...
+                      {t("profile.thinking")}
                     </div>
                   )}
                 </div>
@@ -316,7 +316,7 @@ export function Profile() {
                         handleChatSend();
                       }
                     }}
-                    placeholder="Ask to improve your profile..."
+                    placeholder={t("profile.chatPlaceholder")}
                     className="resize-none bg-input-background"
                     rows={2}
                   />
@@ -324,7 +324,7 @@ export function Profile() {
                     onClick={handleChatSend}
                     disabled={!chatInput.trim() || chatLoading}
                   >
-                    Send
+                    {t("profile.send")}
                   </Button>
                 </div>
               </Card>

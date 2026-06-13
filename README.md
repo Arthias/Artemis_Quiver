@@ -42,7 +42,7 @@ Extracts job content from any page. LinkedIn: MutationObserver + boundary trimmi
 
 ## Tech stack
 
-React 18, Vite, Tailwind CSS v4, shadcn/ui, React Router v7, Dexie.js (IndexedDB). Provider adapter layer: OpenAI-compatible, Anthropic Claude, Google Gemini. vitest + jsdom (102 tests).
+React 18, Vite, Tailwind CSS v4, shadcn/ui, React Router v7, Dexie.js (IndexedDB). Provider adapter layer: OpenAI-compatible, Anthropic Claude, Google Gemini. i18n via react-i18next (en + es). vitest + jsdom (138 tests).
 
 ## Docs
 

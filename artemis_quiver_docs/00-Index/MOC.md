@@ -29,6 +29,7 @@ last_updated: 2026-06-13
 - [[../40-Development/Coding Standards|Coding Standards]]
 - [[../40-Development/Documentation Guidelines|Documentation Guidelines]]
 - [[../40-Development/Attributions|Attributions]]
+- [[../40-Development/i18n|i18n Multi-Language Support]]
 
 ## Testing & Validation
 - [[../50-Testing/Test Cases|Test Cases & QA Scenarios]]

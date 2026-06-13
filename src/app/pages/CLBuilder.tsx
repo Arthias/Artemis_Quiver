@@ -17,22 +17,24 @@ import { downloadMarkdown } from "../utils/download";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 import { parsePlainTextToCLContent } from "../utils/clParser";
+import { useTranslation } from "react-i18next";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 
-const CL_SUGGESTIONS = [
-  { title: "Make it more formal", hint: "Corporate tone", prompt: "Make the tone more formal and professional for a corporate setting." },
-  { title: "Make it shorter", hint: "About 3 paragraphs", prompt: "Shorten the letter to roughly three concise paragraphs." },
-  { title: "Add enthusiasm", hint: "Show more excitement", prompt: "Add more enthusiasm while staying professional." },
-  { title: "Emphasize leadership", hint: "Highlight management", prompt: "Emphasize leadership and team management experience." },
-  { title: "Focus on tech stack", hint: "Mention technologies", prompt: "Highlight relevant technical skills and stack from the profile." },
-];
-
 export function CLBuilder() {
+  const { t } = useTranslation();
   const { config } = useConfig();
   const { profile } = useProfile();
   const { consumeHandoff } = useBuilderHandoff();
+
+  const CL_SUGGESTIONS = [
+    { title: t("cl.suggestionFormal"), hint: t("cl.suggestionFormalHint"), prompt: "Make the tone more formal and professional for a corporate setting." },
+    { title: t("cl.suggestionShorter"), hint: t("cl.suggestionShorterHint"), prompt: "Shorten the letter to roughly three concise paragraphs." },
+    { title: t("cl.suggestionEnthusiasm"), hint: t("cl.suggestionEnthusiasmHint"), prompt: "Add more enthusiasm while staying professional." },
+    { title: t("cl.suggestionLeadership"), hint: t("cl.suggestionLeadershipHint"), prompt: "Emphasize leadership and team management experience." },
+    { title: t("cl.suggestionTechStack"), hint: t("cl.suggestionTechStackHint"), prompt: "Highlight relevant technical skills and stack from the profile." },
+  ];
 
   const [jobDescription, setJobDescription] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -87,7 +89,7 @@ export function CLBuilder() {
         setRetryableError(err.retryable ? err : null);
         setError(err.userMessage);
       } else {
-        setError(err instanceof Error ? err.message : "Cover letter generation failed.");
+        setError(err instanceof Error ? err.message : t("cl.generationFailed"));
       }
     } finally {
       setGenerating(false);
@@ -107,7 +109,7 @@ export function CLBuilder() {
       const validated = CLContentSchema.parse(parsed);
       setClContent(validated);
     } catch (err) {
-      setError(err instanceof AppError ? err.userMessage : (err instanceof Error ? err.message : "Could not apply changes."));
+      setError(err instanceof AppError ? err.userMessage : (err instanceof Error ? err.message : t("cl.applyChangesFailed")));
       setChatMessage(text);
     } finally {
       setChatLoading(false);
@@ -190,9 +192,9 @@ export function CLBuilder() {
                 <Mail className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold">Cover Letter Builder</h1>
+                <h1 className="text-xl font-semibold">{t("cl.title")}</h1>
                 <p className="text-sm text-muted-foreground">
-                  Create compelling cover letters with AI assistance
+                  {t("cl.subtitle")}
                 </p>
               </div>
             </div>
@@ -200,15 +202,15 @@ export function CLBuilder() {
               <div className="flex gap-2">
                 <Button onClick={copyPlainText} variant="outline" className="gap-2" size="sm">
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? "Copied!" : "Copy text"}
+                  {copied ? t("cl.copied") : t("cl.copyText")}
                 </Button>
                 <Button onClick={exportAsMarkdown} variant="outline" className="gap-2" size="sm">
                   <Download className="w-4 h-4" />
-                  Export .md
+                  {t("cl.exportMd")}
                 </Button>
                 <Button onClick={printPDF} className="gap-2 bg-gradient-to-r from-blue-600 to-cyan-600" size="sm">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
-                  Print / PDF
+                  {t("cl.printPdf")}
                 </Button>
               </div>
             )}
@@ -228,35 +230,35 @@ export function CLBuilder() {
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
                 <Card className="p-6">
-                  <h2 className="text-lg font-semibold mb-4">Generate Cover Letter</h2>
+                  <h2 className="text-lg font-semibold mb-4">{t("cl.generateCl")}</h2>
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">Company Name (Optional)</label>
+                        <label className="block text-sm font-medium mb-2">{t("cl.companyName")}</label>
                         <Input
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
-                          placeholder="e.g., Google"
+                          placeholder={t("cl.companyPlaceholder")}
                           className="bg-input-background border-border"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">Position (Optional)</label>
+                        <label className="block text-sm font-medium mb-2">{t("cl.position")}</label>
                         <Input
                           value={position}
                           onChange={(e) => setPosition(e.target.value)}
-                          placeholder="e.g., Senior Engineer"
+                          placeholder={t("cl.positionPlaceholder")}
                           className="bg-input-background border-border"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Job Description (Optional)</label>
+                      <label className="block text-sm font-medium mb-2">{t("cl.jobDescription")}</label>
                       <Textarea
                         value={jobDescription}
                         onChange={(e) => setJobDescription(e.target.value)}
-                        placeholder="Paste job description for a tailored cover letter, or leave empty for a general letter..."
+                        placeholder={t("cl.clPlaceholder")}
                         className="min-h-[200px] resize-none bg-input-background border-border"
                       />
                     </div>
@@ -270,12 +272,12 @@ export function CLBuilder() {
                       {generating ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Generating Cover Letter...
+                          {t("cl.generatingCl")}
                         </>
                       ) : (
                         <>
                           <Wand2 className="w-4 h-4" />
-                          Generate Cover Letter
+                          {t("cl.generateClButton")}
                         </>
                       )}
                     </Button>

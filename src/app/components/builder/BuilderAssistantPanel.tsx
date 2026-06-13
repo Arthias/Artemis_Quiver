@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Textarea } from "../ui/textarea";
 import { Card } from "../ui/card";
 import { Sparkles } from "lucide-react";
@@ -28,15 +29,16 @@ export function BuilderAssistantPanel({
   accentClass = "text-purple-500",
   panelBg = "bg-muted/30",
 }: BuilderAssistantPanelProps) {
+  const { t } = useTranslation();
   return (
     <div className={`w-96 flex flex-col ${panelBg} border-l border-border`}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-2">
           <Sparkles className={`w-5 h-5 ${accentClass}`} />
-          <h3 className="font-semibold">AI Assistant</h3>
+          <h3 className="font-semibold">{t("builder.aiAssistant")}</h3>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Request modifications to your document
+          {t("builder.assistantDesc")}
         </p>
       </div>
 
@@ -63,7 +65,7 @@ export function BuilderAssistantPanel({
               onSubmit();
             }
           }}
-          placeholder="Request changes..."
+          placeholder={t("builder.chatPlaceholder")}
           className="resize-none bg-input-background border-border text-sm"
           rows={3}
           disabled={chatLoading}
@@ -74,7 +76,7 @@ export function BuilderAssistantPanel({
           className="w-full mt-2"
           size="sm"
         >
-          {chatLoading ? "Applying..." : "Apply Changes"}
+          {chatLoading ? t("builder.applying") : t("builder.applyChanges")}
         </Button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   Target,
   User,
@@ -21,11 +22,11 @@ import { formatRelativeTime } from "../../utils/relativeTime";
 import { ProfileSwitcherModal } from "../workspace/ProfileSwitcherModal";
 
 const navigation = [
-  { name: "Analysis Hub", href: "/", icon: Target },
-  { name: "Profile", href: "/profile", icon: User },
-  { name: "CV Builder", href: "/cv-builder", icon: FileText },
-  { name: "Cover Letter", href: "/cl-builder", icon: Mail },
-  { name: "Settings", href: "/config", icon: Settings },
+  { nameKey: "nav.analysisHub", href: "/", icon: Target },
+  { nameKey: "nav.profile", href: "/profile", icon: User },
+  { nameKey: "nav.cvBuilder", href: "/cv-builder", icon: FileText },
+  { nameKey: "nav.coverLetter", href: "/cl-builder", icon: Mail },
+  { nameKey: "nav.settings", href: "/config", icon: Settings },
 ];
 
 function sessionTitle(jobPosting: string, title?: string, summary?: string): string {
@@ -36,6 +37,7 @@ function sessionTitle(jobPosting: string, title?: string, summary?: string): str
 }
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { sessions, loadSession, clearCurrent, activeSessionId, draftJobPosting, setDraftJobPosting } = useAnalysis();
   const { activeProfile, activeInitials } = useWorkspace();
@@ -75,8 +77,8 @@ export function Sidebar() {
               <Target className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="font-semibold text-sidebar-foreground">Artemis Quiver</h1>
-              <p className="text-xs text-muted-foreground">Job Hunting Engine</p>
+              <h1 className="font-semibold text-sidebar-foreground">{t("app.name")}</h1>
+              <p className="text-xs text-muted-foreground">{t("app.tagline")}</p>
             </div>
           </div>
           <Button
@@ -85,7 +87,7 @@ export function Sidebar() {
             onClick={handleNewAnalysis}
           >
             <Plus className="w-4 h-4" />
-            New Analysis
+            {t("app.newAnalysis")}
           </Button>
         </div>
 
@@ -105,7 +107,7 @@ export function Sidebar() {
                 }
               >
                 <item.icon className="w-4 h-4" />
-                <span className="text-sm">{item.name}</span>
+                <span className="text-sm">{t(item.nameKey)}</span>
               </NavLink>
             ))}
           </nav>
@@ -116,7 +118,7 @@ export function Sidebar() {
         {pendingImports.length > 0 && (
           <div className="px-3 pt-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1">
-              Pending
+              {t("app.pending")}
             </h3>
             <div className="space-y-1">
               {pendingImports.map((p) => (
@@ -150,13 +152,13 @@ export function Sidebar() {
         <div className="flex-1 overflow-hidden flex flex-col">
           <div className="px-4 py-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Recent Analyses
+              {t("app.recentAnalyses")}
             </h3>
           </div>
           <ScrollArea className="flex-1 px-3">
             <div className="space-y-1 pb-4">
               {sessions.length === 0 ? (
-                <p className="text-xs text-muted-foreground px-3 py-2">No analyses yet</p>
+                <p className="text-xs text-muted-foreground px-3 py-2">{t("app.noAnalysesYet")}</p>
               ) : (
                 sessions.map((session) => (
                   <button
@@ -199,7 +201,7 @@ export function Sidebar() {
               <p className="text-sm font-medium text-sidebar-foreground truncate">
                 {activeProfile.name}
               </p>
-              <p className="text-xs text-muted-foreground">Switch profile</p>
+              <p className="text-xs text-muted-foreground">{t("app.switchProfile")}</p>
             </div>
           </button>
         </div>

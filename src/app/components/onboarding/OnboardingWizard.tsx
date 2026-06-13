@@ -21,20 +21,22 @@ import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../../type
 import { testConnection } from "../../services/llmService";
 import { getAdapter } from "../../services/provider/registry";
 import type { WebLLMAdapter } from "../../services/provider/WebLLMAdapter";
+import { useTranslation } from "react-i18next";
+import { LanguageSelector } from "../ui/LanguageSelector";
 
 const STEPS = ["Welcome", "AI Setup", "Profile"];
 
 const WEBLLM_CATALOG = [
-  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, desc: "(2.3 GB download - Recommended)" },
-  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, desc: "(0.88 GB download - Lightweight)" },
-  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, desc: "(4.8 GB - Advanced)" },
-  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
+  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, descKey: "config.webllmRecommended" },
+  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, descKey: "config.webllmLite" },
+  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, descKey: "config.webllmAdvanced" },
+  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, descKey: "config.webllmExpert" },
 ] as const;
 
-const CLOUD_PROVIDER_OPTIONS: { value: ProviderType; label: string }[] = [
-  { value: "openai-compatible", label: "OpenAI Compatible (LM Studio, Ollama, OpenAI)" },
-  { value: "anthropic", label: "Anthropic (Claude)" },
-  { value: "google-gemini", label: "Google Gemini" },
+const CLOUD_PROVIDER_OPTIONS: { value: ProviderType; labelKey: string }[] = [
+  { value: "openai-compatible", labelKey: "config.openaiCompatible" },
+  { value: "anthropic", labelKey: "config.anthropic" },
+  { value: "google-gemini", labelKey: "config.googleGemini" },
 ];
 
 const COMMON_MODELS = [
@@ -63,43 +65,49 @@ function StepDots({ current, total }: { current: number; total: number }) {
 }
 
 function WelcomeStep({ name, setName }: { name: string; setName: (v: string) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center text-center gap-6 max-w-lg mx-auto">
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
         <span className="text-2xl font-bold text-white">AQ</span>
       </div>
-      <h2 className="text-2xl font-semibold">Welcome to Artemis Quiver</h2>
+      <h2 className="text-2xl font-semibold">{t("onboarding.welcome")}</h2>
       <p className="text-muted-foreground">
-        Your AI-powered job application companion. Analyze job postings, build tailored CVs and cover letters, and get match scoring — all from your browser.
+        {t("onboarding.welcomeDesc")}
       </p>
 
       <div className="w-full text-left">
-        <Label className="mb-1.5 block text-sm">What's your name?</Label>
+        <Label className="mb-1.5 block text-sm">{t("onboarding.whatsYourName")}</Label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Enter your name"
+          placeholder={t("onboarding.namePlaceholder")}
           className="bg-input-background text-center text-lg py-6"
           autoFocus
         />
       </div>
 
+      <div className="flex items-center gap-2 mt-2">
+        <Label className="text-sm whitespace-nowrap">{t("config.language")}:</Label>
+        <LanguageSelector />
+      </div>
+
       <div className="grid grid-cols-2 gap-4 w-full mt-2">
         <div className="border rounded-lg p-4 text-left">
-          <p className="text-sm font-medium mb-1">Job Analysis</p>
-          <p className="text-xs text-muted-foreground">Paste a job posting, get detailed analysis and match scoring against your profile.</p>
+          <p className="text-sm font-medium mb-1">{t("onboarding.jobAnalysis")}</p>
+          <p className="text-xs text-muted-foreground">{t("onboarding.jobAnalysisDesc")}</p>
         </div>
         <div className="border rounded-lg p-4 text-left">
-          <p className="text-sm font-medium mb-1">CV & Cover Letters</p>
-          <p className="text-xs text-muted-foreground">Generate tailored CVs and cover letters using your profile and AI.</p>
+          <p className="text-sm font-medium mb-1">{t("onboarding.cvLetters")}</p>
+          <p className="text-xs text-muted-foreground">{t("onboarding.cvLettersDesc")}</p>
         </div>
         <div className="border rounded-lg p-4 text-left">
-          <p className="text-sm font-medium mb-1">Chrome Extension</p>
-          <p className="text-xs text-muted-foreground">Get match scores on job sites with the optional browser extension.</p>
+          <p className="text-sm font-medium mb-1">{t("onboarding.chromeExt")}</p>
+          <p className="text-xs text-muted-foreground">{t("onboarding.chromeExtDesc")}</p>
         </div>
         <div className="border rounded-lg p-4 text-left">
-          <p className="text-sm font-medium mb-1">100% Local</p>
-          <p className="text-xs text-muted-foreground">All data stored in your browser. No servers, no accounts required.</p>
+          <p className="text-sm font-medium mb-1">{t("onboarding.local100")}</p>
+          <p className="text-xs text-muted-foreground">{t("onboarding.local100Desc")}</p>
         </div>
       </div>
     </div>
@@ -107,6 +115,7 @@ function WelcomeStep({ name, setName }: { name: string; setName: (v: string) => 
 }
 
 function AiSetupStep() {
+  const { t } = useTranslation();
   const { config, updateConfig } = useConfig();
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
@@ -142,7 +151,7 @@ function AiSetupStep() {
       setTestMessage(`OK: "${reply}"`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setTestError(msg || "Test failed.");
+      setTestError(msg || t("config.testFailed"));
     } finally {
       setTesting(false);
     }
@@ -151,9 +160,9 @@ function AiSetupStep() {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-xl mx-auto">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Connect Your AI</h2>
+        <h2 className="text-2xl font-semibold mb-2">{t("onboarding.connectAI")}</h2>
         <p className="text-muted-foreground text-sm">
-          Choose how Artemis connects to an AI model for analysis and generation.
+          {t("onboarding.connectAIDesc")}
         </p>
       </div>
 
@@ -176,7 +185,7 @@ function AiSetupStep() {
             }
           }}
         >
-          ☁️ Cloud
+          ☁️ {t("config.cloud")}
         </button>
         <button
           type="button"
@@ -201,16 +210,16 @@ function AiSetupStep() {
             }
           }}
         >
-          💻 Local
+          💻 {t("config.local")}
         </button>
       </div>
 
       {config.providerMode === "cloud" ? (
         <Card className="p-4 w-full space-y-4">
-          <p className="text-sm font-medium">Primary Model</p>
+          <p className="text-sm font-medium">{t("onboarding.primaryModel")}</p>
 
           <div>
-            <Label className="mb-1.5 block text-xs">Provider</Label>
+            <Label className="mb-1.5 block text-xs">{t("onboarding.provider")}</Label>
             <Select
               value={config.primary.provider}
               onValueChange={(v) => updateConfig({ primary: { ...config.primary, provider: v as ProviderType } })}
@@ -220,14 +229,14 @@ function AiSetupStep() {
               </SelectTrigger>
               <SelectContent className="z-[200]">
                 {CLOUD_PROVIDER_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  <SelectItem key={opt.value} value={opt.value}>{t(opt.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           <div>
-            <Label className="mb-1.5 block text-xs">Base URL</Label>
+            <Label className="mb-1.5 block text-xs">{t("onboarding.baseUrl")}</Label>
             <Input
               value={config.primary.baseUrl}
               onChange={(e) => updateConfig({ primary: { ...config.primary, baseUrl: e.target.value } })}
@@ -237,7 +246,7 @@ function AiSetupStep() {
           </div>
 
           <div>
-            <Label className="mb-1.5 block text-xs">API Key (optional for local servers)</Label>
+            <Label className="mb-1.5 block text-xs">{t("onboarding.apiKey")}</Label>
             <Input
               type="password"
               value={config.primary.apiKey ?? ""}
@@ -248,11 +257,11 @@ function AiSetupStep() {
           </div>
 
           <div>
-            <Label className="mb-1.5 block text-xs">Model</Label>
+            <Label className="mb-1.5 block text-xs">{t("onboarding.model")}</Label>
             <Input
               value={config.primary.model}
               onChange={(e) => updateConfig({ primary: { ...config.primary, model: e.target.value } })}
-              placeholder="google/gemma-4-e2b"
+              placeholder={t("onboarding.model")}
               className="bg-input-background mb-2"
             />
             <div className="flex flex-wrap gap-1">
@@ -275,13 +284,13 @@ function AiSetupStep() {
         </Card>
       ) : (
         <Card className="p-4 w-full space-y-4">
-          <p className="text-sm font-medium">Local Model (WebGPU)</p>
+          <p className="text-sm font-medium">{t("onboarding.localModelWebGpu")}</p>
           <p className="text-xs text-muted-foreground">
-            Download a model to run entirely in-browser. No API key or external server needed.
+            {t("config.localModelDesc")}
           </p>
 
           <div>
-            <Label className="mb-1.5 block text-xs">Model</Label>
+            <Label className="mb-1.5 block text-xs">{t("onboarding.model")}</Label>
             <Select
               value={currentWebLLMModelId}
               onValueChange={(v) => updateConfig({ primary: { ...config.primary, model: v } })}
@@ -293,7 +302,7 @@ function AiSetupStep() {
                 {WEBLLM_CATALOG.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     <span>{m.name}</span>
-                    <span className="text-muted-foreground text-xs ml-2">{m.desc}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{t(m.descKey)}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -305,7 +314,7 @@ function AiSetupStep() {
             size="sm"
             onClick={async () => {
               setTestError("");
-              setTestMessage("Downloading... 0%");
+              setTestMessage(t("config.downloadZero"));
               setTesting(true);
               const targetId = config.primary.model || WEBLLM_CATALOG[0].id;
               const target = WEBLLM_CATALOG.find(m => m.id === targetId);
@@ -313,15 +322,15 @@ function AiSetupStep() {
                 const adapter = getAdapter("webllm") as unknown as WebLLMAdapter;
                 if (adapter.setProgressCallback) {
                   adapter.setProgressCallback((pct: number) => {
-                    setTestMessage(`Downloading ${target?.name || "model"}... ${pct}%`);
+                    setTestMessage(t("config.downloadProgress", { name: target?.name || "model", pct }));
                     if (pct >= 100) {
-                      setTestMessage(`Download complete! ${target?.name} cached.`);
+                      setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
                       setTesting(false);
                     }
                   });
                 }
                 await adapter.init({ ...config.primary, model: targetId, baseUrl: "" });
-                setTestMessage(`Download complete! ${target?.name} cached.`);
+                setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
               } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
                 setTestError(msg);
@@ -332,7 +341,7 @@ function AiSetupStep() {
             disabled={testing}
           >
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Download Model ({currentWebLLMModel?.sizeGB.toFixed(1)} GB)
+            {t("onboarding.downloadModel")} ({currentWebLLMModel?.sizeGB.toFixed(1)} GB)
           </Button>
         </Card>
       )}
@@ -340,7 +349,7 @@ function AiSetupStep() {
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
           {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          Test Connection
+          {t("onboarding.testConnection")}
         </Button>
       </div>
 
@@ -351,6 +360,7 @@ function AiSetupStep() {
 }
 
 function ProfileStep() {
+  const { t } = useTranslation();
   const { profile, setProfile, saveProfile } = useProfile();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -369,17 +379,17 @@ function ProfileStep() {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-xl mx-auto">
       <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Build Your Profile</h2>
+        <h2 className="text-2xl font-semibold mb-2">{t("onboarding.buildProfile")}</h2>
         <p className="text-muted-foreground text-sm">
-          Paste your resume or professional summary. This is what Artemis uses to analyze job fit.
+          {t("onboarding.buildProfileDesc")}
         </p>
       </div>
 
       <div className="w-full">
         <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs text-muted-foreground">Profile Markdown</Label>
+          <Label className="text-xs text-muted-foreground">{t("onboarding.profileMarkdown")}</Label>
           <Button variant="outline" size="sm" onClick={handleImportClipboard}>
-            Import from Clipboard
+            {t("onboarding.importClipboard")}
           </Button>
         </div>
         <textarea
@@ -387,30 +397,19 @@ function ProfileStep() {
           value={profile}
           onChange={(e) => setProfile(e.target.value)}
           className="w-full h-64 p-3 rounded-lg border border-border bg-input-background text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-primary/50"
-          placeholder="# Your Professional Profile
-
-## Overview
-Write a brief summary of your background...
-
-## Skills
-- Skill 1
-- Skill 2
-
-## Experience
-### Job Title | Company
-*Dates*
-- Key achievement"
+          placeholder={t("onboarding.profilePlaceholder")}
         />
       </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        Your profile is auto-saved. You can always edit it later from the Profile page.
+        {t("onboarding.profileAutoSaved")}
       </p>
     </div>
   );
 }
 
 export function OnboardingWizard() {
+  const { t } = useTranslation();
   const { completeOnboarding } = useOnboarding();
   const { saveProfile } = useProfile();
   const { activeProfileId } = useWorkspace();
@@ -458,18 +457,18 @@ export function OnboardingWizard() {
             onClick={handlePrev}
             disabled={step === 0}
           >
-            ← Back
+            {t("onboarding.back")}
           </Button>
 
           <StepDots current={step} total={STEPS.length} />
 
           {step < STEPS.length - 1 ? (
             <Button variant="default" size="sm" onClick={handleNext}>
-              Next →
+              {t("onboarding.next")}
             </Button>
           ) : (
             <Button variant="default" size="sm" onClick={handleComplete}>
-              Let's Go!
+              {t("onboarding.letsGo")}
             </Button>
           )}
         </div>

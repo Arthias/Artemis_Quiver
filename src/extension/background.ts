@@ -1,5 +1,8 @@
+import { loadTranslations, t } from "./i18n";
 import logger from "../app/services/logger";
 import { AppError, ErrorCodes } from "../app/utils/errors";
+
+loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
 
 const STORAGE_KEY = "artemis:overlayConfig";
 
@@ -87,7 +90,7 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
     
     if (existingTabs.length === 0) {
       console.log("[Artemis] App tab not found");
-      sendResponse({ error: "Artemis Quiver is not open. Open it first to generate a fingerprint." });
+      sendResponse({ error: t("background.appNotOpen") });
       return;
     }
     
@@ -98,7 +101,7 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
     
     if (!profileMarkdown) {
       console.log("[Artemis] No profile markdown in response");
-      sendResponse({ error: "Could not read profile data." });
+      sendResponse({ error: t("background.noProfileData") });
       return;
     }
     
@@ -111,7 +114,7 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
       sendResponse({ fingerprint });
     } else {
       console.log("[Artemis] LLM returned null fingerprint");
-      sendResponse({ error: "Failed to generate fingerprint." });
+      sendResponse({ error: t("background.fingerprintFailed") });
     }
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
@@ -143,13 +146,13 @@ async function generateFingerprintFromProfile(markdown: string, overlayCfg: any,
 async function callRemoteLLM(prompt: string, config: any): Promise<string> {
   const endpoint = resolveEndpoint(config);
   if (!endpoint) {
-    throw new AppError(ErrorCodes.LLM_CONFIG_MISSING, "No LLM endpoint configured");
+    throw new AppError(ErrorCodes.LLM_CONFIG_MISSING, t("background.noEndpoint"));
   }
   
   const body = {
     model: endpoint.model,
     messages: [
-      { role: "system", content: "You are a text summarizer." },
+      { role: "system", content: t("background.youAreSummarizer") },
       { role: "user", content: prompt },
     ],
     temperature: 0.3,
@@ -168,7 +171,7 @@ async function callRemoteLLM(prompt: string, config: any): Promise<string> {
     });
 
     if (!resp.ok) {
-      throw new AppError(ErrorCodes.LLM_API_FAILURE, `LLM request failed: ${resp.status} for ${endpoint.baseUrl}/v1/chat/completions`);
+      throw new AppError(ErrorCodes.LLM_API_FAILURE, t("background.llmRequestFailed", { status: resp.status.toString(), url: endpoint.baseUrl + "/v1/chat/completions" }));
     }
     
     const json = await resp.json() as any;
@@ -196,7 +199,7 @@ function resolveEndpoint(config: any) {
     const ep = config.primaryEndpoint || { baseUrl: "http://localhost:11434", model: "google/gemma-4-e2b" };
     return { ...ep, baseUrl: fixExtensionBaseUrl(ep.baseUrl) };
   }
-  throw new Error("No LLM endpoint configured");
+  throw new Error(t("background.noEndpoint"));
 }
 
 async function saveFingerprint(fingerprint: string, appResp?: any) {

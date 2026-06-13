@@ -6,6 +6,21 @@ last_updated: 2026-06-13
 
 # Changelog
 
+## [v3.3.0] - June 13, 2026
+
+**i18n Foundation (Multi-Language Support)**
+
+- **Framework**: `react-i18next` + `i18next-browser-languagedetector`
+- **Auto-discovery**: `import.meta.glob` loads locale JSON files in `src/app/i18n/locales/`
+- **Type-safe**: `i18next.d.ts` augmentation for compile-time key validation
+- **Languages**: `en.json` (~250 keys) + `es.json` (full Spanish)
+- **Phase 1** — Setup: init, type augmentation, AppProviders wrap, `main.tsx` lang attr
+- **Phase 2 (partial)** — String extraction: Sidebar, AnalysisHub, Profile, Config (developer mode), Builder components, ThemeConfigPanel, ProfileSwitcherModal
+- **Phase 3** — Prompts: `locale` field in `PromptContext`, rendering engine `lang` param + locale-keyed section headings
+- **Phase 4** — Errors: `userMessageKey` field on `ErrorRecord`
+- **Phase 5** — Extension: `src/extension/i18n.ts` loader, locale JSON copy in `vite.ext.config.ts`
+- **Intl Utils**: `src/app/utils/formatters.ts` with `formatDate()` / `formatCurrency()` via `Intl` API
+
 ## [v3.2.0] - June 10, 2026
 
 **Strategic shift:** Local-first. Removed desktop app plans. Extension as primary delivery.

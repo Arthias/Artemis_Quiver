@@ -14,7 +14,7 @@ No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces c
 | `npm run dev` | Vite dev server (localhost:5173) |
 | `npm run build` | Production build |
 | `npm run build:ext` | Chrome extension → `dist-ext/` |
-| `npm run test` | vitest (102 tests, 11 files) |
+| `npm run test` | vitest (138 tests, 13 files) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:all` | Full auto-QA → `qa-reports/` |
 
@@ -67,6 +67,22 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 - vitest + jsdom + `fake-indexeddb`
 - Test files colocated: `src/**/*.test.{ts,tsx}`
 - No setup files; globals enabled
+
+## i18n (Internationalization)
+
+**Stack**: `react-i18next` + `i18next-browser-languagedetector`. Init in `src/app/i18n/index.ts`.
+
+**Locale files**: `src/app/i18n/locales/{en,es}.json` auto-discovered via `import.meta.glob`. Add new language → drop a `xx.json` file, no manual imports.
+
+**Type safety**: `src/app/i18n/i18next.d.ts` augments `react-i18next` `CustomTypeOptions`. Mistyped keys fail at `tsc --noEmit`.
+
+**Key convention**: `page.component.element` — e.g., `analysis.analyze`, `profile.saveChanges`, `config.llmProvider`.
+
+**Extension**: Lightweight `src/extension/i18n.ts` loader for service worker/overlay (no React). Locale JSON copied to `dist-ext/locales/` during `build:ext`.
+
+**Rendering Engine**: `renderCVToHTML()` / `renderCLToHTML()` accept optional `lang` param. Section headings use locale-keyed map in `renderingEngine.ts`.
+
+**Phase 2 complete** — All 7 listed files now use `t()` calls. Overlay uses inline `ot()` helper (cannot import in MV3 content script).
 
 ## Common Pitfalls
 
