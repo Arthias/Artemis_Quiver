@@ -37,8 +37,9 @@ export interface ErrorLogRecord {
   stack?: string;
   source: "app" | "overlay" | "popup" | "background" | "llm" | "unknown";
   code?: string;
+  numericCode?: number;
   severity?: string;
-  metadata?: string;
+  metadata?: Record<string, unknown>;
 }
 
 class ArtemisQuiverDB extends Dexie {
@@ -59,6 +60,12 @@ class ArtemisQuiverDB extends Dexie {
       analysisSessions: "id, profileId, createdAt",
       metadata: "key",
       errorLogs: "id, timestamp, source, code",
+    });
+    this.version(3).stores({
+      profiles: "id, name, lastUsedAt",
+      analysisSessions: "id, profileId, createdAt",
+      metadata: "key",
+      errorLogs: "id, timestamp, source, code, numericCode",
     });
   }
 }

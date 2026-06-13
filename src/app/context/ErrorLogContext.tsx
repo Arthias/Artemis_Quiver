@@ -91,17 +91,18 @@ export function ErrorLogProvider({ children }: { children: ReactNode }) {
     const isExt = typeof chrome !== "undefined" && chrome.runtime?.id;
     if (!isExt) return;
 
-    const msgHandler = (msg: { type: string; payload: { timestamp?: string; message: string; stack?: string; source?: string; code?: string; severity?: string; metadata?: Record<string, unknown> } }) => {
+    const msgHandler = (msg: { type: string; payload: { timestamp?: string; message: string; stack?: string; source?: string; code?: string; numericCode?: number; severity?: string; metadata?: Record<string, unknown> } }) => {
       if (msg.type === "ARTEMIS_LOG_ERROR") {
         const p = msg.payload;
         void addLog({
           timestamp: p.timestamp || new Date().toISOString(),
           message: p.message,
           stack: p.stack,
-          source: p.source || "unknown",
+          source: (p.source as ErrorLogRecord["source"]) || "unknown",
           code: p.code,
+          numericCode: p.numericCode,
           severity: p.severity || "ERROR",
-          metadata: p.metadata,
+          metadata: p.metadata ?? undefined,
         });
       }
     };

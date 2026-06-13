@@ -1,4 +1,5 @@
 import { AppError, ErrorNumeric } from "../utils/errors";
+import { addErrorLog } from "../db/errorLogRepo";
 
 type Logger = {
   error: (err: Error | AppError, context?: Record<string, any>) => void;
@@ -23,6 +24,20 @@ const logger: Logger = {
         timestamp: new Date().toISOString(),
       }
     );
+
+    addErrorLog({
+      timestamp: new Date().toISOString(),
+      message,
+      stack: err.stack,
+      source: domain.toLowerCase() as any,
+      code: codeStr,
+      numericCode,
+      severity,
+      metadata: context,
+    }).catch((e) => {
+      // Fallback: log to console if DB write fails
+      console.error("[Logger] Failed to persist error to DB:", e);
+    });
   },
   info: (message, context) => {
     console.log(`[INFO] ${message}`, context ?? "");
