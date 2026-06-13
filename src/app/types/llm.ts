@@ -36,15 +36,15 @@ export interface ChatMessage {
 export const DEFAULT_PRIMARY_ENDPOINT: ModelEndpoint = {
   label: "Primary",
   provider: "openai-compatible",
-  baseUrl: "/api/lmstudio",
-  model: "google/gemma-4-e2b",
+  baseUrl: "",
+  model: "",
   temperature: 0.7,
 };
 
 export const DEFAULT_SECONDARY_ENDPOINT: ModelEndpoint = {
   label: "Secondary",
   provider: "openai-compatible",
-  baseUrl: "/api/ollama",
-  model: "llama3.2:3b",
+  baseUrl: "",
+  model: "",
   temperature: 0.7,
 };

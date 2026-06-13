@@ -15,6 +15,7 @@ $suites = @{
   "profile"        = "qa_prompts\verify-profile.md"
   "config"         = "qa_prompts\verify-config.md"
   "ext-overlay"    = "qa_prompts\verify-extension-overlay.md"
+  "onboarding"     = "qa_prompts\verify-onboarding.md"
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
