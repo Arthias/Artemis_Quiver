@@ -1,4 +1,5 @@
-/// <reference types="chrome" />
+import logger from "../app/services/logger";
+import { AppError, ErrorCodes } from "../app/utils/errors";
 
 const STORAGE_KEY = "artemis:overlayConfig";
 
@@ -83,27 +84,27 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
   try {
     const appUrl = chrome.runtime.getURL("index.html");
     const existingTabs = await chrome.tabs.query({ url: appUrl });
-
+    
     if (existingTabs.length === 0) {
       console.log("[Artemis] App tab not found");
       sendResponse({ error: "Artemis Quiver is not open. Open it first to generate a fingerprint." });
       return;
     }
-
+    
     const tabId = existingTabs[0]!.id!;
     const profileResp = await chrome.tabs.sendMessage(tabId, { type: "ARTEMIS_REQUEST_PROFILE" });
     console.log("[Artemis] Profile response:", profileResp);
     const profileMarkdown: string | undefined = (profileResp as any)?.profileMarkdown;
-
+    
     if (!profileMarkdown) {
       console.log("[Artemis] No profile markdown in response");
       sendResponse({ error: "Could not read profile data." });
       return;
     }
-
+    
     const overlayCfg = await getConfig();
     const fingerprint = await generateFingerprintFromProfile(profileMarkdown, overlayCfg, profileResp);
-
+    
     if (fingerprint) {
       await saveFingerprint(fingerprint, profileResp);
       console.log("[Artemis] Fingerprint generated:", fingerprint.slice(0, 60) + "...");
@@ -113,36 +114,38 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
       sendResponse({ error: "Failed to generate fingerprint." });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[Artemis] Fingerprint generation error:", err);
-    relayErrorToApp({ message: msg, stack: err instanceof Error ? err.stack : undefined, source: "background", timestamp: new Date().toISOString() });
-    sendResponse({ error: msg });
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { source: "generate_fingerprint" });
+    sendResponse({ error: err instanceof Error ? err.message : String(err) });
   }
 }
+
 
 async function generateFingerprintFromProfile(markdown: string, overlayCfg: any, appResp: any): Promise<string | null> {
   const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${markdown.slice(0, 4000)}`;
   const endpoints: any = {};
   if (appResp?.primaryEndpoint) endpoints.primaryEndpoint = appResp.primaryEndpoint;
   if (appResp?.secondaryEndpoint) endpoints.secondaryEndpoint = appResp.secondaryEndpoint;
-
+  
   try {
     if (overlayCfg.fallbackMode === "primary" || overlayCfg.fallbackMode === "secondary") {
       return await callRemoteLLM(prompt, { ...overlayCfg, ...endpoints });
     }
     return await callRemoteLLM(prompt, { ...endpoints, fallbackMode: "primary" });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[Artemis] LLM call failed for fingerprint:", err);
-    relayErrorToApp({ message: msg, stack: err instanceof Error ? err.stack : undefined, source: "llm", timestamp: new Date().toISOString() });
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { source: "fingerprint_gen" });
     return null;
   }
 }
 
+
 async function callRemoteLLM(prompt: string, config: any): Promise<string> {
   const endpoint = resolveEndpoint(config);
-  if (!endpoint) throw new Error("No LLM endpoint configured");
-
+  if (!endpoint) {
+    throw new AppError(ErrorCodes.LLM_CONFIG_MISSING, "No LLM endpoint configured");
+  }
+  
   const body = {
     model: endpoint.model,
     messages: [
@@ -152,23 +155,33 @@ async function callRemoteLLM(prompt: string, config: any): Promise<string> {
     temperature: 0.3,
     max_tokens: 600,
   };
+  
+  try {
+    const resp = await fetch(endpoint.baseUrl + "/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
+    });
 
-  const resp = await fetch(endpoint.baseUrl + "/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!resp.ok) throw new Error(`LLM request failed: ${resp.status} for ${endpoint.baseUrl}/v1/chat/completions`);
-
-  const json = await resp.json() as any;
-  const msg = json?.choices?.[0]?.message;
-  return msg?.content?.trim() || msg?.reasoning_content?.trim() || "";
+    if (!resp.ok) {
+      throw new AppError(ErrorCodes.LLM_API_FAILURE, `LLM request failed: ${resp.status} for ${endpoint.baseUrl}/v1/chat/completions`);
+    }
+    
+    const json = await resp.json() as any;
+    const msg = json?.choices?.[0]?.message;
+    const content = msg?.content?.trim() || msg?.reasoning_content?.trim() || "";
+    return content;
+  } catch (err) {
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { endpoint: endpoint.baseUrl });
+    throw appError;
+  }
 }
+
 
 function resolveEndpoint(config: any) {
   if (config.fallbackMode === "primary" || !config.fallbackMode) {
@@ -215,12 +228,12 @@ async function handleLLMScore(
     const score = await callRemoteLLM(prompt, { ...config, fallbackMode: payload.fallbackMode });
     sendResponse({ score });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[Artemis] LLM score error:", err);
-    relayErrorToApp({ message: msg, stack: err instanceof Error ? err.stack : undefined, source: "background", timestamp: new Date().toISOString() });
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { source: "llm_score" });
     sendResponse({ score: null });
   }
 }
+
 
 // ── Extract page content and import (relayed from overlay) ──
 async function handleExtractAndImport(tabId: number) {
@@ -231,7 +244,7 @@ async function handleExtractAndImport(tabId: number) {
     });
     const data = result?.result as { title: string; text: string; url: string } | undefined;
     if (!data?.text) return;
-
+    
     const appUrl = chrome.runtime.getURL("index.html");
     const existingTabs = await chrome.tabs.query({ url: appUrl });
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
@@ -241,20 +254,18 @@ async function handleExtractAndImport(tabId: number) {
       await chrome.storage.session.set({ "artemis:pendingImport": data });
     }
   } catch (err) {
-    console.error("[Artemis] Extract & import failed:", err);
-    relayErrorToApp({
-      message: String(err), stack: err instanceof Error ? err.stack : undefined,
-      source: "background", timestamp: new Date().toISOString(),
-    });
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_IMPORT_FAILED, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { source: "handleExtractAndImport" });
   }
 }
+
 
 // ── Import job (relayed from overlay content script) ──
 async function handleImportJob(payload: { title: string; text: string; url: string }) {
   try {
     const appUrl = chrome.runtime.getURL("index.html");
     const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
-
+    
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
       await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_IMPORT", payload });
       await chrome.tabs.update(existingTabs[0].id, { active: true });
@@ -265,10 +276,11 @@ async function handleImportJob(payload: { title: string; text: string; url: stri
       await chrome.storage.session.set({ "artemis:pendingImports": existing });
     }
   } catch (err) {
-    console.error("[Artemis] Import job failed:", err);
-    relayErrorToApp({ message: String(err), stack: err instanceof Error ? err.stack : undefined, source: "background", timestamp: new Date().toISOString() });
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_IMPORT_FAILED, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { source: "import_job" });
   }
 }
+
 
 async function handleOpenApp() {
   try {
@@ -280,9 +292,11 @@ async function handleOpenApp() {
       await chrome.tabs.create({ url: appUrl });
     }
   } catch (err) {
-    console.error("[Artemis] Open app failed:", err);
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_OPEN_APP_FAILED, err instanceof Error ? err.message : String(err));
+    logger.error(appError, { source: "open_app" });
   }
 }
+
 
 // ── Error relay (overlay/popup → app tab) ──
 async function relayErrorToApp(payload: any) {

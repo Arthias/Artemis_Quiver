@@ -26,7 +26,7 @@ Standards and best practices for maintaining the Artemis Quiver docs vault.
 ### File Naming
 - Use **Title Case with Spaces**: `Context Providers.md`, `AI Prompt Templates.md`
 - Avoid underscores, snake_case, or ALL_CAPS in filenames
-- Each numbered folder must have an `_Index.md` that lists all files with descriptions
+- Navigation via `00-Index/MOC.md` (single source of truth, no per-folder index files)
 
 ### File Placement
 - Every file belongs inside a numbered folder — no orphan files at the vault root
@@ -112,9 +112,9 @@ Entries in `90-Meta/CHANGELOG.md` use semantic versioning with this structure:
 
 ## When Adding New Documentation
 
-1. Place the file in the appropriate numbered folder
-2. Add YAML frontmatter
-3. Add a wiki link in that folder's `_Index.md`
-4. Add a wiki link in `00-Index/MOC.md`
-5. Use consistent Title Case with Spaces naming
-6. Review for broken links before committing
+1. Place file in appropriate numbered folder
+2. Add YAML frontmatter with `tags`, `status`, `last_updated`
+3. Add wiki link in `00-Index/MOC.md`
+4. Use Title Case with Spaces naming
+5. Check for broken links before committing
+6. Update `last_updated` in existing docs when modifying
