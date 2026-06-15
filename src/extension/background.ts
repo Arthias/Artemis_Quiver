@@ -1,5 +1,4 @@
 import { loadTranslations, t } from "./i18n";
-import logger from "../app/services/logger";
 import { AppError, ErrorCodes } from "../app/utils/errors";
 
 loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
@@ -118,7 +117,7 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
     }
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { source: "generate_fingerprint" });
+    console.error("[Artemis] generate_fingerprint:", appError);
     sendResponse({ error: err instanceof Error ? err.message : String(err) });
   }
 }
@@ -137,7 +136,7 @@ async function generateFingerprintFromProfile(markdown: string, overlayCfg: any,
     return await callRemoteLLM(prompt, { ...endpoints, fallbackMode: "primary" });
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { source: "fingerprint_gen" });
+    console.error("[Artemis] fingerprint_gen:", appError);
     return null;
   }
 }
@@ -180,7 +179,7 @@ async function callRemoteLLM(prompt: string, config: any): Promise<string> {
     return content;
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { endpoint: endpoint.baseUrl });
+    console.error("[Artemis] LLM call failed for", endpoint.baseUrl, appError);
     throw appError;
   }
 }
@@ -232,7 +231,7 @@ async function handleLLMScore(
     sendResponse({ score });
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { source: "llm_score" });
+    console.error("[Artemis] llm_score:", appError);
     sendResponse({ score: null });
   }
 }
@@ -258,7 +257,7 @@ async function handleExtractAndImport(tabId: number) {
     }
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_IMPORT_FAILED, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { source: "handleExtractAndImport" });
+    console.error("[Artemis] handleExtractAndImport:", appError);
   }
 }
 
@@ -280,7 +279,7 @@ async function handleImportJob(payload: { title: string; text: string; url: stri
     }
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_IMPORT_FAILED, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { source: "import_job" });
+    console.error("[Artemis] import_job:", appError);
   }
 }
 
@@ -296,7 +295,7 @@ async function handleOpenApp() {
     }
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_OPEN_APP_FAILED, err instanceof Error ? err.message : String(err));
-    logger.error(appError, { source: "open_app" });
+    console.error("[Artemis] open_app:", appError);
   }
 }
 
