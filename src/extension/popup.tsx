@@ -38,6 +38,7 @@ const defaultConfig: OverlayConfig = {
 };
 
 function Popup() {
+  const [translationsReady, setTranslationsReady] = useState(false);
   const [config, setConfig] = useState<OverlayConfig>(defaultConfig);
   const [newSite, setNewSite] = useState("");
   const [editingSite, setEditingSite] = useState<string | null>(null);
@@ -59,7 +60,9 @@ function Popup() {
   }, []);
 
   useEffect(() => {
-    loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
+    loadTranslations(navigator.language.split("-")[0] || "en")
+      .catch(() => {})
+      .finally(() => setTranslationsReady(true));
   }, []);
 
   useEffect(() => {
@@ -124,6 +127,10 @@ function Popup() {
       setGenError(err instanceof Error ? err.message : "Unknown error");
     }
   }, [saveConfig]);
+
+  if (!translationsReady) {
+    return <div style={{ padding: 16, color: "#64748b", fontSize: 14 }}>Loading...</div>;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>

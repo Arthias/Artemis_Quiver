@@ -23,7 +23,7 @@ export function LanguageSelector() {
       <SelectTrigger className="w-[140px] bg-input-background">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="z-[200]">
         {LANGUAGES.map((lang) => (
           <SelectItem key={lang.value} value={lang.value}>
             {t(lang.labelKey)}
