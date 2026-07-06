@@ -1,7 +1,7 @@
 ---
 tags: [api, llm, local, providers]
 status: completed
-last_updated: 2026-06-04
+last_updated: 2026-07-06
 ---
 
 # 🔌 LLM Integration — Provider Architecture
@@ -22,7 +22,7 @@ Artemis Quiver uses a **provider adapter architecture** to support multiple LLM 
 | Together AI | `openai-compatible` | `OpenAICompatibleAdapter` | Required | `GET /v1/models` |
 | Anthropic Claude | `anthropic` | `AnthropicAdapter` | Required | N/A (manual input) |
 | Google Gemini | `google-gemini` | `GeminiAdapter` | Required | `GET /v1/models` |
-| WebLLM (future) | `webllm` | Not yet implemented | N/A | Downloaded models |
+| WebLLM | `webllm` | Implemented (v3.4.0 — SW mode) | N/A | Downloaded models |
 
 ---
 
@@ -43,6 +43,17 @@ Adapters are resolved by [registry.ts](file:///F:/Dev/Artemis_Quiver/src/app/ser
 ```typescript
 function getAdapter(provider: ProviderType): ProviderAdapter
 ```
+
+### WebLLM Service Worker Mode
+
+WebLLM uses `CreateServiceWorkerMLCEngine()` instead of `CreateMLCEngine()`:
+
+- **Service Worker**: `webllm-sw.ts` registers a `ServiceWorkerMLCEngineHandler` — model inference runs in a dedicated SW, keeping the main thread free
+- **Persistence**: Model survives page navigations within the SPA
+- **Fallback**: Falls to `CreateMLCEngine()` if SW registration fails (incognito, embedded views)
+- **Status events**: Adapter emits `WebLLMStatusEvent` for loading progress, ready, downgrade, fatal, unloaded
+
+See [[../40-Development/WebLLM Stability and Service Worker]] for full implementation guide.
 
 ---
 
