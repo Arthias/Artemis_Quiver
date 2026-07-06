@@ -6,6 +6,23 @@ last_updated: 2026-06-13
 
 # Changelog
 
+## [v3.4.0] - July 6, 2026
+
+**WebLLM Stability Implementation Plan (Documentation)**
+
+- **Architecture Decision:** `CreateServiceWorkerMLCEngine()` over `CreateMLCEngine()` — SW mode for non-blocking GPU ops + page-navigation persistence
+- **Phase L2:** Auto-downgrade on device-lost replacing permanent `_deviceLost` flag
+- **Phase L3:** VRAM detection via `navigator.deviceMemory` + GPU adapter heuristics, auto-sizing model selection
+- **Phase L5:** Download UX with cancel, unload, cache checks
+- **Phase L1:** Dedicated `webllm-sw.ts` service worker with `ServiceWorkerMLCEngineHandler`
+- **Phase L4:** Streaming support via `streamCompletion()` on ProviderAdapter interface
+- **Phase L6:** Mock-based test suite for all adapter crash/recovery paths
+- **Catalog unification:** `WEBLLM_MODELS` as single source (delete `WEBLLM_CATALOG` duplicates)
+- **Sprint 9d scoped:** General LLM stability — dead code `chatCompletionWithFallback()`, retry, timeout propagation, TS error fixes
+
+**New doc:** `40-Development/WebLLM Stability and Service Worker.md`
+**Updated:** `20-APIs/Local LLM Integration.md`, `60-Roadmap/Plan.md`, `00-Index/MOC.md`
+
 ## [v3.3.0] - June 13, 2026
 
 **i18n Foundation (Multi-Language Support)**

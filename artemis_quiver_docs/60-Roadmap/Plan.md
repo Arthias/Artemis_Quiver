@@ -24,7 +24,9 @@ last_updated: 2026-06-13
 | Sprint 7 | Chrome Extension — One-Click Job Import | Done |
 | Sprint 8 | LLM Multi-Provider Config | Done |
 | Sprint 9a | Code Revision & Cleanup | Done |
-| **Sprint 9b** | **Direct Download — WebLLM In-Browser Models** | **HIGH PRIORITY** |
+| **Sprint 9b** | **Direct Download — WebLLM In-Browser Models** | **Done** |
+| **Sprint 9c** | **WebLLM Stability — Crash Recovery & SW Mode** | **HIGH PRIORITY** |
+| **Sprint 9d** | **General LLM Stability — Retry, Timeouts & Tests** | **HIGH PRIORITY** |
 | Sprint 10 | Application Kanban — Pipeline Tracker | Planned |
 | Sprint 11 | Outreach Generator — Cold Messages | Planned |
 | Sprint 12 | Interview Simulator — STAR + Technical | Future |
@@ -37,18 +39,86 @@ Let non-technical users download and run a model directly in the browser via Web
 
 **Goal:** First-run onboarding offers to download a small model (~2-4 GB) that runs in-browser via WebGPU.
 
-**Key files:** `WebLLMAdapter.ts`, `ModelDownloadFlow.tsx`, catalog config
+**Completed:**
+- `WebLLMAdapter.ts` created with `CreateMLCEngine()` wrapper
+- Provider type `"webllm"` registered in registry
+- `@mlc-ai/web-llm` installed (v0.2.84)
+- Model catalog: `WEBLLM_MODELS` (13 models) in adapter, `WEBLLM_CATALOG` duplicate in Config/Onboarding (needs unification — see Sprint 9c)
+- Download UI with progress bar via `initProgressCallback`
+- First-run onboarding: Local vs Remote choice in OnboardingWizard
+- Extension CSP updated with `"wasm-unsafe-eval"`
+- "Delete model" button (Cache API)
+
+**Remaining (folded into Sprint 9c):**
+- VRAM estimation before load
+- Handle page reload, device lost, quota exceeded gracefully
+- Reliable download cancellation
+
+---
+
+## Sprint 9c — WebLLM Stability (High Priority)
+
+Production-hardening for in-browser WebLLM mode. 6 phases, implemented in order L2 → L3 → L5 → L1 → L4 → L6.
+
+**Goal:** Eliminate "device lost = dead" UX, auto-size models to available VRAM, add streaming, cancel downloads, integrate service worker.
+
+**Key doc:** [[../40-Development/WebLLM Stability and Service Worker]]
 
 **Tasks:**
-- [ ] Install `@mlc-ai/web-llm`, create `WebLLMAdapter.ts` wrapping `CreateMLCEngine()`
-- [ ] Add `"wasm-unsafe-eval"` to extension CSP
-- [ ] Model catalog: Llama 3.2 3B (default, ~2.3 GB), 1B (fallback, ~880 MB), Qwen2.5 3B, Phi-3.5-mini
-- [ ] Download UI with progress bar via `initProgressCallback`
-- [ ] Cache in browser Cache API, "Delete model" button
-- [ ] VRAM estimation before load
-- [ ] First-run onboarding: Local (download) vs Remote (server) choice
-- [ ] Register `"webllm"` as provider type in registry
-- [ ] Handle page reload, quota exceeded, load failure gracefully
+### L2 — Auto-Downgrade on Device Lost
+- [ ] Replace `_deviceLost: boolean` with `_consecutiveFailures: number` + `_maxFailuresBeforeDowngrade`
+- [ ] On device-lost: increment counter, at threshold decrement `_currentModelIndex`, call `engine.reload()` with smaller model
+- [ ] Emit `WebLLMStatusEvent` for downgrade/fatal events
+- [ ] Add `onStatus()` subscription to adapter interface
+- [ ] Unify model catalogs: delete duplicate `WEBLLM_CATALOG` in Config.tsx + OnboardingWizard.tsx, import `WEBLLM_MODELS` from adapter
+- [ ] Update `formatTestError()` in Config.tsx
+
+### L3 — VRAM Detection & Auto-Sizing
+- [ ] Create `src/app/utils/vram.ts` — `estimateAvailableVRAM()`, `recommendModel()`
+- [ ] `navigator.deviceMemory` + `GPUAdapter.requestAdapterInfo()` heuristics
+- [ ] `isIntegratedGPU()` heuristic (Qualcomm/ARM/Apple Silicon vs NVIDIA/AMD/Intel Arc)
+- [ ] Default model change: 3B → 1B in `defaults.ts`
+- [ ] VRAM info display in Config.tsx WebLLM panel
+- [ ] Auto-select best model in OnboardingWizard.tsx
+
+### L5 — Download UX & Cancellation
+- [ ] `WebLLMAdapter.unload()`, `interruptDownload()`, `hasModelInCache()`
+- [ ] Pre-download confirmation: model size, VRAM estimate, safety note
+- [ ] Cancel button + confirmation dialog during download
+- [ ] "Unload Model" and "Delete Model" buttons
+
+### L1 — Service Worker Integration
+- [ ] Create `webllm-sw.ts` — `ServiceWorkerMLCEngineHandler` in dedicated SW
+- [ ] Create `sw-utils.ts` — `registerWebLLMSW()` with fallback
+- [ ] Update `WebLLMAdapter.ts` — constructor flag `useServiceWorker`, SW init path
+- [ ] Update `vite.config.ts` — SW build entry
+- [ ] Update `vite.ext.config.ts` — copy SW to `dist-ext/`
+- [ ] Update `registry.ts` — `useServiceWorker: true` by default
+
+### L4 — Streaming Support
+- [ ] Add optional `streamCompletion()` to `ProviderAdapter` interface
+- [ ] Implement in `WebLLMAdapter` via `chatCompletion({ stream: true })`
+- [ ] Wire `llmService.streamCompletion()` with fallback to `chatCompletion()`
+
+### L6 — Testing
+- [ ] Create `src/app/services/provider/__tests__/WebLLMAdapter.test.ts`
+- [ ] Mock `@mlc-ai/web-llm`, `navigator.serviceWorker`, `navigator.gpu`
+- [ ] Test all scenarios: init, device-lost, auto-downgrade, streaming, unload, VRAM, SW fallback
+- [ ] Add `llmService.test.ts` tests for `streamCompletion()` routing
+
+---
+
+## Sprint 9d — General LLM Stability (High Priority)
+
+**Goal:** Fix dead code, add retry logic, propagate timeouts, fix pre-existing TS errors.
+
+**Tasks:**
+- [ ] Audit `chatCompletionWithFallback()` — currently dead code, never called. Decide: remove or wire into routing
+- [ ] Add retry logic to `jobAnalysisService.ts` (currently zero retry on failure)
+- [ ] Propagate `timeoutMs` from service layer → adapter layer (currently hardcoded per-adapter)
+- [ ] Fix pre-existing TS errors: `clParser.ts` undefined checks, `migrations.ts` `ThemeMode` assertion, `WorkspaceProfileContext.tsx` possibly undefined vars
+- [ ] Create `provider/__tests__/` directory with adapter-level tests for OpenAICompatibleAdapter, AnthropicAdapter, GeminiAdapter
+- [ ] Add test for `listModels()` error handling (connection refused, auth failure, timeout)
 
 ---
 
