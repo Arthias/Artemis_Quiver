@@ -21,6 +21,7 @@ import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/l
 import type { ThemeMode } from "../types/workspace";
 import { DEFAULT_JOB_SITES } from "../../extension/job-sites";
 import { getAdapter } from "../services/provider/registry";
+import { WEBLLM_MODELS } from "../services/provider/WebLLMAdapter";
 import {
   Dialog,
   DialogContent,
@@ -323,13 +324,9 @@ function ExtensionSettingsCard() {
   );
 }
 
-/** Models that @mlc-ai/web-llm actually supports */
-const WEBLLM_CATALOG = [
-  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, descKey: "config.webllmRecommended" },
-  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, descKey: "config.webllmLite" },
-  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, descKey: "config.webllmAdvanced" },
-  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, descKey: "config.webllmExpert" },
-] as const;
+function isValidWebLLMModel(modelId: string): boolean {
+  return WEBLLM_MODELS.some(m => m.id === modelId);
+}
 
 /** Common models for non-WebLLM providers (Ollama, LM Studio, etc.) */
 const COMMON_MODELS = [
@@ -346,14 +343,9 @@ const COMMON_MODELS = [
 function formatTestError(raw: unknown, tFn: (key: string) => string): string {
   const msg = raw instanceof Error ? raw.message : raw != null ? String(raw) : "";
   if (/device lost|device removed|requestDevice|DXGI_ERROR/i.test(msg)) {
-    return tFn("config.webgpuCrash");
+    return "WebGPU device crashed. Auto-downgrading to a smaller model. Close other GPU-heavy tabs, restart Chrome if this persists.";
   }
   return msg || tFn("config.testFailed");
-}
-
-/** Check if a model ID is in our known catalog (reject stale IDs from prior versions) */
-function isValidWebLLMModel(modelId: string): boolean {
-  return WEBLLM_CATALOG.some(m => m.id === modelId);
 }
 
 function isWebLLMCached(modelId: string): boolean {
@@ -407,6 +399,20 @@ function ModelEndpointCard({
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
+  const [vramInfo, setVramInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (endpoint.provider === "webllm" && navigator.gpu) {
+      import("../utils/vram").then(({ estimateAvailableVRAM, recommendModel }) => {
+        estimateAvailableVRAM().then(info => {
+          const modelName = recommendModel(info).name;
+          setVramInfo(`~${info.vramEstimate.toFixed(1)} GB VRAM (${info.vendor}) — recommend: ${modelName}`);
+        }).catch(() => setVramInfo(null));
+      });
+    } else {
+      setVramInfo(null);
+    }
+  }, [endpoint.provider]);
 
   const handleTest = async () => {
     setTestMessage(null);
@@ -456,7 +462,7 @@ function ModelEndpointCard({
               onValueChange={(v) => {
                 const patch: Partial<ModelEndpoint> = { provider: v as ProviderType };
                 if (v === "webllm" && !isValidWebLLMModel(endpoint.model || "")) {
-                  patch.model = WEBLLM_CATALOG[0].id;
+                  patch.model = WEBLLM_MODELS[0].id;
                 }
                 onChange(patch);
               }}
@@ -504,62 +510,83 @@ function ModelEndpointCard({
             {endpoint.provider === "webllm" ? (
               <div className="flex flex-col gap-2">
                 <Select
-                  value={isValidWebLLMModel(endpoint.model || "") ? endpoint.model! : WEBLLM_CATALOG[0].id}
+                  value={isValidWebLLMModel(endpoint.model || "") ? endpoint.model! : WEBLLM_MODELS[0].id}
                   onValueChange={(v) => onChange({ model: v })}
                 >
                   <SelectTrigger className="bg-input-background font-mono text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {WEBLLM_CATALOG.map((m, i) => (
+                    {WEBLLM_MODELS.map((m, i) => (
                       <SelectItem key={i} value={m.id} className="text-xs">
                         <div className="flex items-center justify-between w-full gap-3">
                           <span>{m.name}</span>
-                          <span className="text-muted-foreground text-xs">{t(m.descKey)}</span>
+                          <span className="text-muted-foreground text-xs">{'descKey' in m ? t(m.descKey) : `(${m.sizeGB.toFixed(1)} GB)`}</span>
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
+                {vramInfo && (
+                  <p className="text-xs text-muted-foreground">{vramInfo}</p>
+                )}
+
                 <div className="flex items-center gap-2">
-                  {!isWebLLMCached(endpoint.model || WEBLLM_CATALOG[0].id) ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={async () => {
-                        setTestError("");
-                        setTestMessage(t("config.downloadZero"));
-                        setTesting(true);
-                        const targetId = endpoint.model || WEBLLM_CATALOG[0].id;
-                        const target = WEBLLM_CATALOG.find(m => m.id === targetId);
-                        try {
-                          const adapter = getAdapter("webllm") as any;
-                          if (adapter.setProgressCallback) {
-                            adapter.setProgressCallback((pct: number) => {
-                              setTestMessage(t("config.downloadProgress", { name: target?.name || "model", pct }));
-                              if (pct >= 100) {
-                                setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
-                                setWebLLMCache(targetId, true);
-                                setTesting(false);
-                              }
-                            });
+                  {!isWebLLMCached(endpoint.model || WEBLLM_MODELS[0].id) ? (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={async () => {
+                          setTestError("");
+                          setTestMessage(t("config.downloadZero"));
+                          setTesting(true);
+                          const targetId = endpoint.model || WEBLLM_MODELS[0].id;
+                          const target = WEBLLM_MODELS.find(m => m.id === targetId);
+                          try {
+                            const adapter = getAdapter("webllm") as any;
+                            if (adapter.setProgressCallback) {
+                              adapter.setProgressCallback((pct: number) => {
+                                setTestMessage(t("config.downloadProgress", { name: target?.name || "model", pct }));
+                                if (pct >= 100) {
+                                  setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
+                                  setWebLLMCache(targetId, true);
+                                  setTesting(false);
+                                }
+                              });
+                            }
+                            await adapter.init({ ...endpoint, model: targetId, baseUrl: "" });
+                            setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
+                            setWebLLMCache(targetId, true);
+                            setTesting(false);
+                          } catch (err: any) {
+                            setTestError(formatTestError(err, t));
+                            setTesting(false);
                           }
-                          await adapter.init({ ...endpoint, model: targetId, baseUrl: "" });
-                          setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
-                          setWebLLMCache(targetId, true);
-                          setTesting(false);
-                        } catch (err: any) {
-                          setTestError(formatTestError(err, t));
-                          setTesting(false);
-                        }
-                      }}
-                      disabled={testing}
-                    >
-                      {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      📥 {t("config.downloadModel")}
-                      {(() => { const m = WEBLLM_CATALOG.find(mm => mm.id === (endpoint.model || WEBLLM_CATALOG[0].id)); return m ? ` (${m.sizeGB.toFixed(1)} GB)` : ""; })()}
-                    </Button>
+                        }}
+                        disabled={testing}
+                      >
+                        {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        📥 {t("config.downloadModel")}
+                        {(() => { const m = WEBLLM_MODELS.find(mm => mm.id === (endpoint.model || WEBLLM_MODELS[0].id)); return m ? ` (${m.sizeGB.toFixed(1)} GB)` : ""; })()}
+                      </Button>
+                      {testing && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const adapter = getAdapter("webllm") as any;
+                            if (adapter.interruptDownload) await adapter.interruptDownload();
+                            setTesting(false);
+                            setTestMessage("Download cancelled.");
+                          }}
+                        >
+                          {t("config.cancel")}
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <div className="flex items-center gap-3 text-sm">
                       <span className="text-emerald-600 font-medium">✅ {t("config.modelCached")}</span>
@@ -567,8 +594,10 @@ function ModelEndpointCard({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setWebLLMCache(endpoint.model || WEBLLM_CATALOG[0].id, false);
+                        onClick={async () => {
+                          const adapter = getAdapter("webllm") as any;
+                          if (adapter.unload) await adapter.unload();
+                          setWebLLMCache(endpoint.model || WEBLLM_MODELS[0].id, false);
                           setTestMessage(t("config.modelDeletedFromCache"));
                         }}
                       >
@@ -847,11 +876,11 @@ export function Config() {
   useEffect(() => {
     let dirty = false;
     if (config.primary.provider === "webllm" && !isValidWebLLMModel(config.primary.model || "")) {
-      updateConfig({ primary: { ...config.primary, model: WEBLLM_CATALOG[0].id } });
+      updateConfig({ primary: { ...config.primary, model: WEBLLM_MODELS[0].id } });
       dirty = true;
     }
     if (config.secondary.provider === "webllm" && !isValidWebLLMModel(config.secondary.model || "")) {
-      updateConfig({ secondary: { ...config.secondary, model: WEBLLM_CATALOG[0].id } });
+      updateConfig({ secondary: { ...config.secondary, model: WEBLLM_MODELS[0].id } });
       dirty = true;
     }
     if (dirty) {
@@ -973,7 +1002,7 @@ export function Config() {
                       primary: {
                         label: "Primary",
                         provider: "webllm",
-                        model: WEBLLM_CATALOG[0].id,
+                        model: WEBLLM_MODELS[0].id,
                         baseUrl: "",
                         temperature: 0.7,
                       },
