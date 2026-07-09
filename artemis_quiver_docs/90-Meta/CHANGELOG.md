@@ -20,7 +20,12 @@ last_updated: 2026-06-13
 - **Catalog unification:** `WEBLLM_MODELS` as single source (delete `WEBLLM_CATALOG` duplicates)
 - **Sprint 9d scoped:** General LLM stability — dead code `chatCompletionWithFallback()`, retry, timeout propagation, TS error fixes
 
-**New doc:** `40-Development/WebLLM Stability and Service Worker.md`
+**CV Rendering Fixes:**
+- Removed duplicate "Technical Proficiencies" heading from skills section
+- Added `orphans: 3; widows: 3` to print styles to prevent last-page orphan lines
+- Added `@page { margin: 0.5in }` for consistent print margins
+
+**New doc:** `40-Development/WebLLM Stability and Crash Recovery.md`
 **Updated:** `20-APIs/Local LLM Integration.md`, `60-Roadmap/Plan.md`, `00-Index/MOC.md`
 
 ## [v3.3.0] - June 13, 2026

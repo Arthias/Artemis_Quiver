@@ -66,26 +66,28 @@ Production-hardening for in-browser WebLLM mode. 6 phases, implemented in order 
 
 **Tasks:**
 ### L2 — Auto-Downgrade on Device Lost
-- [ ] Replace `_deviceLost: boolean` with `_consecutiveFailures: number` + `_maxFailuresBeforeDowngrade`
-- [ ] On device-lost: increment counter, at threshold decrement `_currentModelIndex`, call `engine.reload()` with smaller model
-- [ ] Emit `WebLLMStatusEvent` for downgrade/fatal events
-- [ ] Add `onStatus()` subscription to adapter interface
-- [ ] Unify model catalogs: delete duplicate `WEBLLM_CATALOG` in Config.tsx + OnboardingWizard.tsx, import `WEBLLM_MODELS` from adapter
-- [ ] Update `formatTestError()` in Config.tsx
+- [x] Replace `_deviceLost: boolean` with `_consecutiveFailures: number` + `_maxFailuresBeforeDowngrade`
+- [x] On device-lost: increment counter, at threshold decrement `_currentModelIndex`, call `engine.reload()` with smaller model
+- [x] Emit `WebLLMStatusEvent` for downgrade/fatal events
+- [x] Add `onStatus()` subscription to adapter interface
+- [x] Unify model catalogs: delete duplicate `WEBLLM_CATALOG` in Config.tsx + OnboardingWizard.tsx, import `WEBLLM_MODELS` from adapter
+- [x] Update `formatTestError()` in Config.tsx
 
 ### L3 — VRAM Detection & Auto-Sizing
-- [ ] Create `src/app/utils/vram.ts` — `estimateAvailableVRAM()`, `recommendModel()`
-- [ ] `navigator.deviceMemory` + `GPUAdapter.requestAdapterInfo()` heuristics
-- [ ] `isIntegratedGPU()` heuristic (Qualcomm/ARM/Apple Silicon vs NVIDIA/AMD/Intel Arc)
-- [ ] Default model change: 3B → 1B in `defaults.ts`
-- [ ] VRAM info display in Config.tsx WebLLM panel
-- [ ] Auto-select best model in OnboardingWizard.tsx
+- [x] Create `src/app/utils/vram.ts` — `estimateAvailableVRAM()`, `recommendModel()`
+- [x] `navigator.deviceMemory` + `GPUAdapter.requestAdapterInfo()` heuristics
+- [x] `isIntegratedGPU()` heuristic (Qualcomm/ARM/Apple Silicon vs NVIDIA/AMD/Intel Arc)
+- [x] Default model change: 3B → 1B in `defaults.ts`
+- [x] VRAM info display in Config.tsx WebLLM panel
+- [x] Auto-select best model in OnboardingWizard.tsx
 
 ### L5 — Download UX & Cancellation
-- [ ] `WebLLMAdapter.unload()`, `interruptDownload()`, `hasModelInCache()`
+
+### L5 — Download UX & Cancellation
+- [x] `WebLLMAdapter.unload()`, `interruptDownload()`, `hasModelInCache()`
 - [ ] Pre-download confirmation: model size, VRAM estimate, safety note
-- [ ] Cancel button + confirmation dialog during download
-- [ ] "Unload Model" and "Delete Model" buttons
+- [x] Cancel button during download (Config + Onboarding)
+- [x] "Unload Model" and "Delete Model" buttons unload engine + clear cache
 
 ### L1 — Service Worker Integration
 - [ ] Create `webllm-sw.ts` — `ServiceWorkerMLCEngineHandler` in dedicated SW

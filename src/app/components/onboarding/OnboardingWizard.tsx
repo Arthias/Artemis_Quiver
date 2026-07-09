@@ -20,18 +20,14 @@ import type { ProviderType, SecondaryUse } from "../../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../../types/llm";
 import { testConnection } from "../../services/llmService";
 import { getAdapter } from "../../services/provider/registry";
+import { WEBLLM_MODELS } from "../../services/provider/WebLLMAdapter";
 import type { WebLLMAdapter } from "../../services/provider/WebLLMAdapter";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../ui/LanguageSelector";
 
 const STEPS = ["Welcome", "AI Setup", "Profile"];
 
-const WEBLLM_CATALOG = [
-  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, descKey: "config.webllmRecommended" },
-  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, descKey: "config.webllmLite" },
-  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, descKey: "config.webllmAdvanced" },
-  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, descKey: "config.webllmExpert" },
-] as const;
+
 
 const CLOUD_PROVIDER_OPTIONS: { value: ProviderType; labelKey: string }[] = [
   { value: "openai-compatible", labelKey: "config.openaiCompatible" },
@@ -120,6 +116,7 @@ function AiSetupStep() {
   const [testing, setTesting] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [vramInfo, setVramInfo] = useState<string | null>(null);
 
   // Clear stale test results when config changes
   const prevConfigRef = useRef({ provider: config.primary.provider, baseUrl: config.primary.baseUrl, model: config.primary.model });
@@ -132,15 +129,34 @@ function AiSetupStep() {
     }
   }, [config.primary.provider, config.primary.baseUrl, config.primary.model]);
 
+  // VRAM detection + auto-select best model for local mode
+  useEffect(() => {
+    if (config.providerMode === "local" && navigator.gpu) {
+      import("../../utils/vram").then(({ estimateAvailableVRAM, recommendModel }) => {
+        estimateAvailableVRAM().then(info => {
+          const recommended = recommendModel(info);
+          setVramInfo(`~${info.vramEstimate.toFixed(1)} GB VRAM (${info.vendor})`);
+          // Auto-select if current model is not set or is invalid
+          const currentModel = config.primary.model;
+          if (!currentModel || !isValidWebLLMModel(currentModel)) {
+            updateConfig({ primary: { ...config.primary, model: recommended.id } });
+          }
+        }).catch(() => setVramInfo(null));
+      });
+    } else {
+      setVramInfo(null);
+    }
+  }, [config.providerMode]);
+
   function isValidWebLLMModel(modelId: string): boolean {
-    return WEBLLM_CATALOG.some(m => m.id === modelId);
+    return WEBLLM_MODELS.some(m => m.id === modelId);
   }
 
   // Resolve current WebLLM catalog entry for download button
   const currentWebLLMModelId = config.primary.model && isValidWebLLMModel(config.primary.model)
     ? config.primary.model
-    : WEBLLM_CATALOG[0].id;
-  const currentWebLLMModel = WEBLLM_CATALOG.find(m => m.id === currentWebLLMModelId);
+    : WEBLLM_MODELS[0].id;
+  const currentWebLLMModel = WEBLLM_MODELS.find(m => m.id === currentWebLLMModelId);
 
   const handleTest = useCallback(async () => {
     setTestMessage(null);
@@ -201,7 +217,7 @@ function AiSetupStep() {
                 primary: {
                   label: "Primary",
                   provider: "webllm",
-                  model: WEBLLM_CATALOG[0].id,
+                  model: WEBLLM_MODELS[0].id,
                   baseUrl: "",
                   temperature: 0.7,
                 },
@@ -299,15 +315,19 @@ function AiSetupStep() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[200]">
-                {WEBLLM_CATALOG.map((m) => (
+                {WEBLLM_MODELS.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     <span>{m.name}</span>
-                    <span className="text-muted-foreground text-xs ml-2">{t(m.descKey)}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{'descKey' in m ? t(m.descKey) : `(${m.sizeGB.toFixed(1)} GB)`}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {vramInfo && (
+            <p className="text-xs text-muted-foreground">{vramInfo}</p>
+          )}
 
           <Button
             type="button"
@@ -316,8 +336,8 @@ function AiSetupStep() {
               setTestError("");
               setTestMessage(t("config.downloadZero"));
               setTesting(true);
-              const targetId = config.primary.model || WEBLLM_CATALOG[0].id;
-              const target = WEBLLM_CATALOG.find(m => m.id === targetId);
+              const targetId = config.primary.model || WEBLLM_MODELS[0].id;
+              const target = WEBLLM_MODELS.find(m => m.id === targetId);
               try {
                 const adapter = getAdapter("webllm") as unknown as WebLLMAdapter;
                 if (adapter.setProgressCallback) {
@@ -343,6 +363,21 @@ function AiSetupStep() {
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {t("onboarding.downloadModel")} ({currentWebLLMModel?.sizeGB.toFixed(1)} GB)
           </Button>
+          {testing && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const adapter = getAdapter("webllm") as unknown as WebLLMAdapter;
+                if (adapter.interruptDownload) await adapter.interruptDownload();
+                setTesting(false);
+                setTestMessage("Download cancelled.");
+              }}
+            >
+              {t("config.cancel")}
+            </Button>
+          )}
         </Card>
       )}
 

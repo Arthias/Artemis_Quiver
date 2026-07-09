@@ -48,7 +48,8 @@ const CL_COMMON_STYLES = `
 
 const PRINT_STYLES = `
   @media print {
-    body { background: #fff !important; color: #000 !important; font-size: 10.5pt !important; }
+    @page { margin: 0.5in; }
+    body { background: #fff !important; color: #000 !important; font-size: 10.5pt !important; orphans: 3; widows: 3; }
     .no-print { display: none !important; }
     .page-break { page-break-before: always; }
     .page-keep { page-break-inside: avoid; break-inside: avoid; }
@@ -199,8 +200,7 @@ function cvSkillsHtml(skills: any, lang = "en"): string {
   if (!skills) return "";
   const cats = skills.categories;
   if (cats?.length > 0) {
-    const lines: string[] = [`<h2 class="section-title">${label("skillsCat", lang)}</h2>`,
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;">'];
+    const lines: string[] = ['<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;">'];
     for (const cat of cats) {
       lines.push('<div>', `<p class="skill-cat-title">${escapeHtml(cat.name)}</p>`, '<div>');
       for (const item of cat.items) lines.push(`<span class="skill-tag">${escapeHtml(item)}</span>`);

@@ -1,15 +1,11 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect } from "vitest";
+import { WEBLLM_MODELS } from "../../../services/provider/WebLLMAdapter";
 
 // Constants extracted from OnboardingWizard for testing
 const STEPS = ["Welcome", "AI Setup", "Profile"] as const;
 
-const WEBLLM_CATALOG = [
-  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, desc: "(2.3 GB download - Recommended)" },
-  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, desc: "(0.88 GB download - Lightweight)" },
-  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, desc: "(4.8 GB - Advanced)" },
-  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, desc: "(5.5 GB - Expert)" },
-] as const;
+const WEBLLM_CATALOG = WEBLLM_MODELS;
 
 const CLOUD_PROVIDER_OPTIONS: { value: string; label: string }[] = [
   { value: "openai-compatible", label: "OpenAI Compatible (LM Studio, Ollama, OpenAI)" },
@@ -53,8 +49,8 @@ describe("OnboardingWizard — Steps definition", () => {
 });
 
 describe("OnboardingWizard — WEBLLM_CATALOG", () => {
-  it("should list 4 models", () => {
-    expect(WEBLLM_CATALOG.length).toBe(4);
+  it("should list 13 models", () => {
+    expect(WEBLLM_CATALOG.length).toBe(13);
   });
 
   it("should have unique model IDs", () => {
@@ -68,10 +64,9 @@ describe("OnboardingWizard — WEBLLM_CATALOG", () => {
     });
   });
 
-  it("should have Llama 3.2 (1B) as smallest model", () => {
-    const smallest = [...WEBLLM_CATALOG].sort((a, b) => a.sizeGB - b.sizeGB)[0];
-    expect(smallest!.id).toBe("Llama-3.2-1B-Instruct-q4f32_1-MLC");
-    expect(smallest!.sizeGB).toBe(0.88);
+  it("should have gemma3-1b-it as smallest model (sorted by vramGB ascending)", () => {
+    expect(WEBLLM_CATALOG[0].id).toBe("gemma3-1b-it-q4f16_1-MLC");
+    expect(WEBLLM_CATALOG[0].vramGB).toBeLessThanOrEqual(WEBLLM_CATALOG[1].vramGB);
   });
 });
 
