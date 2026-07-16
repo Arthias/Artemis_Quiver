@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef, useLayoutEffect } from "react";
 import type { CVContent, CVSection } from "../../types/cv";
-import { Pencil, Plus, X, Check } from "lucide-react";
+import { Pencil, Plus, X, Check, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import { getCVTheme, type CVTheme } from "./cvThemes";
 import { InlineInput, InlineTextarea } from "./InlineEdit";
 
@@ -11,14 +11,87 @@ interface InteractiveCVPreviewProps {
   templateId?: string;
 }
 
+const SECTION_LABELS: Record<string, string> = {
+  summary: "Professional Summary",
+  experience: "Professional Experience",
+  skills: "Skills",
+  education: "Education",
+  certifications: "Certifications",
+};
+
+const PAGE_HEIGHT_PX = 1050;
+
 export function InteractiveCVPreview({ content, onContentChange, accentColor = "#2563eb", templateId = "modern" }: InteractiveCVPreviewProps) {
   const theme: CVTheme = getCVTheme(templateId, accentColor);
   const contact = content.sections.find(s => s.type === "contact") as Extract<CVSection, { type: "contact" }> | undefined;
-  const summary = content.sections.find(s => s.type === "summary") as Extract<CVSection, { type: "summary" }> | undefined;
-  const skills = content.sections.find(s => s.type === "skills") as Extract<CVSection, { type: "skills" }> | undefined;
-  const experience = content.sections.find(s => s.type === "experience") as Extract<CVSection, { type: "experience" }> | undefined;
-  const education = content.sections.find(s => s.type === "education") as Extract<CVSection, { type: "education" }> | undefined;
-  const certifications = content.sections.find(s => s.type === "certifications") as Extract<CVSection, { type: "certifications" }> | undefined;
+
+  const [dragVisualIdx, setDragVisualIdx] = useState<number | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showPageBreaks, setShowPageBreaks] = useState(false);
+  const [pageBreakPositions, setPageBreakPositions] = useState<number[]>([]);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  const bodySections = useMemo(() =>
+    content.sections.filter(s => s.type !== "contact"),
+    [content.sections]
+  );
+
+  const bodyIndices = useMemo(() =>
+    content.sections
+      .map((s, i) => s.type !== "contact" ? i : -1)
+      .filter((i): i is number => i !== -1),
+    [content.sections]
+  );
+
+  const moveSection = useCallback((fromVisualIdx: number, toVisualIdx: number) => {
+    if (fromVisualIdx === toVisualIdx) return;
+    const sections = [...content.sections];
+    const fromActual = bodyIndices[fromVisualIdx];
+    const toActual = bodyIndices[toVisualIdx];
+    if (fromActual === undefined || toActual === undefined) return;
+    const [moved] = sections.splice(fromActual, 1);
+    if (!moved) return;
+    const insertAt = toActual > fromActual ? toActual - 1 : toActual;
+    sections.splice(insertAt, 0, moved);
+    onContentChange({ ...content, sections });
+  }, [content, onContentChange, bodyIndices]);
+
+  const handleDragStart = useCallback((visualIdx: number) => {
+    setDragVisualIdx(visualIdx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, visualIdx: number) => {
+    e.preventDefault();
+    if (dragVisualIdx === null || dragVisualIdx === visualIdx) return;
+    moveSection(dragVisualIdx, visualIdx);
+    setDragVisualIdx(visualIdx);
+  }, [dragVisualIdx, moveSection]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragVisualIdx(null);
+  }, []);
+
+  const toggleCollapse = (type: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!showPageBreaks || !previewRef.current) {
+      setPageBreakPositions([]);
+      return;
+    }
+    const height = previewRef.current.scrollHeight;
+    const positions: number[] = [];
+    for (let y = PAGE_HEIGHT_PX; y < height; y += PAGE_HEIGHT_PX) {
+      positions.push(y);
+    }
+    setPageBreakPositions(positions);
+  }, [showPageBreaks, content]);
 
   const updateSection = useCallback((updater: (prev: CVSection[]) => CVSection[]) => {
     onContentChange({ ...content, sections: updater(content.sections) });
@@ -38,9 +111,9 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
     ));
   }, [updateSection]);
 
-  const updateSummary = useCallback((content: string) => {
+  const updateSummaryContent = useCallback((value: string) => {
     updateSection(sections => sections.map(s =>
-      s.type === "summary" ? { ...s, content } as CVSection : s
+      s.type === "summary" ? { ...s, content: value } as CVSection : s
     ));
   }, [updateSection]);
 
@@ -124,7 +197,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
   const renderDivider = () => <hr style={theme.divider} />;
 
   return (
-    <div className="rounded-lg border border-gray-200 shadow-sm" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
+    <div className="cv-preview-card rounded-lg border border-gray-200 shadow-sm" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
       <div className="p-8 md:p-10">
         {/* Header */}
         <div className="mb-6">
@@ -177,99 +250,262 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
 
         {renderDivider()}
 
-        {/* Professional Summary */}
-        {summary && (
-          <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={theme.sectionTitle}>Professional Summary</h2>
-            <InlineTextarea value={summary.content} onSave={updateSummary} />
-          </section>
-        )}
+        {/* Page break toggle */}
+        <div className="flex items-center justify-end mb-3 gap-2 print:hidden">
+          <button
+            onClick={() => setShowPageBreaks(!showPageBreaks)}
+            className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${showPageBreaks ? 'bg-rose-100 text-rose-700' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <ChevronUp className="w-3 h-3 rotate-90" />
+            {showPageBreaks ? 'Hide page breaks' : 'Show page breaks'}
+          </button>
+        </div>
 
-        {/* Experience */}
-        {experience && experience.experience && experience.experience.length > 0 && (
-          <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>Professional Experience</h2>
-            <div className="space-y-5">
-              {experience.experience.map((exp, idx) => (
-                <ExperienceItemCard
-                  key={idx}
-                  item={exp as any}
-                  onUpdate={(item) => updateExperienceItem(idx, item)}
-                  onRemove={() => removeExperienceItem(idx)}
-                />
-              ))}
-            </div>
-            <button onClick={addExperienceItem} className="mt-3 inline-flex items-center gap-1 text-xs font-medium" style={{ color: theme.title.color || accentColor }}>
-              <Plus className="w-3.5 h-3.5" /> Add experience
-            </button>
-          </section>
-        )}
-
-        {/* Skills */}
-        {skills && (
-          <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>
-              {skills.categories ? "Technical Proficiencies" : "Skills"}
-            </h2>
-            <SkillsView
-              skills={skills}
-              onUpdateSkillsSection={updateSkillsSection}
+        {/* Body sections */}
+        <div ref={showPageBreaks ? previewRef : undefined} style={{ position: 'relative' }}>
+          {bodySections.map((section, visualIdx) => (
+            <SectionBlock
+              key={section.type}
+              section={section}
+              visualIdx={visualIdx}
+              total={bodySections.length}
               theme={theme}
+              accentColor={accentColor}
+              dragVisualIdx={dragVisualIdx}
+              isCollapsed={collapsed.has(section.type)}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onMove={moveSection}
+              onToggleCollapse={toggleCollapse}
+              updateSummaryContent={updateSummaryContent}
+              updateSkillsSection={updateSkillsSection}
+              updateExperienceItem={updateExperienceItem}
+              addExperienceItem={addExperienceItem}
+              removeExperienceItem={removeExperienceItem}
+              updateEducationItem={updateEducationItem}
+              addEducationItem={addEducationItem}
+              removeEducationItem={removeEducationItem}
+              updateCertification={updateCertification}
+              addCertification={addCertification}
+              removeCertification={removeCertification}
             />
-          </section>
-        )}
+          ))}
 
-        {/* Education */}
-        {education && education.education && education.education.length > 0 && (
-          <section className="mb-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>Education</h2>
-            <div className="space-y-4">
-              {education.education.map((edu, idx) => (
-                <EducationItemCard
-                  key={idx}
-                  item={edu as any}
-                  onUpdate={(item) => updateEducationItem(idx, item)}
-                  onRemove={() => removeEducationItem(idx)}
-                />
-              ))}
+          {showPageBreaks && pageBreakPositions.map((pos, i) => (
+            <div key={i} style={{
+              position: 'absolute', left: 0, right: 0, top: pos,
+              borderTop: '2px dashed #f43f5e',
+              zIndex: 10,
+              pointerEvents: 'none',
+            }}>
+              <span style={{
+                position: 'absolute', right: 0, top: -9,
+                fontSize: '10px', color: '#f43f5e',
+                background: '#fff', paddingLeft: 4,
+              }}>
+                Page {i + 2}
+              </span>
             </div>
-            <button onClick={addEducationItem} className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-              <Plus className="w-3.5 h-3.5" /> Add education
-            </button>
-          </section>
-        )}
-
-        {/* Certifications */}
-        {certifications && certifications.certifications && certifications.certifications.length > 0 && (
-          <section>
-            <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={theme.sectionTitle}>Certifications</h2>
-            <ul className="space-y-2">
-              {certifications.certifications.map((cert, idx) => (
-                <li key={idx} className="flex items-center gap-2 group">
-                  <span className="text-gray-400">&#8226;</span>
-                  <InlineInput
-                    value={cert}
-                    onSave={v => updateCertification(idx, v)}
-                    className="text-sm text-gray-700"
-                    placeholder="Certification name"
-                  />
-                  <button
-                    onClick={() => removeCertification(idx)}
-                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button onClick={addCertification} className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-              <Plus className="w-3.5 h-3.5" /> Add certification
-            </button>
-          </section>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
+}
+
+function SectionBlock({
+  section, visualIdx, total, theme, accentColor,
+  dragVisualIdx, isCollapsed,
+  onDragStart, onDragOver, onDragEnd, onMove, onToggleCollapse,
+  updateSummaryContent, updateSkillsSection,
+  updateExperienceItem, addExperienceItem, removeExperienceItem,
+  updateEducationItem, addEducationItem, removeEducationItem,
+  updateCertification, addCertification, removeCertification,
+}: {
+  section: CVSection; visualIdx: number; total: number;
+  theme: CVTheme; accentColor: string;
+  dragVisualIdx: number | null; isCollapsed: boolean;
+  onDragStart: (i: number) => void;
+  onDragOver: (e: React.DragEvent, i: number) => void;
+  onDragEnd: () => void;
+  onMove: (from: number, to: number) => void;
+  onToggleCollapse: (type: string) => void;
+  updateSummaryContent: (v: string) => void;
+  updateSkillsSection: (s: Extract<CVSection, { type: "skills" }>) => void;
+  updateExperienceItem: (i: number, item: any) => void;
+  addExperienceItem: () => void;
+  removeExperienceItem: (i: number) => void;
+  updateEducationItem: (i: number, item: any) => void;
+  addEducationItem: () => void;
+  removeEducationItem: (i: number) => void;
+  updateCertification: (i: number, v: string) => void;
+  addCertification: () => void;
+  removeCertification: (i: number) => void;
+}) {
+  const label = SECTION_LABELS[section.type] ?? section.type;
+  const titleStyle = { ...theme.sectionTitle, marginBottom: 0 };
+
+  const moveUp = () => onMove(visualIdx, visualIdx - 1);
+  const moveDown = () => onMove(visualIdx, visualIdx + 1);
+
+  const content = isCollapsed ? null : renderSectionContent(section, {
+    theme, accentColor,
+    updateSummaryContent, updateSkillsSection,
+    updateExperienceItem, addExperienceItem, removeExperienceItem,
+    updateEducationItem, addEducationItem, removeEducationItem,
+    updateCertification, addCertification, removeCertification,
+  });
+
+  return (
+    <div
+      className={`group relative mb-6 ${dragVisualIdx === visualIdx ? 'opacity-50' : ''}`}
+      draggable
+      onDragStart={() => onDragStart(visualIdx)}
+      onDragOver={(e) => onDragOver(e, visualIdx)}
+      onDragEnd={onDragEnd}
+    >
+      <div className="flex items-center gap-1.5 mb-3">
+        <span className="cursor-grab text-gray-300 hover:text-gray-500 shrink-0 print:hidden" title="Drag to reorder">
+          <GripVertical className="w-4 h-4" />
+        </span>
+
+        <div className="flex items-center gap-0.5 shrink-0 print:hidden">
+          <button onClick={moveUp} disabled={visualIdx === 0}
+            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 p-0.5">
+            <ChevronUp className="w-3 h-3" />
+          </button>
+          <button onClick={moveDown} disabled={visualIdx === total - 1}
+            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 p-0.5">
+            <ChevronDown className="w-3 h-3" />
+          </button>
+        </div>
+
+        <h2 className="text-xs font-bold uppercase tracking-widest" style={titleStyle}>
+          {label}
+        </h2>
+
+        <button onClick={() => onToggleCollapse(section.type)}
+          className="text-gray-300 hover:text-gray-500 print:hidden ml-auto"
+          title={isCollapsed ? "Expand" : "Collapse"}>
+          {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {isCollapsed ? (
+        <div className="border border-dashed border-gray-200 rounded p-3">
+          <p className="text-xs text-gray-400 italic">Collapsed</p>
+        </div>
+      ) : (
+        content
+      )}
+    </div>
+  );
+}
+
+function renderSectionContent(section: CVSection, deps: {
+  theme: CVTheme; accentColor: string;
+  updateSummaryContent: (v: string) => void;
+  updateSkillsSection: (s: Extract<CVSection, { type: "skills" }>) => void;
+  updateExperienceItem: (i: number, item: any) => void;
+  addExperienceItem: () => void;
+  removeExperienceItem: (i: number) => void;
+  updateEducationItem: (i: number, item: any) => void;
+  addEducationItem: () => void;
+  removeEducationItem: (i: number) => void;
+  updateCertification: (i: number, v: string) => void;
+  addCertification: () => void;
+  removeCertification: (i: number) => void;
+}): React.ReactNode | null {
+  switch (section.type) {
+    case "summary": {
+      const s = section as Extract<CVSection, { type: "summary" }>;
+      return <InlineTextarea value={s.content} onSave={deps.updateSummaryContent} />;
+    }
+    case "experience": {
+      const s = section as Extract<CVSection, { type: "experience" }>;
+      const items = s.experience ?? [];
+      return (
+        <div>
+          <div className="space-y-5">
+            {items.map((exp, idx) => (
+              <ExperienceItemCard
+                key={idx} item={exp as any}
+                onUpdate={(item) => deps.updateExperienceItem(idx, item)}
+                onRemove={() => deps.removeExperienceItem(idx)}
+              />
+            ))}
+          </div>
+          <button onClick={deps.addExperienceItem}
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium"
+            style={{ color: deps.theme.title.color || deps.accentColor }}>
+            <Plus className="w-3.5 h-3.5" /> Add experience
+          </button>
+        </div>
+      );
+    }
+    case "skills": {
+      const s = section as Extract<CVSection, { type: "skills" }>;
+      return (
+        <SkillsView
+          skills={s}
+          onUpdateSkillsSection={deps.updateSkillsSection}
+          theme={deps.theme}
+        />
+      );
+    }
+    case "education": {
+      const s = section as Extract<CVSection, { type: "education" }>;
+      const items = s.education ?? [];
+      return (
+        <div>
+          <div className="space-y-4">
+            {items.map((edu, idx) => (
+              <EducationItemCard
+                key={idx} item={edu as any}
+                onUpdate={(item) => deps.updateEducationItem(idx, item)}
+                onRemove={() => deps.removeEducationItem(idx)}
+              />
+            ))}
+          </div>
+          <button onClick={deps.addEducationItem}
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            <Plus className="w-3.5 h-3.5" /> Add education
+          </button>
+        </div>
+      );
+    }
+    case "certifications": {
+      const s = section as Extract<CVSection, { type: "certifications" }>;
+      const certs = s.certifications ?? [];
+      return (
+        <div>
+          <ul className="space-y-2">
+            {certs.map((cert, idx) => (
+              <li key={idx} className="flex items-center gap-2 group">
+                <span className="text-gray-400">&#8226;</span>
+                <InlineInput
+                  value={cert}
+                  onSave={v => deps.updateCertification(idx, v)}
+                  className="text-sm text-gray-700" placeholder="Certification name"
+                />
+                <button onClick={() => deps.removeCertification(idx)}
+                  className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">
+                  <X className="w-3 h-3" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button onClick={deps.addCertification}
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            <Plus className="w-3.5 h-3.5" /> Add certification
+          </button>
+        </div>
+      );
+    }
+    default:
+      return null;
+  }
 }
 
 function ExperienceItemCard({ item, onUpdate, onRemove }: {
@@ -328,7 +564,7 @@ function ExperienceItemCard({ item, onUpdate, onRemove }: {
   const bullets = item.bullets ?? [];
   return (
     <div
-      className="group relative cursor-pointer rounded-lg p-3 -mx-3 hover:bg-gray-50 transition-colors"
+      className="page-keep group relative cursor-pointer rounded-lg p-3 -mx-3 hover:bg-gray-50 transition-colors"
       onClick={() => setEditing(true)}
     >
       <div className="flex justify-between items-start mb-1">
@@ -405,7 +641,7 @@ function EducationItemCard({ item, onUpdate, onRemove }: {
 
   return (
     <div
-      className="group relative cursor-pointer flex justify-between items-start rounded-lg p-2 -mx-2 hover:bg-gray-50 transition-colors"
+      className="page-keep group relative cursor-pointer flex justify-between items-start rounded-lg p-2 -mx-2 hover:bg-gray-50 transition-colors"
       onClick={() => setEditing(true)}
     >
       <div>

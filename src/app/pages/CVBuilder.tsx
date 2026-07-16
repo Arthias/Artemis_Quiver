@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -10,7 +10,6 @@ import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCv } from "../services/cvBuilderService";
 import { getActiveEndpoint } from "../services/llmService";
 import type { CVContent, ThemeConfig } from "../types/cv";
-import { renderCVToHTML } from "../../components/cv/renderingEngine";
 import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
 import { extractJsonObject } from "../utils/jsonParse";
 import { AppError } from "../utils/errors";
@@ -44,9 +43,6 @@ export function CVBuilder() {
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryableError, setRetryableError] = useState<AppError | null>(null);
-
-  const printIframeRef = useRef<HTMLIFrameElement>(null);
-
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -160,25 +156,24 @@ export function CVBuilder() {
   };
 
   const printPDF = useCallback(() => {
-    if (!cvContent) return;
-    const html = renderCVToHTML(cvContent, themeConfig);
-    const iframe = printIframeRef.current;
-    if (!iframe) return;
-    const win = iframe.contentWindow;
-    if (!win) return;
-    const doc = win.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    requestAnimationFrame(() => {
-      win.focus();
-      win.print();
-    });
-  }, [cvContent, themeConfig]);
+    window.print();
+  }, []);
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b border-border bg-card">
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 0.15in; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body, #root { background: #fff !important; }
+          .cv-preview-card { box-shadow: none !important; border: none !important; border-radius: 0 !important; }
+          .cv-preview-card .p-8 { padding: 0.25in 0.35in !important; }
+          .cv-preview-card .group:hover .opacity-0 { opacity: 0 !important; }
+          .cv-preview-card .group:hover .bg-gray-50 { background: transparent !important; }
+          .cv-preview-card .page-keep { page-break-inside: avoid; break-inside: avoid; }
+        }
+      `}</style>
+      <div className="border-b border-border bg-card print:hidden">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -212,10 +207,10 @@ export function CVBuilder() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden flex">
-        <div className="flex-1 border-r border-border overflow-auto">
-          <div className="p-6">
-            <BuilderErrorDisplay error={error} retryableError={retryableError} onRetry={generateCV} />
+      <div className="flex-1 overflow-hidden flex print:overflow-visible print:h-auto">
+        <div className="flex-1 border-r border-border overflow-auto print:border-r-0 print:overflow-visible">
+          <div className="p-6 print:p-0">
+            <div className="print:hidden"><BuilderErrorDisplay error={error} retryableError={retryableError} onRetry={generateCV} /></div>
 
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
@@ -323,14 +318,14 @@ export function CVBuilder() {
               </div>
 
             ) : (
-              <div className="max-w-4xl mx-auto h-full flex flex-col">
-                <div className={`flex-1 overflow-auto mb-4 ${generating ? "animate-pulse" : ""}`}>
+              <div className="max-w-4xl mx-auto h-full flex flex-col print:max-w-none print:mx-0 print:h-auto">
+                <div className={`flex-1 overflow-auto mb-4 print:overflow-visible print:flex-none print:mb-0 ${generating ? "animate-pulse print:animate-none" : ""}`}>
                   {!cvContent ? (
-                    <div className="flex items-center justify-center h-64 text-muted-foreground">
+                    <div className="flex items-center justify-center h-64 text-muted-foreground print:hidden">
                       <p>{t("cv.previewEmpty")}</p>
                     </div>
                   ) : error ? (
-                    <Card className="p-4 bg-destructive/10 border-destructive/50">
+                    <Card className="p-4 bg-destructive/10 border-destructive/50 print:hidden">
                       <p className="text-sm text-destructive">{t("cv.renderFailed")}</p>
                     </Card>
                   ) : (
@@ -342,20 +337,13 @@ export function CVBuilder() {
                     />
                   )}
                 </div>
-
-                <iframe
-                  ref={printIframeRef}
-                  srcDoc="<!DOCTYPE html><html><head></head><body></body></html>"
-                  style={{ position: "absolute", width: 0, height: 0, border: "none" }}
-                  title="Print frame"
-                />
               </div>
             )}
           </div>
         </div>
 
         {isGenerated && (
-          <BuilderAssistantPanel
+          <div className="print:hidden"><BuilderAssistantPanel
             suggestions={CV_SUGGESTIONS}
             chatMessage={chatMessage}
             chatLoading={chatLoading}
@@ -363,7 +351,7 @@ export function CVBuilder() {
             onSubmit={handleChatSubmit}
             accentClass="text-purple-500"
             panelBg="bg-muted/30"
-          />
+          /></div>
         )}
       </div>
     </div>

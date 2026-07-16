@@ -19,9 +19,9 @@ export function RootLayout() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden print:h-auto print:bg-white print:overflow-visible">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto print:overflow-visible">
         <Outlet />
       </main>
     </div>

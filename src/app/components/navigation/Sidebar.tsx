@@ -70,7 +70,7 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="w-72 border-r border-border bg-sidebar flex flex-col">
+      <aside className="w-72 border-r border-border bg-sidebar flex flex-col print:hidden">
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
