@@ -2,15 +2,17 @@ import { useEffect, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
-import { FileText, Download, Wand2, ChevronDown, ChevronRight } from "lucide-react";
+import { FileText, Wand2, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCv } from "../services/cvBuilderService";
 import { getActiveEndpoint } from "../services/llmService";
-import type { CVContent, ThemeConfig } from "../types/cv";
+import type { CVContent } from "../types/cv";
+import type { ThemeConfig } from "../components/builder/ThemeConfigPanel";
 import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
+import { getCVTheme } from "../../components/cv/cvThemes";
 import { extractJsonObject } from "../utils/jsonParse";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
@@ -35,7 +37,13 @@ export function CVBuilder() {
   const [jobDescription, setJobDescription] = useState("");
   const [jobDescExpanded, setJobDescExpanded] = useState(true);
   const [cvContent, setCvContent] = useState<CVContent | null>(null);
-  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({ primaryColor: "#2563eb", templateId: "modern" });
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
+    primaryColor: "#1e293b",
+    accentColor: "#2563eb",
+    textColor: "#475569",
+    headingFont: "'Inter', -apple-system, sans-serif",
+    bodyFont: "'Inter', -apple-system, sans-serif",
+  });
   const [recs, setRecs] = useState<{ text: string; enabled: boolean; comment: string }[]>([]);
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -92,53 +100,6 @@ export function CVBuilder() {
     }
   };
 
-  const downloadMarkdownExport = () => {
-    if (!cvContent) return;
-    const mdSections: string[] = [];
-    cvContent.sections.forEach(section => {
-      switch (section.type) {
-        case "summary":
-          mdSections.push(`## ${section.content || ""}`);
-          break;
-        case "contact":
-          let contactLine = "";
-          if (section.email) contactLine += ` Email: ${section.email}   `;
-          if (section.phone) contactLine += ` Phone: ${section.phone}   `;
-          contactLine.trim();
-          mdSections.push(`## Contact${contactLine}`);
-          break;
-        case "skills":
-          const skills = section.skills?.join("   ") || "";
-          mdSections.push(`## Skills\n${skills || ""}`);
-          break;
-        case "experience": {
-          mdSections.push(`## Experience`);
-          section.experience?.forEach(exp => {
-            mdSections.push(`- ${exp.role} at ${exp.company} (${exp.period})`);
-            if (exp.description) mdSections.push(`  ${exp.description}`);
-          });
-          break;
-        }
-        case "education": {
-          mdSections.push(`## Education`);
-          section.education?.forEach(edu => {
-            mdSections.push(`${edu.degree} • ${edu.institution} (${edu.period})`);
-          });
-          break;
-        }
-        case "certifications":
-          const certs = section.certifications?.join(" | ") || "";
-          mdSections.push(`## Certifications\n${certs || ""}`);
-          break;
-      }
-    });
-    const blob = new Blob([mdSections.join("\n\n")], { type: "text/markdown" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "cv.md";
-    link.click();
-  };
-
   const handleChatSubmit = async (message?: string) => {
     const text = (message ?? chatMessage).trim();
     if (!text || chatLoading) return;
@@ -171,6 +132,7 @@ export function CVBuilder() {
           .cv-preview-card .group:hover .opacity-0 { opacity: 0 !important; }
           .cv-preview-card .group:hover .bg-gray-50 { background: transparent !important; }
           .cv-preview-card .page-keep { page-break-inside: avoid; break-inside: avoid; }
+          .cv-preview-card .page-break-before { page-break-before: always; break-before: page; }
         }
       `}</style>
       <div className="border-b border-border bg-card print:hidden">
@@ -193,10 +155,7 @@ export function CVBuilder() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">                  <polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
                   {t("cv.exportPdf")}
                 </Button>
-                <Button onClick={downloadMarkdownExport} className="gap-2" variant="outline">
-                  <Download className="w-4 h-4" />
-                  {t("cv.exportMdLegacy")}
-                </Button>
+
               </div>
             )}
           </div>
@@ -332,8 +291,7 @@ export function CVBuilder() {
                     <InteractiveCVPreview
                       content={cvContent}
                       onContentChange={setCvContent}
-                      accentColor={themeConfig.primaryColor}
-                      templateId={themeConfig.templateId}
+                      theme={getCVTheme(themeConfig)}
                     />
                   )}
                 </div>

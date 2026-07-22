@@ -196,7 +196,7 @@
     "title": "Creador de CV (PDF con Temas)",
     "subtitle": "Genera CV estructurado con renderizado HTML temático y exportación PDF",
     "exportPdf": "Exportar PDF",
-    "exportMdLegacy": "Exportar .md (Legado)",
+
     "generateCv": "Generar CV Personalizado",
     "jobDescription": "Descripción del Puesto",
     "prefilledFromAnalysis": "(pre-llenado del análisis)",
@@ -234,7 +234,6 @@
     "subtitle": "Crea cartas convincentes con asistencia IA",
     "copyText": "Copiar texto",
     "copied": "¡Copiado!",
-    "exportMd": "Exportar .md",
     "printPdf": "Imprimir / PDF",
     "generateCl": "Generar Carta de Presentación",
     "companyName": "Nombre de la Empresa (Opcional)",
@@ -265,12 +264,12 @@
     "applying": "Aplicando...",
     "applyChanges": "Aplicar Cambios",
     "retry": "Reintentar",
-    "themeConfig": "Configuración de Tema",
-    "theme": "Tema",
-    "primaryColor": "Color Principal",
-    "modern": "Moderno",
-    "classic": "Clásico (Serif)",
-    "minimal": "Mínimo"
+    "themeConfig": "Estilo del Documento",
+    "primaryColor": "Encabezados",
+    "accentColor": "Acento",
+    "textColor": "Texto",
+    "headingFont": "Fuente Encabezados",
+    "bodyFont": "Fuente Texto"
   },
   "workspace": {
     "profiles": "Perfiles de trabajo",

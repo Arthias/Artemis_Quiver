@@ -50,4 +50,19 @@ export default defineConfig({
       },
     },
   },
+
+  build: {
+    rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, "index.html"),
+        "webllm-sw": path.resolve(__dirname, "src/app/services/provider/webllm-sw.ts"),
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          if (chunkInfo.name === "webllm-sw") return "[name].js";
+          return "assets/[name]-[hash].js";
+        },
+      },
+    },
+  },
 })

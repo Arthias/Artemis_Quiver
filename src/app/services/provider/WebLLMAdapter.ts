@@ -2,6 +2,7 @@ import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 import type { ProviderAdapter } from "./ProviderAdapter";
 import type { MLCEngineInterface, InitProgressReport } from "@mlc-ai/web-llm";
 import { estimateAvailableVRAM, recommendModel } from "../../utils/vram";
+import { registerWebLLMSW } from "../../utils/sw-utils";
 
 /** Real @mlc-ai/web-llm model IDs from prebuiltAppConfig (v0_2_84/base). Sorted by vramGB ascending for auto-downgrade stepping. */
 export const WEBLLM_MODELS = [
@@ -38,6 +39,8 @@ export class WebLLMAdapter implements ProviderAdapter {
   private _loadedModelId: string | null = null;
   private _progressCallback: ((pct: number) => void) | null = null;
   private _initPromise: Promise<void> | null = null;
+  private _useServiceWorker: boolean;
+  private _swRegistration: ServiceWorkerRegistration | null = null;
 
   /** User's originally configured model — detects when user changes model in settings */
   private _originalModelId: string | null = null;
@@ -49,6 +52,10 @@ export class WebLLMAdapter implements ProviderAdapter {
   private _consecutiveFailures = 0;
   private readonly _maxFailuresBeforeDowngrade = 2;
   private _statusCallback: ((event: WebLLMStatusEvent) => void) | null = null;
+
+  constructor(options?: { useServiceWorker?: boolean }) {
+    this._useServiceWorker = options?.useServiceWorker ?? false;
+  }
 
   setProgressCallback(cb: (pct: number) => void) {
     this._progressCallback = cb;
@@ -96,7 +103,10 @@ export class WebLLMAdapter implements ProviderAdapter {
 
   /** Internal init with retry loop for auto-downgrade. */
   private async _doInit(modelId: string): Promise<void> {
-    const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
+    const mod = await import("@mlc-ai/web-llm");
+    const createEngine = this._useServiceWorker
+      ? mod.CreateServiceWorkerMLCEngine
+      : mod.CreateMLCEngine;
 
     for (let attempt = 0; attempt < WEBLLM_MODELS.length; attempt++) {
       const currentModelId = this._effectiveModelId || modelId;
@@ -104,7 +114,7 @@ export class WebLLMAdapter implements ProviderAdapter {
       this._loadedModelId = null;
 
       try {
-        this.engine = await CreateMLCEngine(currentModelId, {
+        this.engine = await createEngine(currentModelId, {
           initProgressCallback: (report: InitProgressReport) => {
             const pct = Math.round(report.progress * 100);
             this._progressCallback?.(pct);
@@ -143,6 +153,16 @@ export class WebLLMAdapter implements ProviderAdapter {
 
     const idx = WEBLLM_MODELS.findIndex(m => m.id === modelId);
     if (idx >= 0) this._currentModelIndex = idx;
+
+    // Attempt SW registration before engine init; fall back to direct mode on failure
+    if (this._useServiceWorker && !this._swRegistration) {
+      const reg = await registerWebLLMSW();
+      if (reg) {
+        this._swRegistration = reg;
+      } else {
+        this._useServiceWorker = false;
+      }
+    }
 
     this._initPromise = this._doInit(modelId);
     return this._initPromise;
@@ -277,11 +297,15 @@ export class WebLLMAdapter implements ProviderAdapter {
     if (this.engine) {
       try { await this.engine.unload(); } catch { /* ignore */ }
     }
+    if (this._swRegistration) {
+      try { await this._swRegistration.unregister(); } catch { /* ignore */ }
+    }
     this.engine = null;
     this._loadedModelId = null;
     this._effectiveModelId = null;
     this._originalModelId = null;
     this._initPromise = null;
+    this._swRegistration = null;
     this._consecutiveFailures = 0;
     this._currentModelIndex = -1;
     this._progressCallback = null;
@@ -290,6 +314,10 @@ export class WebLLMAdapter implements ProviderAdapter {
 
   async interruptDownload(): Promise<void> {
     this._progressCallback = null;
+    if (this._swRegistration) {
+      try { await this._swRegistration.unregister(); } catch { /* ignore */ }
+      this._swRegistration = null;
+    }
     await this.unload();
   }
 
