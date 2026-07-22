@@ -1,14 +1,13 @@
-import { useState, useCallback, useMemo, useRef, useLayoutEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { CVContent, CVSection } from "../../types/cv";
-import { Pencil, Plus, X, Check, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
-import { getCVTheme, type CVTheme } from "./cvThemes";
+import { Pencil, Plus, X, Check, GripVertical, ChevronDown, ChevronUp, FileDown } from "lucide-react";
+import type { CVTheme } from "./cvThemes";
 import { InlineInput, InlineTextarea } from "./InlineEdit";
 
 interface InteractiveCVPreviewProps {
   content: CVContent;
   onContentChange: (content: CVContent) => void;
-  accentColor?: string;
-  templateId?: string;
+  theme: CVTheme;
 }
 
 const SECTION_LABELS: Record<string, string> = {
@@ -19,17 +18,11 @@ const SECTION_LABELS: Record<string, string> = {
   certifications: "Certifications",
 };
 
-const PAGE_HEIGHT_PX = 1050;
-
-export function InteractiveCVPreview({ content, onContentChange, accentColor = "#2563eb", templateId = "modern" }: InteractiveCVPreviewProps) {
-  const theme: CVTheme = getCVTheme(templateId, accentColor);
+export function InteractiveCVPreview({ content, onContentChange, theme }: InteractiveCVPreviewProps) {
   const contact = content.sections.find(s => s.type === "contact") as Extract<CVSection, { type: "contact" }> | undefined;
 
   const [dragVisualIdx, setDragVisualIdx] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [showPageBreaks, setShowPageBreaks] = useState(false);
-  const [pageBreakPositions, setPageBreakPositions] = useState<number[]>([]);
-  const previewRef = useRef<HTMLDivElement>(null);
 
   const bodySections = useMemo(() =>
     content.sections.filter(s => s.type !== "contact"),
@@ -80,18 +73,13 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
     });
   };
 
-  useLayoutEffect(() => {
-    if (!showPageBreaks || !previewRef.current) {
-      setPageBreakPositions([]);
-      return;
-    }
-    const height = previewRef.current.scrollHeight;
-    const positions: number[] = [];
-    for (let y = PAGE_HEIGHT_PX; y < height; y += PAGE_HEIGHT_PX) {
-      positions.push(y);
-    }
-    setPageBreakPositions(positions);
-  }, [showPageBreaks, content]);
+  const togglePageBreak = (sectionType: string) => {
+    updateSection(sections => sections.map(s =>
+      s.type === sectionType
+        ? { ...s, pageBreakBefore: s.pageBreakBefore ? undefined : true } as CVSection
+        : s
+    ));
+  };
 
   const updateSection = useCallback((updater: (prev: CVSection[]) => CVSection[]) => {
     onContentChange({ ...content, sections: updater(content.sections) });
@@ -250,19 +238,8 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
 
         {renderDivider()}
 
-        {/* Page break toggle */}
-        <div className="flex items-center justify-end mb-3 gap-2 print:hidden">
-          <button
-            onClick={() => setShowPageBreaks(!showPageBreaks)}
-            className={`text-xs flex items-center gap-1 px-2 py-1 rounded transition-colors ${showPageBreaks ? 'bg-rose-100 text-rose-700' : 'text-gray-400 hover:text-gray-600'}`}
-          >
-            <ChevronUp className="w-3 h-3 rotate-90" />
-            {showPageBreaks ? 'Hide page breaks' : 'Show page breaks'}
-          </button>
-        </div>
-
         {/* Body sections */}
-        <div ref={showPageBreaks ? previewRef : undefined} style={{ position: 'relative' }}>
+        <div>
           {bodySections.map((section, visualIdx) => (
             <SectionBlock
               key={section.type}
@@ -270,7 +247,6 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
               visualIdx={visualIdx}
               total={bodySections.length}
               theme={theme}
-              accentColor={accentColor}
               dragVisualIdx={dragVisualIdx}
               isCollapsed={collapsed.has(section.type)}
               onDragStart={handleDragStart}
@@ -278,6 +254,7 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
               onDragEnd={handleDragEnd}
               onMove={moveSection}
               onToggleCollapse={toggleCollapse}
+              onTogglePageBreak={togglePageBreak}
               updateSummaryContent={updateSummaryContent}
               updateSkillsSection={updateSkillsSection}
               updateExperienceItem={updateExperienceItem}
@@ -291,23 +268,6 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
               removeCertification={removeCertification}
             />
           ))}
-
-          {showPageBreaks && pageBreakPositions.map((pos, i) => (
-            <div key={i} style={{
-              position: 'absolute', left: 0, right: 0, top: pos,
-              borderTop: '2px dashed #f43f5e',
-              zIndex: 10,
-              pointerEvents: 'none',
-            }}>
-              <span style={{
-                position: 'absolute', right: 0, top: -9,
-                fontSize: '10px', color: '#f43f5e',
-                background: '#fff', paddingLeft: 4,
-              }}>
-                Page {i + 2}
-              </span>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -315,22 +275,24 @@ export function InteractiveCVPreview({ content, onContentChange, accentColor = "
 }
 
 function SectionBlock({
-  section, visualIdx, total, theme, accentColor,
+  section, visualIdx, total, theme,
   dragVisualIdx, isCollapsed,
   onDragStart, onDragOver, onDragEnd, onMove, onToggleCollapse,
+  onTogglePageBreak,
   updateSummaryContent, updateSkillsSection,
   updateExperienceItem, addExperienceItem, removeExperienceItem,
   updateEducationItem, addEducationItem, removeEducationItem,
   updateCertification, addCertification, removeCertification,
 }: {
   section: CVSection; visualIdx: number; total: number;
-  theme: CVTheme; accentColor: string;
+  theme: CVTheme;
   dragVisualIdx: number | null; isCollapsed: boolean;
   onDragStart: (i: number) => void;
   onDragOver: (e: React.DragEvent, i: number) => void;
   onDragEnd: () => void;
   onMove: (from: number, to: number) => void;
   onToggleCollapse: (type: string) => void;
+  onTogglePageBreak: (type: string) => void;
   updateSummaryContent: (v: string) => void;
   updateSkillsSection: (s: Extract<CVSection, { type: "skills" }>) => void;
   updateExperienceItem: (i: number, item: any) => void;
@@ -345,12 +307,13 @@ function SectionBlock({
 }) {
   const label = SECTION_LABELS[section.type] ?? section.type;
   const titleStyle = { ...theme.sectionTitle, marginBottom: 0 };
+  const withBreak = section.pageBreakBefore;
 
   const moveUp = () => onMove(visualIdx, visualIdx - 1);
   const moveDown = () => onMove(visualIdx, visualIdx + 1);
 
   const content = isCollapsed ? null : renderSectionContent(section, {
-    theme, accentColor,
+    theme,
     updateSummaryContent, updateSkillsSection,
     updateExperienceItem, addExperienceItem, removeExperienceItem,
     updateEducationItem, addEducationItem, removeEducationItem,
@@ -359,12 +322,22 @@ function SectionBlock({
 
   return (
     <div
-      className={`group relative mb-6 ${dragVisualIdx === visualIdx ? 'opacity-50' : ''}`}
+      className={`group relative mb-6 ${withBreak ? 'page-break-before' : ''} ${dragVisualIdx === visualIdx ? 'opacity-50' : ''}`}
       draggable
       onDragStart={() => onDragStart(visualIdx)}
       onDragOver={(e) => onDragOver(e, visualIdx)}
       onDragEnd={onDragEnd}
+      style={withBreak ? { pageBreakBefore: 'always', breakBefore: 'page' } as React.CSSProperties : undefined}
     >
+      {withBreak && (
+        <div className="mb-3 flex items-center gap-2 print:hidden">
+          <div className="flex-1 border-t-2 border-dashed border-rose-300" />
+          <span className="text-xs text-rose-500 font-medium whitespace-nowrap flex items-center gap-1">
+            <FileDown className="w-3 h-3" /> Page break
+          </span>
+          <div className="flex-1 border-t-2 border-dashed border-rose-300" />
+        </div>
+      )}
       <div className="flex items-center gap-1.5 mb-3">
         <span className="cursor-grab text-gray-300 hover:text-gray-500 shrink-0 print:hidden" title="Drag to reorder">
           <GripVertical className="w-4 h-4" />
@@ -385,6 +358,12 @@ function SectionBlock({
           {label}
         </h2>
 
+        <button onClick={() => onTogglePageBreak(section.type)}
+          className={`print:hidden p-0.5 ${withBreak ? 'text-rose-500' : 'text-gray-300 hover:text-gray-500'}`}
+          title={withBreak ? "Remove page break" : "Insert page break before this section"}>
+          <FileDown className="w-3.5 h-3.5" />
+        </button>
+
         <button onClick={() => onToggleCollapse(section.type)}
           className="text-gray-300 hover:text-gray-500 print:hidden ml-auto"
           title={isCollapsed ? "Expand" : "Collapse"}>
@@ -404,7 +383,7 @@ function SectionBlock({
 }
 
 function renderSectionContent(section: CVSection, deps: {
-  theme: CVTheme; accentColor: string;
+  theme: CVTheme;
   updateSummaryContent: (v: string) => void;
   updateSkillsSection: (s: Extract<CVSection, { type: "skills" }>) => void;
   updateExperienceItem: (i: number, item: any) => void;
@@ -437,8 +416,8 @@ function renderSectionContent(section: CVSection, deps: {
             ))}
           </div>
           <button onClick={deps.addExperienceItem}
-            className="mt-3 inline-flex items-center gap-1 text-xs font-medium"
-            style={{ color: deps.theme.title.color || deps.accentColor }}>
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium print:hidden"
+            style={{ color: deps.theme.title.color }}>
             <Plus className="w-3.5 h-3.5" /> Add experience
           </button>
         </div>
@@ -469,7 +448,7 @@ function renderSectionContent(section: CVSection, deps: {
             ))}
           </div>
           <button onClick={deps.addEducationItem}
-            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium print:hidden">
             <Plus className="w-3.5 h-3.5" /> Add education
           </button>
         </div>
@@ -497,7 +476,7 @@ function renderSectionContent(section: CVSection, deps: {
             ))}
           </ul>
           <button onClick={deps.addCertification}
-            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium print:hidden">
             <Plus className="w-3.5 h-3.5" /> Add certification
           </button>
         </div>
@@ -850,7 +829,7 @@ function SkillsView({ skills, onUpdateSkillsSection, theme }: {
   return (
     <div className="group relative">
       <p className="text-sm italic" style={{ color: theme?.muted.color ?? "#9ca3af" }}>No skills listed</p>
-      <button onClick={startEditing} className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: theme?.title.color ?? "#2563eb" }}>Add skills</button>
+      <button onClick={startEditing} className="inline-flex items-center gap-1 text-xs font-medium print:hidden" style={{ color: theme?.title.color ?? "#2563eb" }}>Add skills</button>
     </div>
   );
 }

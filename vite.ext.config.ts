@@ -69,6 +69,7 @@ export default defineConfig({
         overlay: path.resolve(__dirname, "src/extension/overlay.ts"),
         "nano-inject": path.resolve(__dirname, "src/extension/nano-inject.ts"),
         popup: path.resolve(__dirname, "src/extension/popup.html"),
+        "webllm-sw": path.resolve(__dirname, "src/app/services/provider/webllm-sw.ts"),
       },
       output: {
         entryFileNames: "[name].js",

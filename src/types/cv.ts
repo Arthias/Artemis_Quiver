@@ -16,12 +16,14 @@ const EducationItemSchema = z.object({
   location: z.string().optional()
 });
 
+const PageBreakSchema = z.object({ pageBreakBefore: z.boolean().optional() });
+
 const CVSectionSchema = z.discriminatedUnion("type", [
-  z.object({
+  PageBreakSchema.extend({
     type: z.literal("summary"),
     content: z.string().max(2000).describe("Professional summary text")
   }),
-  z.object({
+  PageBreakSchema.extend({
     type: z.literal("contact"),
     email: z.string().optional().describe("Contact email address"),
     phone: z.string().optional().describe("Contact phone number"),
@@ -29,7 +31,7 @@ const CVSectionSchema = z.discriminatedUnion("type", [
     website: z.string().optional().describe("Personal website URL"),
     location: z.string().optional().describe("City, country")
   }),
-  z.object({
+  PageBreakSchema.extend({
     type: z.literal("skills"),
     skills: z.array(z.string()).optional().describe("Flat list of skill keywords"),
     categories: z.array(z.object({
@@ -37,15 +39,15 @@ const CVSectionSchema = z.discriminatedUnion("type", [
       items: z.array(z.string())
     })).optional().describe("Grouped skills by category")
   }),
-  z.object({
+  PageBreakSchema.extend({
     type: z.literal("experience"),
     experience: z.array(ExperienceItemSchema).optional().describe("Work history items")
   }),
-  z.object({
+  PageBreakSchema.extend({
     type: z.literal("education"),
     education: z.array(EducationItemSchema).optional().describe("Education history")
   }),
-  z.object({
+  PageBreakSchema.extend({
     type: z.literal("certifications"),
     certifications: z.array(z.string()).optional().describe("Professional certifications")
   })
@@ -60,7 +62,10 @@ const CVContentSchema = z.object({
 
 const ThemeConfigSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-  templateId: z.enum(["modern", "classic", "minimal"]).optional()
+  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  textColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  headingFont: z.string().min(1),
+  bodyFont: z.string().min(1),
 });
 
 export type CVSection = z.infer<typeof CVSectionSchema>;

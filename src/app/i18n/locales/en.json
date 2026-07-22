@@ -196,7 +196,7 @@
     "title": "CV Builder (Themed PDF)",
     "subtitle": "Generate structured CV with themed HTML rendering and PDF export",
     "exportPdf": "Export PDF",
-    "exportMdLegacy": "Export .md (Legacy)",
+
     "generateCv": "Generate Tailored CV",
     "jobDescription": "Job Description",
     "prefilledFromAnalysis": "(pre-filled from analysis)",
@@ -234,7 +234,6 @@
     "subtitle": "Create compelling cover letters with AI assistance",
     "copyText": "Copy text",
     "copied": "Copied!",
-    "exportMd": "Export .md",
     "printPdf": "Print / PDF",
     "generateCl": "Generate Cover Letter",
     "companyName": "Company Name (Optional)",
@@ -265,12 +264,12 @@
     "applying": "Applying...",
     "applyChanges": "Apply Changes",
     "retry": "Retry",
-    "themeConfig": "Theme Configuration",
-    "theme": "Theme",
-    "primaryColor": "Primary Color",
-    "modern": "Modern",
-    "classic": "Classic (Serif)",
-    "minimal": "Minimal"
+    "themeConfig": "Document Styling",
+    "primaryColor": "Heading",
+    "accentColor": "Accent",
+    "textColor": "Body Text",
+    "headingFont": "Heading Font",
+    "bodyFont": "Body Font"
   },
   "workspace": {
     "profiles": "Workspace profiles",

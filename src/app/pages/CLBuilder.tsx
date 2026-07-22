@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Mail, Download, Wand2, Copy, Check } from "lucide-react";
+import { Mail, Wand2, Copy, Check } from "lucide-react";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
@@ -11,9 +11,8 @@ import { generateCoverLetter, editCoverLetter } from "../services/clBuilderServi
 import { getActiveEndpoint } from "../services/llmService";
 import type { CLContent } from "../../types/cl";
 import { CLContentSchema } from "../../types/cl";
-import { renderCLToHTML } from "../../components/cv/renderingEngine";
 import { InteractiveCLPreview } from "../../components/cv/InteractiveCLPreview";
-import { downloadMarkdown } from "../utils/download";
+import { getCVTheme } from "../../components/cv/cvThemes";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 import { parsePlainTextToCLContent } from "../utils/clParser";
@@ -50,10 +49,12 @@ export function CLBuilder() {
   const [copied, setCopied] = useState(false);
 
   const [themeConfig, setThemeConfig] = useState({
-    primaryColor: "#2563eb",
-    templateId: "modern" as const,
+    primaryColor: "#1e293b",
+    accentColor: "#2563eb",
+    textColor: "#475569",
+    headingFont: "'Inter', -apple-system, sans-serif",
+    bodyFont: "'Inter', -apple-system, sans-serif",
   });
-  const printIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -116,30 +117,6 @@ export function CLBuilder() {
     }
   };
 
-  const exportAsMarkdown = () => {
-    if (!clContent) return;
-    const md = [
-      `# Cover Letter: ${clContent.position ?? "Application"}`,
-      "",
-      clContent.senderName,
-      clContent.senderTitle,
-      clContent.date,
-      "",
-      clContent.recipientName ? `To: ${clContent.recipientName}` : "",
-      clContent.companyName ? `Company: ${clContent.companyName}` : "",
-      "",
-      clContent.subject ? `## ${clContent.subject}` : "",
-      "",
-      clContent.salutation,
-      "",
-      ...clContent.bodyParagraphs,
-      "",
-      clContent.closing,
-      clContent.senderName,
-    ].filter(Boolean).join("\n");
-    downloadMarkdown("cover-letter.md", md);
-  };
-
   const copyPlainText = useCallback(() => {
     if (!clContent) return;
     const text = [
@@ -166,24 +143,19 @@ export function CLBuilder() {
   }, [clContent]);
 
   const printPDF = useCallback(() => {
-    if (!clContent) return;
-    const html = renderCLToHTML(clContent, themeConfig);
-    const iframe = printIframeRef.current;
-    if (!iframe) return;
-    const win = iframe.contentWindow;
-    if (!win) return;
-    const doc = win.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    requestAnimationFrame(() => {
-      win.focus();
-      win.print();
-    });
-  }, [clContent, themeConfig]);
+    window.print();
+  }, []);
 
   return (
     <div className="h-full flex flex-col">
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 0.15in; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body, #root { background: #fff !important; }
+          .page-break-before { page-break-before: always; break-before: page; }
+        }
+      `}</style>
       <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -204,10 +176,7 @@ export function CLBuilder() {
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   {copied ? t("cl.copied") : t("cl.copyText")}
                 </Button>
-                <Button onClick={exportAsMarkdown} variant="outline" className="gap-2" size="sm">
-                  <Download className="w-4 h-4" />
-                  {t("cl.exportMd")}
-                </Button>
+
                 <Button onClick={printPDF} className="gap-2 bg-gradient-to-r from-blue-600 to-cyan-600" size="sm">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
                   {t("cl.printPdf")}
@@ -291,17 +260,11 @@ export function CLBuilder() {
                     <InteractiveCLPreview
                       content={clContent}
                       onContentChange={setClContent}
-                      accentColor={themeConfig.primaryColor}
-                      templateId={themeConfig.templateId}
+                      theme={getCVTheme(themeConfig)}
                     />
                   )}
                 </div>
-                <iframe
-                  ref={printIframeRef}
-                  srcDoc="<!DOCTYPE html><html><head></head><body></body></html>"
-                  style={{ position: "absolute", width: 0, height: 0, border: "none" }}
-                  title="Print frame"
-                />
+
               </div>
             )}
           </div>

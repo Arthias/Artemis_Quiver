@@ -1,22 +1,20 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import type { CLContent } from "../../types/cl";
-import { Plus, X, Check } from "lucide-react";
-import { getCVTheme, type CVTheme } from "./cvThemes";
+import { Plus, X } from "lucide-react";
+import type { CVTheme } from "./cvThemes";
 import { InlineInput, InlineTextarea } from "./InlineEdit";
 
 interface InteractiveCLPreviewProps {
   content: CLContent;
   onContentChange: (content: CLContent) => void;
-  accentColor?: string;
-  templateId?: string;
+  theme: CVTheme;
 }
 
 function CLThemeDivider({ theme }: { theme: CVTheme }) {
   return <hr style={theme.divider} />;
 }
 
-export function InteractiveCLPreview({ content, onContentChange, accentColor = "#2563eb", templateId = "modern" }: InteractiveCLPreviewProps) {
-  const theme: CVTheme = getCVTheme(templateId, accentColor);
+export function InteractiveCLPreview({ content, onContentChange, theme }: InteractiveCLPreviewProps) {
 
   const updateField = useCallback(<K extends keyof CLContent>(field: K, value: CLContent[K]) => {
     onContentChange({ ...content, [field]: value });
@@ -118,7 +116,7 @@ export function InteractiveCLPreview({ content, onContentChange, accentColor = "
           <button
             onClick={addParagraph}
             className="inline-flex items-center gap-1 text-xs font-medium"
-            style={{ color: theme.title.color || accentColor }}
+            style={{ color: theme.title.color }}
           >
             <Plus className="w-3.5 h-3.5" /> Add paragraph
           </button>

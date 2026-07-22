@@ -6,7 +6,7 @@ import { geminiAdapter } from "./GeminiAdapter";
 import { WebLLMAdapter } from "./WebLLMAdapter";
 
 // Singleton adapter instances with default initializers
-const webllmAdapterInstance = new WebLLMAdapter();
+const webllmAdapterInstance = new WebLLMAdapter({ useServiceWorker: true });
 const registry: Record<ProviderType, ProviderAdapter> = {
   "openai-compatible": openAICompatibleAdapter,
   "anthropic": anthropicAdapter,
