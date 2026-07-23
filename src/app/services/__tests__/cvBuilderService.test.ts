@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { generateCv, editCv, optimizeCv } from "../cvBuilderService";
 import type { ModelEndpoint } from "../../types/llm";
-import { AppError, ErrorCodes } from "../../utils/errors";
+import { AppError } from "../../utils/errors";
 
 vi.mock("../llmService", () => ({
   chatCompletion: vi.fn(),

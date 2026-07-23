@@ -423,9 +423,4 @@ RULES:
 ${CL_JSON_FORMAT}`;
 }
 
-// ============================================================================
-// Intent classification — heuristic to auto-detect optimization mode
-// from a user's free-text edit request
-// ============================================================================
-
 

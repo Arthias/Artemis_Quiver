@@ -7,7 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
-import { generateCv } from "../services/cvBuilderService";
+import { generateCv, editCv } from "../services/cvBuilderService";
 import { getActiveEndpoint } from "../services/llmService";
 import type { CVContent } from "../types/cv";
 import type { ThemeConfig } from "../components/builder/ThemeConfigPanel";
@@ -102,12 +102,15 @@ export function CVBuilder() {
 
   const handleChatSubmit = async (message?: string) => {
     const text = (message ?? chatMessage).trim();
-    if (!text || chatLoading) return;
+    if (!text || chatLoading || !cvContent) return;
     setChatLoading(true);
     setError(null);
     setChatMessage("");
     try {
-      await generateCV();
+      const currentJson = JSON.stringify(cvContent);
+      const updated = await editCv(currentJson, text, profile, getActiveEndpoint(config));
+      const parsed = extractJsonObject(updated) as CVContent;
+      setCvContent(parsed);
     } catch (err) {
       setError(err instanceof AppError ? err.message : (err instanceof Error ? err.message : t("cv.applyChangesFailed")));
       setChatMessage(text);
