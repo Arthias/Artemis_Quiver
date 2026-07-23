@@ -37,29 +37,47 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
     });
   }, [content, onContentChange]);
 
+  const removeSenderHeader = useCallback(() => {
+    onContentChange({
+      ...content,
+      senderName: "",
+      senderTitle: undefined,
+      date: undefined,
+    });
+  }, [content, onContentChange]);
+
   return (
-    <div className="rounded-lg border border-gray-200 shadow-sm max-w-3xl mx-auto" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
+    <div className="cl-preview-card rounded-lg border border-gray-200 shadow-sm max-w-3xl mx-auto" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
       <div className="p-8 md:p-10">
         {/* Sender header */}
-        <div className="mb-6">
-          <InlineInput
-            value={content.senderName}
-            onSave={v => updateField("senderName", v)}
-            className="" placeholder="Your Name"
-            style={theme.name}
-          />
-          {content.senderTitle && (
+        {content.senderName && (
+          <div className="mb-6 group relative">
             <InlineInput
-              value={content.senderTitle}
-              onSave={v => updateField("senderTitle", v)}
-              className="" placeholder="Job Title"
-              style={theme.title}
+              value={content.senderName}
+              onSave={v => updateField("senderName", v)}
+              className="" placeholder="Your Name"
+              style={theme.name}
             />
-          )}
-          {content.date && (
-            <p className="mt-1" style={theme.muted}>{content.date}</p>
-          )}
-        </div>
+            {content.senderTitle && (
+              <InlineInput
+                value={content.senderTitle}
+                onSave={v => updateField("senderTitle", v)}
+                className="" placeholder="Job Title"
+                style={theme.title}
+              />
+            )}
+            {content.date && (
+              <p className="mt-1" style={theme.muted}>{content.date}</p>
+            )}
+            <button
+              onClick={removeSenderHeader}
+              className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-red-400 hover:text-red-600 transition-all"
+              title="Remove sender header"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
         <CLThemeDivider theme={theme} />
 
@@ -115,7 +133,7 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
           ))}
           <button
             onClick={addParagraph}
-            className="inline-flex items-center gap-1 text-xs font-medium"
+            className="cl-add-paragraph inline-flex items-center gap-1 text-xs font-medium"
             style={{ color: theme.title.color }}
           >
             <Plus className="w-3.5 h-3.5" /> Add paragraph
@@ -133,7 +151,7 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
             placeholder="Sincerely,"
             style={{ color: theme.body.color }}
           />
-          <p className="text-sm font-semibold" style={{ color: theme.name.color }}>{content.senderName}</p>
+          {content.senderName && <p className="text-sm font-semibold" style={{ color: theme.name.color }}>{content.senderName}</p>}
         </div>
       </div>
     </div>

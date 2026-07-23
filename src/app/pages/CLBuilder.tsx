@@ -154,9 +154,14 @@ export function CLBuilder() {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           html, body, #root { background: #fff !important; }
           .page-break-before { page-break-before: always; break-before: page; }
+          .cl-preview-card { box-shadow: none !important; border: none !important; border-radius: 0 !important; }
+          .cl-preview-card .p-8 { padding: 0.25in 0.35in !important; }
+          .cl-preview-card .group:hover .opacity-0 { opacity: 0 !important; }
+          .cl-preview-card hr { display: none !important; }
+          .cl-preview-card .cl-add-paragraph { display: none !important; }
         }
       `}</style>
-      <div className="border-b border-border bg-card">
+      <div className="cl-ui-header border-b border-border bg-card print:hidden">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -186,15 +191,17 @@ export function CLBuilder() {
           </div>
 
           {isGenerated && clContent && (
-            <ThemeConfigPanel config={themeConfig} onChange={(c) => setThemeConfig(c as any)} />
+            <div className="cl-ui-theme">
+              <ThemeConfigPanel config={themeConfig} onChange={(c) => setThemeConfig(c as any)} />
+            </div>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden flex">
-        <div className="flex-1 border-r border-border overflow-auto">
-          <div className="p-6">
-            <BuilderErrorDisplay error={error} retryableError={retryableError} onRetry={generateLetter} />
+      <div className="flex-1 overflow-hidden flex print:overflow-visible print:h-auto">
+        <div className="cl-ui-sidebar flex-1 border-r border-border overflow-auto print:border-r-0 print:overflow-visible">
+          <div className="p-6 print:p-0">
+            <div className="print:hidden"><BuilderErrorDisplay error={error} retryableError={retryableError} onRetry={generateLetter} /></div>
 
             {!isGenerated ? (
               <div className="max-w-2xl mx-auto space-y-4">
@@ -254,8 +261,8 @@ export function CLBuilder() {
                 </Card>
               </div>
             ) : (
-              <div className="max-w-4xl mx-auto h-full flex flex-col">
-                <div className="flex-1 overflow-auto mb-4">
+              <div className="max-w-4xl mx-auto h-full flex flex-col print:max-w-none print:mx-0 print:h-auto">
+                <div className="flex-1 overflow-auto mb-4 print:overflow-visible print:flex-none print:mb-0">
                   {clContent && (
                     <InteractiveCLPreview
                       content={clContent}
@@ -271,15 +278,17 @@ export function CLBuilder() {
         </div>
 
         {isGenerated && (
-          <BuilderAssistantPanel
-            suggestions={CL_SUGGESTIONS}
-            chatMessage={chatMessage}
-            chatLoading={chatLoading}
-            onChatMessageChange={setChatMessage}
-            onSubmit={handleChatSubmit}
-            accentClass="text-blue-600"
-            panelBg="bg-muted/20"
-          />
+          <div className="print:hidden">
+            <BuilderAssistantPanel
+              suggestions={CL_SUGGESTIONS}
+              chatMessage={chatMessage}
+              chatLoading={chatLoading}
+              onChatMessageChange={setChatMessage}
+              onSubmit={handleChatSubmit}
+              accentClass="text-blue-600"
+              panelBg="bg-muted/20"
+            />
+          </div>
         )}
       </div>
     </div>
