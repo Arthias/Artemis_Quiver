@@ -64,7 +64,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
           throw new Error("Initialization failed to set default active profile.");
         }
 
-        const activeProf = profilesList.find((p) => p.id === activeId) || profilesList[0];
+        const activeProf = profilesList.find((p) => p.id === activeId) ?? profilesList[0]!;
         const loadedData = await getProfile(activeProf.id);
 
         if (!loadedData) {
@@ -220,10 +220,12 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         const evicted = [...currentProfiles].sort(
           (a, b) => new Date(a.lastUsedAt).getTime() - new Date(b.lastUsedAt).getTime()
         )[0];
-        console.info(
-          `[Artemis Quiver] Profile limit (${MAX_WORKSPACE_PROFILES}) reached. Evicting "${evicted.name}" (${evicted.id}).`
-        );
-        await deleteProfile(evicted.id);
+        if (evicted) {
+          console.info(
+            `[Artemis Quiver] Profile limit (${MAX_WORKSPACE_PROFILES}) reached. Evicting "${evicted.name}" (${evicted.id}).`
+          );
+          await deleteProfile(evicted.id);
+        }
       }
 
       const emptyData = createEmptyProfileData();
@@ -277,7 +279,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
       const remaining = await getProfiles();
       let nextActiveId = manifest.activeProfileId;
 
-      if (id === manifest.activeProfileId) {
+      if (id === manifest.activeProfileId && remaining[0]) {
         nextActiveId = remaining[0].id;
         const target = await getProfile(nextActiveId);
         if (target) {

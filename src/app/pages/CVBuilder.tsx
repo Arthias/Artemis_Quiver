@@ -12,6 +12,7 @@ import { getActiveEndpoint } from "../services/llmService";
 import type { CVContent } from "../types/cv";
 import type { ThemeConfig } from "../components/builder/ThemeConfigPanel";
 import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
+import { toast } from "sonner";
 import { getCVTheme } from "../../components/cv/cvThemes";
 import { extractJsonObject } from "../utils/jsonParse";
 import { AppError } from "../utils/errors";
@@ -86,6 +87,7 @@ export function CVBuilder() {
       setCvContent(parsedContent);
       setIsGenerated(true);
       window.scrollTo(0, 0);
+      toast.success("CV generated");
     } catch (err) {
       logAppError(err, { phase: "generateCV" });
       if (err instanceof AppError) {
@@ -121,6 +123,7 @@ export function CVBuilder() {
 
   const printPDF = useCallback(() => {
     window.print();
+    toast.success("PDF sent to printer");
   }, []);
 
   return (

@@ -62,6 +62,10 @@ export default defineConfig({
           if (chunkInfo.name === "webllm-sw") return "[name].js";
           return "assets/[name]-[hash].js";
         },
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router"],
+          "dexie-vendor": ["dexie"],
+        },
       },
     },
   },

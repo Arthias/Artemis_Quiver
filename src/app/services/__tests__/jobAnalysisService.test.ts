@@ -115,7 +115,7 @@ describe("followUpChat", () => {
 
     expect(reply).toBe("Here is tailored advice...");
     const calls = vi.mocked(chatCompletion).mock.calls;
-    const systemContent = calls[0][0][0]?.content ?? "";
+    const systemContent = calls[0]?.[0]?.[0]?.content ?? "";
     expect(systemContent).toContain("job application coach");
     expect(systemContent).toContain("follow-up");
   });
@@ -133,7 +133,7 @@ describe("followUpChat", () => {
     await followUpChat("Senior React role", "Frontend profile", [], mockEndpoint);
 
     const calls = vi.mocked(chatCompletion).mock.calls;
-    const userContent = calls[0][0].find(m => m.role === "user")?.content ?? "";
+    const userContent = calls[0]?.[0]?.find(m => m.role === "user")?.content ?? "";
     expect(userContent).toContain("Senior React role");
     expect(userContent).toContain("Frontend profile");
   });
