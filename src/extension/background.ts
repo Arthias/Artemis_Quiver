@@ -352,7 +352,9 @@ async function extractPageContent() {
     let endIdx = lines.length;
 
     for (let i = 0; i < lines.length; i++) {
-      const lower = lines[i].toLowerCase();
+      const line = lines[i];
+      if (!line) continue;
+      const lower = line.toLowerCase();
       if (startMarkers.some((m) => lower.startsWith(m))) {
         startIdx = i;
         break;
@@ -360,7 +362,9 @@ async function extractPageContent() {
     }
 
     for (let i = startIdx + 1; i < lines.length; i++) {
-      const lower = lines[i].toLowerCase();
+      const line = lines[i];
+      if (!line) continue;
+      const lower = line.toLowerCase();
       if (endMarkers.some((m) => lower.startsWith(m))) {
         endIdx = i;
         break;

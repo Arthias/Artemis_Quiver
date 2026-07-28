@@ -107,8 +107,8 @@ describe("Database Repository & Init Tests", () => {
 
       const sessions = await getSessions(profileId);
       expect(sessions.length).toBe(1);
-      expect(sessions[0].id).toBe(sessionId);
-      expect(sessions[0].result.score).toBe(85);
+      expect(sessions[0]?.id).toBe(sessionId);
+      expect(sessions[0]?.result.score).toBe(85);
 
       await deleteSession(sessionId);
       const postDelete = await getSessions(profileId);
@@ -122,11 +122,11 @@ describe("Database Repository & Init Tests", () => {
 
       const profiles = await getProfiles();
       expect(profiles.length).toBe(1);
-      expect(profiles[0].name).toBe("Default");
-      expect(profiles[0].settings.providerMode).toBe("local");
+      expect(profiles[0]?.name).toBe("Default");
+      expect(profiles[0]?.settings.providerMode).toBe("local");
 
       const activeId = await getActiveProfileId();
-      expect(activeId).toBe(profiles[0].id);
+      expect(activeId).toBe(profiles[0]?.id);
     });
 
     it("should not overwrite existing profiles", async () => {
@@ -147,7 +147,7 @@ describe("Database Repository & Init Tests", () => {
 
       const profiles = await getProfiles();
       expect(profiles.length).toBe(1);
-      expect(profiles[0].name).toBe("Existing");
+      expect(profiles[0]?.name).toBe("Existing");
     });
 
     describe("backfillProviderMode migration", () => {

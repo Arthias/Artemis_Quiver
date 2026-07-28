@@ -35,8 +35,12 @@ last_updated: 2026-07-06
 ## Testing & Validation
 - [[../50-Testing/Test Cases|Test Cases & QA Scenarios]]
 
+## Open Source Landscape
+- [[../40-Development/Open Source Quick Wins|Open Source Quick Wins]] — Library survey for future sprints
+
 ## Project Roadmap & Backlog
 - [[../60-Roadmap/Plan|Development Plan & Backlog]]
 
 ## Project Metadata
 - [[../90-Meta/CHANGELOG|CHANGELOG]]
+- [[../90-Meta/Flow-Integration|Flow Integration]] — Quiver-side plan for Artemis Flow synergy

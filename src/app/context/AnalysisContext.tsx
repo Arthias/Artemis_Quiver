@@ -15,6 +15,7 @@ import type { ChatMessage } from "../types/llm";
 import { useConfig } from "./ConfigContext";
 import { useProfile } from "./ProfileContext";
 import { useWorkspace } from "./WorkspaceProfileContext";
+import { toast } from "sonner";
 import { downloadMarkdown } from "../utils/download";
 import { getSessions, saveSession } from "../db";
 
@@ -117,8 +118,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       setSessions((prev) => [session, ...prev]);
       await touchLastUsed();
       window.scrollTo(0, 0);
+      toast.success("Analysis complete");
     } catch (err) {
       const message = err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : "Analysis failed. Check LLM settings.";
+      toast.error(message);
       setError(message);
       setCurrentResult(null);
       setCurrentMarkdown(null);
@@ -213,9 +216,13 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   );
 
   const exportCurrentAnalysis = useCallback(() => {
-    if (!currentMarkdown) return;
+    if (!currentMarkdown) {
+      toast.error("No analysis to export");
+      return;
+    }
     const stamp = new Date().toISOString().slice(0, 10);
     downloadMarkdown(`job-analysis-${stamp}.md`, currentMarkdown);
+    toast.success("Analysis exported");
   }, [currentMarkdown]);
 
   const value = useMemo(

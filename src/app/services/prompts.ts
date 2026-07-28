@@ -118,7 +118,7 @@ Return ONLY the rewritten summary text — no JSON, no commentary.`;
 // Bullet Point Optimization (#2)
 // ============================================================================
 
-function bulletOptimizePrompt(ctx: PromptContext): string {
+function bulletOptimizePrompt(_ctx: PromptContext): string {
   return `You are an expert CV writer specializing in achievement-oriented bullet points. Rewrite the provided experience descriptions to focus on measurable accomplishments.
 
 REQUIREMENTS:
@@ -138,7 +138,7 @@ Return ONLY the rewritten bullet points as a bullet list — no JSON, no comment
 // ATS Optimization (#3)
 // ============================================================================
 
-function atsOptimizePrompt(ctx: PromptContext): string {
+function atsOptimizePrompt(_ctx: PromptContext): string {
   return `You are an ATS (Applicant Tracking System) optimization expert. Rewrite the CV content so it ranks well with automated screeners while remaining natural and readable to human reviewers.
 
 Job description provided below. Use it to identify:
@@ -208,7 +208,7 @@ Return the audit in a structured format. Be direct — the candidate wants hones
 // Work History Alignment (#7)
 // ============================================================================
 
-function workHistoryAlignPrompt(ctx: PromptContext): string {
+function workHistoryAlignPrompt(_ctx: PromptContext): string {
   return `You are a career alignment specialist. Restructure the candidate's work history to maximize relevance to the target role.
 
 ALIGNMENT GUIDELINES:
@@ -225,7 +225,7 @@ Return the restructured work history with explanations of why each change improv
 // Skills Section (#8)
 // ============================================================================
 
-function skillsSectionPrompt(ctx: PromptContext): string {
+function skillsSectionPrompt(_ctx: PromptContext): string {
   return `You are a technical resume specialist. Build or optimize the candidate's skills section.
 
 GUIDELINES:
@@ -243,7 +243,7 @@ Return the optimized skills section as a categorized list.`;
 // Headline Generation (#9)
 // ============================================================================
 
-function headlinePrompt(ctx: PromptContext): string {
+function headlinePrompt(_ctx: PromptContext): string {
   return `You are a personal branding specialist. Write a powerful resume headline and subheadline.
 
 FORMAT:
@@ -384,8 +384,8 @@ RULES:
 - Return ONLY the JSON object, no text/comments/formatting around it`;
 
 export function clGeneratePrompt(
-  company: string,
-  role: string,
+  _company: string,
+  _role: string,
   hasJobDescription: boolean,
 ): string {
   const parts: string[] = [

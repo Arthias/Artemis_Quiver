@@ -15,6 +15,7 @@ import { InteractiveCLPreview } from "../../components/cv/InteractiveCLPreview";
 import { getCVTheme } from "../../components/cv/cvThemes";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
+import { toast } from "sonner";
 import { parsePlainTextToCLContent } from "../utils/clParser";
 import { useTranslation } from "react-i18next";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
@@ -84,6 +85,7 @@ export function CLBuilder() {
       setClContent(validated);
       setIsGenerated(true);
       window.scrollTo(0, 0);
+      toast.success("Cover letter generated");
     } catch (err) {
       logAppError(err, { phase: "generateCoverLetter" });
       if (err instanceof AppError) {
@@ -138,12 +140,14 @@ export function CLBuilder() {
     ].filter(Boolean).join("\n");
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
+      toast.success("Copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     });
   }, [clContent]);
 
   const printPDF = useCallback(() => {
     window.print();
+    toast.success("PDF sent to printer");
   }, []);
 
   return (

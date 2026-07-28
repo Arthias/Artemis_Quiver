@@ -12,7 +12,9 @@ function findLineStartingWith(lines: string[], prefix: string): number {
 
 function findClosingBlock(lines: string[], searchStart: number): number {
   for (let i = searchStart; i < lines.length; i++) {
-    const raw = lines[i].trim();
+    const line = lines[i];
+    if (!line) continue;
+    const raw = line.trim();
     const lower = raw.toLowerCase().replace(/[,;:.!]+$/, "");
     if (CLOSING_KEYWORDS.some(k => lower === k)) {
       return i;

@@ -80,10 +80,10 @@ describe("generateCv", () => {
 
     const calls = vi.mocked(chatCompletion).mock.calls;
     // 3rd call (index 2) should have corrective feedback
-    const thirdCallMessages = calls[2][0];
+    const thirdCallMessages = calls[2]?.[0] ?? [];
     const userRoles = thirdCallMessages.filter((m: any) => m.role === "user");
     expect(userRoles.length).toBeGreaterThanOrEqual(2);
-    const lastUser = userRoles[userRoles.length - 1].content ?? "";
+    const lastUser = userRoles[userRoles.length - 1]?.content ?? "";
     expect(lastUser).toContain("Fix the JSON formatting error");
   });
 
@@ -127,7 +127,7 @@ describe("generateCv", () => {
     });
 
     const calls = vi.mocked(chatCompletion).mock.calls;
-    const systemContent = calls[0][0].find(m => m.role === "system")?.content ?? "";
+    const systemContent = calls[0]?.[0]?.find(m => m.role === "system")?.content ?? "";
     expect(systemContent).toContain("Senior Engineer");
     expect(systemContent).toContain("FinTech");
   });
@@ -191,7 +191,7 @@ describe("optimizeCv", () => {
     });
 
     const calls = vi.mocked(chatCompletion).mock.calls;
-    const systemContent = calls[0][0].find(m => m.role === "system")?.content ?? "";
+    const systemContent = calls[0]?.[0]?.find(m => m.role === "system")?.content ?? "";
     expect(systemContent).toContain("Marketing");
     expect(systemContent).toContain("Product");
   });

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useConfig } from "./ConfigContext";
 import { useWorkspace } from "./WorkspaceProfileContext";
+import { toast } from "sonner";
 import { downloadMarkdown } from "../utils/download";
 
 interface ProfileContextValue {
@@ -45,6 +46,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     touchLastUsed();
     setSavedProfile(profile);
     setLastSavedAt(new Date().toISOString());
+    toast.success("Profile saved");
   }, [profile, updateProfileData, persistActiveProfile, touchLastUsed]);
 
   const setProfile = useCallback((value: string) => {
@@ -53,6 +55,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   const exportProfile = useCallback(() => {
     downloadMarkdown("profile.md", profile);
+    toast.success("Profile exported");
   }, [profile]);
 
   useEffect(() => {

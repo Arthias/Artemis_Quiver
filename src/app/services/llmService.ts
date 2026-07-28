@@ -9,7 +9,7 @@ function logLlmError(err: unknown, endpoint: ModelEndpoint) {
     source: "llm",
     code: err instanceof Error && "code" in err ? (err as any).code : undefined,
     severity: "ERROR",
-    metadata: JSON.stringify({ endpoint: endpoint.label, provider: endpoint.provider, model: endpoint.model }),
+    metadata: { endpoint: endpoint.label, provider: endpoint.provider, model: endpoint.model } as Record<string, unknown>,
   }));
 }
 
