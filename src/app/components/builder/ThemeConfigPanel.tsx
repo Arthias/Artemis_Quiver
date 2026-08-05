@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Card } from "../ui/card";
+import type { TemplateId } from "../../../types/cv";
 
 export interface ThemeConfig {
+  templateId: TemplateId;
   primaryColor: string;
   accentColor: string;
   textColor: string;
@@ -24,12 +26,35 @@ const FONT_OPTIONS = [
   { value: "'Courier New', monospace", label: "Courier New (Mono)" },
 ];
 
+const TEMPLATE_OPTIONS: { value: TemplateId; labelKey: string }[] = [
+  { value: "classic", labelKey: "builder.templateClassic" },
+  { value: "executive", labelKey: "builder.templateExecutive" },
+];
+
 export function ThemeConfigPanel({ config, onChange }: ThemeConfigPanelProps) {
   const { t } = useTranslation();
   return (
     <Card className="p-3 mt-3 bg-muted/50 border-dashed">
       <div className="text-sm font-medium mb-2">{t("builder.themeConfig")}</div>
       <div className="flex flex-wrap items-start gap-4">
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">{t("builder.template")}</label>
+          <div className="flex gap-1">
+            {TEMPLATE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => onChange({ ...config, templateId: opt.value })}
+                className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
+                  config.templateId === opt.value
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-background text-foreground border-border hover:bg-muted"
+                }`}
+              >
+                {t(opt.labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
         <div>
           <label className="block text-xs text-muted-foreground mb-1">{t("builder.primaryColor")}</label>
           <input

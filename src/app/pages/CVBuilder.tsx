@@ -39,6 +39,7 @@ export function CVBuilder() {
   const [jobDescExpanded, setJobDescExpanded] = useState(true);
   const [cvContent, setCvContent] = useState<CVContent | null>(null);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
+    templateId: "classic",
     primaryColor: "#1e293b",
     accentColor: "#2563eb",
     textColor: "#475569",
@@ -139,6 +140,7 @@ export function CVBuilder() {
           .cv-preview-card .group:hover .bg-gray-50 { background: transparent !important; }
           .cv-preview-card .page-keep { page-break-inside: avoid; break-inside: avoid; }
           .cv-preview-card .page-break-before { page-break-before: always; break-before: page; }
+          .print-grid-2 { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.75rem !important; }
         }
       `}</style>
       <div className="border-b border-border bg-card print:hidden">
@@ -298,6 +300,7 @@ export function CVBuilder() {
                       content={cvContent}
                       onContentChange={setCvContent}
                       theme={getCVTheme(themeConfig)}
+                      templateId={themeConfig.templateId}
                     />
                   )}
                 </div>

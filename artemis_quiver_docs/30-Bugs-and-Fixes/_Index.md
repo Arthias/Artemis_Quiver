@@ -391,6 +391,26 @@ Expanded view shows guidance: "No profile fingerprint. Open the Artemis Quiver p
 
 ---
 
+---
+
+## 2026-07-28: LinkedIn overlay job detail extraction unreliable
+
+### Issue #27: Overlay import + match scoring returns incomplete LinkedIn text
+
+**Symptom:** Overlay overlay badge shows "Analyzing..." or imports blank/partial job description on LinkedIn. Non-LinkedIn sites work correctly.
+
+**Root Cause:** Two issues:
+1. `cleanPageText()` in `overlay.ts` had no DOM stabilization wait. LinkedIn is an SPA — job details render asynchronously. When the overlay injected, the job description section often hadn't loaded yet, so `document.body.innerText` returned an incomplete page.
+2. Background's `extractPageContent()` had proper `waitForStable(8000)` but the overlay's import path (`handleImport` → `cleanPageText` → `ARTEMIS_IMPORT_JOB`) bypassed it entirely. The `ARTEMIS_EXTRACT_AND_IMPORT` handler existed in background.ts but was never called.
+
+**Fix Applied:**
+1. `cleanPageText()` is now `async`. For LinkedIn, it polls up to 6s for a known job title element (`.jobs-unified-top-card__title`, `.job-details-jobs-unified-top-card__job-title`) or the "about the job" text marker before extracting content.
+2. Also added `.job-details-jobs-unified-top-card__job-title` to title selectors (LinkedIn's newer CSS class).
+
+**Location:** `src/extension/overlay.ts:484-520`
+
+---
+
 ## Known Limitations (not yet addressed)
 
 ### PDF rendering diverges from interactive preview
