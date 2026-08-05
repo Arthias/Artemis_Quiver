@@ -2,8 +2,6 @@
 
 Job hunting automation engine: analyze job postings against your professional profile using a local LLM, then refine CVs and cover letters.
 
-Design source: [Figma](https://www.figma.com/design/NAKF9BYIvmXKegz6JDnaJl/Job-Hunting-Automation-Engine).
-
 ## What it does
 
 Paste job posting → compare to **master profile** (Markdown) → returns:
@@ -19,6 +17,16 @@ Up to 3 local profiles, each with master profile, LLM settings, theme, analysis 
 - **CV Builder** — generate from profile + job description; interactive inline editing (all sections); 3 themes + color picker; AI chat; export as PDF or `.md`
 - **Cover Letter Builder** — tailored letter; structured JSON editing; same themes/export + copy plain text
 
+## Chrome Extension (Recommended use)
+
+```bash
+npm run build:ext
+```
+
+Then `chrome://extensions` → Load unpacked → `dist-ext/`. **(Dev mode must be enabled)**
+
+Extracts job content from any page. LinkedIn: MutationObserver + boundary trimming. Others: `document.body.innerText`. Pre-fills Analysis Hub.
+
 ## Run locally
 
 ```bash
@@ -30,15 +38,7 @@ Default LLM: primary → `/api/lmstudio` (Vite proxy), model `google/gemma-4-e2b
 
 Data stays in browser (IndexedDB) unless you export `.md`.
 
-## Chrome Extension (MV3)
 
-```bash
-npm run build:ext
-```
-
-Then `chrome://extensions` → Load unpacked → `dist-ext/`.
-
-Extracts job content from any page. LinkedIn: MutationObserver + boundary trimming. Others: `document.body.innerText`. Pre-fills Analysis Hub.
 
 ## Tech stack
 
