@@ -49,7 +49,7 @@ Desktop/Electron apps use `CreateMLCEngine()`; web apps with navigation use SW m
 | `WebLLMAdapter.ts` | Add `useServiceWorker` config flag, SW init path, message-based `chatCompletion()` |
 | `registry.ts` | Pass `useServiceWorker: true` to WebLLMAdapter constructor |
 | `vite.config.ts` | Add `webllm-sw.ts` as build entry for SW output |
-| `vite.ext.config.ts` | Copy SW entry to `dist-ext/` |
+| `vite.ext.config.ts` | Copy SW entry to `Artemis_Quiver_extension/` |
 | [[../20-APIs/Local LLM Integration]] | Document SW mode in WebLLM row |
 
 ### Implementation Steps
@@ -105,7 +105,7 @@ build: {
 ```
 
 > [!WARNING] Extension Build
-> The SW entry generates `dist/webllm-sw.js`. During `build:ext`, this file must be copied to `dist-ext/webllm-sw.js` so the extension's overridden URL scope can use it. Update `vite.ext.config.ts` to include this entry.
+> The SW entry generates `dist/webllm-sw.js`. During `build:ext`, this file must be copied to `Artemis_Quiver_extension/webllm-sw.js` so the extension's overridden URL scope can use it. Update `vite.ext.config.ts` to include this entry.
 
 5. **Update `registry.ts`**:
 

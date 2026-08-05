@@ -40,6 +40,7 @@ last_updated: 2026-07-06
 
 ## Project Roadmap & Backlog
 - [[../60-Roadmap/Plan|Development Plan & Backlog]]
+- [[../60-Roadmap/Public Beta Release|Public Beta Release]] — store-readiness checklist (R1–R5 blockers, CI flow)
 
 ## Project Metadata
 - [[../90-Meta/CHANGELOG|CHANGELOG]]

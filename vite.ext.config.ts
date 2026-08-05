@@ -2,7 +2,14 @@ import { defineConfig } from "vite";
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { cpSync, mkdirSync, readdirSync } from "fs";
+import archiver from "archiver";
+import { cpSync, createWriteStream, mkdirSync, readdirSync, readFileSync } from "fs";
+
+const OUT_DIR = "Artemis_Quiver_extension";
+const manifestVersion = JSON.parse(
+  readFileSync(path.resolve(__dirname, "src/extension/manifest.json"), "utf-8")
+).version as string;
+const ZIP_PATH = path.resolve(__dirname, "release", `${OUT_DIR}-v${manifestVersion}.zip`);
 
 function figmaAssetResolver() {
   return {
@@ -20,7 +27,7 @@ function extensionAssets() {
   return {
     name: "extension-assets",
     closeBundle() {
-      const out = path.resolve(__dirname, "dist-ext");
+      const out = path.resolve(__dirname, OUT_DIR);
       mkdirSync(out, { recursive: true });
 
       // Copy manifest to dist root
@@ -46,6 +53,18 @@ function extensionAssets() {
           }
         }
       } catch { /* locales dir may not exist */ }
+
+      // Package the built extension into a zip for distribution
+      mkdirSync(path.dirname(ZIP_PATH), { recursive: true });
+      const output = createWriteStream(ZIP_PATH);
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      archive.on("warning", (err) => { if (err.code !== "ENOENT") console.warn(err); });
+      archive.on("error", (err) => { throw err; });
+      archive.pipe(output);
+      archive.directory(out, false);
+      archive.finalize().then(() => {
+        console.log(`Packaged ${ZIP_PATH}`);
+      });
     },
   };
 }
@@ -61,7 +80,8 @@ export default defineConfig({
   assetsInclude: ["**/*.svg", "**/*.csv"],
   build: {
     chunkSizeWarningLimit: 1000,
-    outDir: "dist-ext",
+    modulePreload: false,
+    outDir: OUT_DIR,
     rollupOptions: {
       input: {
         app: path.resolve(__dirname, "index.html"),

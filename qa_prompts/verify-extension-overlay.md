@@ -4,7 +4,7 @@ You are a frontend QA agent. You have Playwright MCP browser tools available wit
 Verify the **Chrome Extension overlay** on a job listing page is working correctly.
 
 ## Prerequisites
-The extension must be built (`npm run build:ext`) and loaded via `--extension ./dist-ext`.
+The extension must be built (`npm run build:ext`) and loaded via `--extension ./Artemis_Quiver_extension`.
 
 ## Steps
 

@@ -94,7 +94,7 @@ Production-hardening for in-browser WebLLM mode. 6 phases, implemented in order 
 - [ ] Create `sw-utils.ts` — `registerWebLLMSW()` with fallback
 - [ ] Update `WebLLMAdapter.ts` — constructor flag `useServiceWorker`, SW init path
 - [ ] Update `vite.config.ts` — SW build entry
-- [ ] Update `vite.ext.config.ts` — copy SW to `dist-ext/`
+- [ ] Update `vite.ext.config.ts` — copy SW to `Artemis_Quiver_extension/`
 - [ ] Update `registry.ts` — `useServiceWorker: true` by default
 
 ### L4 — Streaming Support

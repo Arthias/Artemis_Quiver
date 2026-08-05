@@ -38,7 +38,15 @@ Default LLM: primary → `/api/lmstudio` (Vite proxy), model `google/gemma-4-e2b
 
 Data stays in browser (IndexedDB) unless you export `.md`.
 
+## Chrome Extension (MV3)
 
+```bash
+npm run build:ext
+```
+
+Then `chrome://extensions` → Load unpacked → `Artemis_Quiver_extension/`. A ready-to-distribute `release/Artemis_Quiver_extension.zip` is also produced by `build:ext`.
+
+Extracts job content from any page. LinkedIn: MutationObserver + boundary trimming. Others: `document.body.innerText`. Pre-fills Analysis Hub.
 
 ## Tech stack
 

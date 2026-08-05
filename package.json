@@ -1,7 +1,7 @@
 {
   "name": "@figma/my-make-file",
   "private": true,
-  "version": "0.0.1",
+  "version": "3.4.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -18,7 +18,7 @@
     "qa:profile": "powershell -File scripts/qa.ps1 -Suite profile",
     "qa:config": "powershell -File scripts/qa.ps1 -Suite config",
     "qa:onboarding": "powershell -File scripts/qa.ps1 -Suite onboarding",
-    "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./dist-ext",
+    "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./Artemis_Quiver_extension",
     "qa:headless": "powershell -File scripts/qa.ps1 -Suite all -Headless"
   },
   "dependencies": {
@@ -54,6 +54,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "4.7.0",
+    "archiver": "^7.0.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "tailwindcss": "4.1.12",

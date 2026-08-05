@@ -13,7 +13,7 @@ No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces c
 |---------|------|
 | `npm run dev` | Vite dev server (localhost:5173) |
 | `npm run build` | Production build |
-| `npm run build:ext` | Chrome extension → `dist-ext/` |
+| `npm run build:ext` | Chrome extension → `Artemis_Quiver_extension/` (+ zip in `release/`) |
 | `npm run test` | vitest (138 tests, 13 files) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:all` | Full auto-QA → `qa-reports/` |
@@ -41,7 +41,7 @@ src/
 ## Key Deviations
 
 - **Hash routing** (`createHashRouter`) — required by Chrome extension
-- **Dual Vite configs**: `vite.config.ts` (app) + `vite.ext.config.ts` (extension → `dist-ext/`)
+- **Dual Vite configs**: `vite.config.ts` (app) + `vite.ext.config.ts` (extension → `Artemis_Quiver_extension/`)
 - **Import aliases**: `@/` → `./src`
 - **Virtual module**: `figma:asset/<file>` → `src/assets/<file>`
 - **Tailwind v4** via `@tailwindcss/vite` plugin
@@ -78,7 +78,7 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 
 **Key convention**: `page.component.element` — e.g., `analysis.analyze`, `profile.saveChanges`, `config.llmProvider`.
 
-**Extension**: Lightweight `src/extension/i18n.ts` loader for service worker/overlay (no React). Locale JSON copied to `dist-ext/locales/` during `build:ext`.
+**Extension**: Lightweight `src/extension/i18n.ts` loader for service worker/overlay (no React). Locale JSON copied to `Artemis_Quiver_extension/locales/` during `build:ext`.
 
 **Rendering Engine**: `renderCVToHTML()` / `renderCLToHTML()` accept optional `lang` param. Section headings use locale-keyed map in `renderingEngine.ts`.
 

@@ -11,7 +11,7 @@ npx playwright install chromium
 
 Then start dev server: `npm run dev`.
 
-For extension QA: `npm run build:ext` first, then load with `--extension ./dist-ext`.
+For extension QA: `npm run build:ext` first, then load with `--extension ./Artemis_Quiver_extension`.
 
 ## Available Suites
 
@@ -61,7 +61,7 @@ Accessibility tree covers ~80%. Vision only for polish pass.
 | Symptom | Fix |
 |---------|-----|
 | Browser not found | `npx playwright install chromium` |
-| Extension not loading | Build first (`npm run build:ext`), check `dist-ext/` |
+| Extension not loading | Build first (`npm run build:ext`), check `Artemis_Quiver_extension/` |
 | MCP connection refused | Ensure `@playwright/mcp` running, check port 3099 |
 | Snapshots empty on ext pages | Use headed mode |
 | Permission denied (Linux/WSL) | `--no-sandbox` |
