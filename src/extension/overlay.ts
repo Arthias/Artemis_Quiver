@@ -385,7 +385,7 @@ function setupOverlayEvents(el: HTMLElement) {
         scoringFailed = false;
         matchScore = null;
         render();
-        void loadConfig().then((cfg) => computeMatch(cleanPageText().text, cfg));
+        void loadConfig().then(async (cfg) => computeMatch((await cleanPageText()).text, cfg));
         return;
       }
       if (action === "test-nano") { void testNano(); return; }
@@ -406,7 +406,7 @@ function injectNanoBridge() {
   script.addEventListener("load", () => script.remove());
 }
 
-function injectOverlay(config: OverlayConfig) {
+async function injectOverlay(config: OverlayConfig) {
   if (document.getElementById("artemis-overlay")) return;
 
   injectNanoBridge();
@@ -438,7 +438,7 @@ function injectOverlay(config: OverlayConfig) {
   nanoTesting = false;
 
   const pageText = document.body.innerText;
-  const cleaned = cleanPageText();
+  const cleaned = await cleanPageText();
   extracted = {
     title: cleaned.title || extractJobData(pageText).title,
     company: extractJobData(pageText).company,
@@ -467,12 +467,12 @@ function injectOverlay(config: OverlayConfig) {
       console.log("[Artemis] storage changed: hadFingerprint:", hadFingerprint, "hasFingerprint:", hasFingerprint, "matchScore:", matchScore);
       if (hasFingerprint && !hadFingerprint && matchScore === null) {
         console.log("[Artemis] storage changed: re-triggering computeMatch");
-        void computeMatch(cleanPageText().text, newConfig);
+        void cleanPageText().then((c) => computeMatch(c.text, newConfig));
       } else if (hasFingerprint !== hadFingerprint) {
         if (hasFingerprint) {
           scoringFailed = false;
           console.log("[Artemis] storage changed: fingerprint appeared, re-triggering computeMatch");
-          void computeMatch(cleanPageText().text, newConfig);
+          void cleanPageText().then((c) => computeMatch(c.text, newConfig));
         } else {
           render();
         }
@@ -481,10 +481,29 @@ function injectOverlay(config: OverlayConfig) {
   }
 }
 
-function cleanPageText(): { title: string; text: string; url: string } {
+async function cleanPageText(): Promise<{ title: string; text: string; url: string }> {
   const isLinkedIn = location.hostname.includes("linkedin.com");
 
   if (isLinkedIn) {
+    // Wait for LinkedIn's SPA-rendered job detail section to appear
+    if (!document.querySelector(".jobs-unified-top-card__title, .job-details-jobs-unified-top-card__job-title")) {
+      await new Promise<void>((resolve) => {
+        let elapsed = 0;
+        const maxWait = 6000;
+        const interval = setInterval(() => {
+          elapsed += 500;
+          if (
+            document.querySelector(".jobs-unified-top-card__title, .job-details-jobs-unified-top-card__job-title") ||
+            document.body.innerText.toLowerCase().includes("about the job") ||
+            elapsed >= maxWait
+          ) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 500);
+      });
+    }
+
     let text = document.body.innerText;
     const startMarkers = ["about the job", "about this role", "job description"];
     const endMarkers = ["job search faster with premium", "about the company", "show more", "people also viewed"];
@@ -500,7 +519,7 @@ function cleanPageText(): { title: string; text: string; url: string } {
       if (endMarkers.some((m) => lower.startsWith(m))) { endIdx = i; break; }
     }
     text = lines.slice(startIdx, endIdx).join("\n").trim();
-    const titleEl = document.querySelector<HTMLElement>(".jobs-unified-top-card__title, h1");
+    const titleEl = document.querySelector<HTMLElement>(".jobs-unified-top-card__title, .job-details-jobs-unified-top-card__job-title, h1");
     const title = titleEl?.innerText?.trim() || document.title;
     return { title, text: `${title}\n\n${text}`, url: location.href };
   }
@@ -514,7 +533,7 @@ async function handleImport() {
   render();
 
   try {
-    const data = cleanPageText();
+    const data = await cleanPageText();
     chrome.runtime.sendMessage({ type: "ARTEMIS_IMPORT_JOB", payload: data }).catch(() => {});
     isImported = true;
     isImporting = false;
@@ -721,7 +740,7 @@ async function init() {
     console.log("[Artemis] Not a known job site:", location.hostname);
     return;
   }
-  injectOverlay(config);
+  void injectOverlay(config);
 }
 
 // ── SPA URL change detection (LinkedIn navigation, etc.) ──

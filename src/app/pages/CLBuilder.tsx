@@ -50,6 +50,7 @@ export function CLBuilder() {
   const [copied, setCopied] = useState(false);
 
   const [themeConfig, setThemeConfig] = useState({
+    templateId: "classic" as const,
     primaryColor: "#1e293b",
     accentColor: "#2563eb",
     textColor: "#475569",

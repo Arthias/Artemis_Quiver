@@ -60,7 +60,11 @@ const CVContentSchema = z.object({
   sections: z.array(CVSectionSchema).min(1).describe("CV section array")
 });
 
+export const TEMPLATE_IDS = ["classic", "executive"] as const;
+export type TemplateId = (typeof TEMPLATE_IDS)[number];
+
 const ThemeConfigSchema = z.object({
+  templateId: z.enum(TEMPLATE_IDS).default("classic"),
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   textColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
