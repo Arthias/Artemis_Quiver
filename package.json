@@ -1,7 +1,7 @@
 {
   "name": "@figma/my-make-file",
   "private": true,
-  "version": "3.4.0",
+  "version": "3.5.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -19,6 +19,7 @@
     "qa:config": "powershell -File scripts/qa.ps1 -Suite config",
     "qa:onboarding": "powershell -File scripts/qa.ps1 -Suite onboarding",
     "qa:ext": "powershell -File scripts/qa.ps1 -ExtensionPath ./Artemis_Quiver_extension",
+    "release:ext": "powershell -File scripts/release.ps1",
     "qa:headless": "powershell -File scripts/qa.ps1 -Suite all -Headless"
   },
   "dependencies": {

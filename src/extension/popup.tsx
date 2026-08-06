@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 import { createRoot } from "react-dom/client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { parseSiteEntry } from "./job-sites";
+import { parseSiteEntry, siteToOriginPatterns } from "./job-sites";
 import { loadTranslations, t } from "./i18n";
 
 function logErrorToApp(message: string, stack?: string, code?: string) {
@@ -46,6 +46,7 @@ function Popup() {
   const [genStatus, setGenStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
   const [genError, setGenError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [permError, setPermError] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveConfig = useCallback((updater: (prev: OverlayConfig) => OverlayConfig) => {
@@ -85,28 +86,60 @@ function Popup() {
     });
   }, []);
 
-  const addSite = useCallback(() => {
+  const syncSiteScripts = useCallback(() => {
+    // Ask the background to reconcile registered content scripts with the
+    // updated jobSites list.
+    chrome.runtime.sendMessage({ type: "ARTEMIS_SYNC_SITE_SCRIPTS" }).catch(() => {});
+  }, []);
+
+  const requestSitePermission = useCallback(async (site: string): Promise<boolean> => {
+    try {
+      const granted = await chrome.permissions.request({ origins: siteToOriginPatterns(site) });
+      if (!granted) setPermError(t("extension.permissionDenied"));
+      return granted;
+    } catch {
+      setPermError(t("extension.permissionDenied"));
+      return false;
+    }
+  }, []);
+
+  const addSite = useCallback(async () => {
     const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "");
     if (!trimmed || config.jobSites.includes(trimmed)) return;
+
+    setPermError(null);
+    const granted = await requestSitePermission(trimmed);
+    if (!granted) return;
+
     setNewSite("");
     saveConfig((c) => ({ ...c, jobSites: [...c.jobSites, trimmed] }));
-  }, [newSite, config.jobSites, saveConfig]);
+    syncSiteScripts();
+  }, [newSite, config.jobSites, saveConfig, requestSitePermission, syncSiteScripts]);
 
   const removeSite = useCallback((site: string) => {
     saveConfig((c) => ({ ...c, jobSites: c.jobSites.filter((s) => s !== site) }));
-  }, [saveConfig]);
+    syncSiteScripts();
+    // Best-effort revocation of the host permission granted for this site.
+    chrome.permissions.remove({ origins: siteToOriginPatterns(site) }).catch(() => {});
+  }, [saveConfig, syncSiteScripts]);
 
-  const saveEdit = useCallback((originalSite: string) => {
+  const saveEdit = useCallback(async (originalSite: string) => {
     const trimmed = editValue.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
     if (!trimmed || trimmed === originalSite) {
       setEditingSite(null);
+      setPermError(null);
       return;
     }
+
+    setPermError(null);
     if (!config.jobSites.includes(trimmed)) {
+      const granted = await requestSitePermission(trimmed);
+      if (!granted) return;
       saveConfig((c) => ({ ...c, jobSites: c.jobSites.map((s) => s === originalSite ? trimmed : s) }));
+      syncSiteScripts();
     }
     setEditingSite(null);
-  }, [editValue, config.jobSites, saveConfig]);
+  }, [editValue, config.jobSites, saveConfig, requestSitePermission, syncSiteScripts]);
 
   const generateFingerprint = useCallback(async () => {
     setGenStatus("generating");
@@ -220,6 +253,11 @@ function Popup() {
         <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", fontWeight: "500", textTransform: "uppercase", letterSpacing: "0.5px" }}>
           {t("extension.customJobSites")}
         </div>
+        {permError && (
+          <div style={{ marginBottom: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>
+            {permError}
+          </div>
+        )}
         <div style={{ display: "flex", gap: "4px", marginBottom: "6px" }}>
           <input
             value={newSite}

@@ -9,7 +9,7 @@ last_updated: 2026-08-05
 Release-readiness checklist for shipping Artemis Quiver as a Chrome extension to public beta testers **without making the repo public**, distributed as **versioned zips**.
 
 > [!NOTE] Strategy
-> The repo (`Arthias/Artemis_Quiver`) stays private. Distribution = **`release/Artemis_Quiver_extension-vX.Y.Z.zip`** attached to GitHub **Releases** (manual "Load unpacked" install). CI builds + attaches the zip on a version tag. **No Chrome Web Store** for now — avoids the $5 fee, listing assets, and review queue.
+> The source repo (`Arthias/Artemis_Quiver`) stays private. Distribution = **public artifacts repo** [`Arthias/Artemis-Quiver-Releases`](https://github.com/Arthias/Artemis-Quiver-Releases) holding versioned `Artemis_Quiver_extension-vX.Y.Z.zip` files, each tagged + published as a GitHub Release with install README. **No Chrome Web Store** for now — avoids the $5 fee, listing assets, and review queue.
 
 ---
 
@@ -17,26 +17,28 @@ Release-readiness checklist for shipping Artemis Quiver as a Chrome extension to
 
 | Channel | Auto-update | Use |
 |---------|-------------|-----|
-| **GitHub Release + versioned zip** | ❌ Manual reinstall | Primary beta channel |
+| **Public release repo + GitHub Releases** | ❌ Manual reinstall | Primary beta channel |
 | Load-unpacked folder | — | Dev + QA |
 
-Each release bumps `manifest.json` version → drives the zip filename (`vite.ext.config.ts` reads it) and the GitHub tag. Testers download the zip, unzip, and `Load unpacked` → `Artemis_Quiver_extension/`.
+Each release bumps `manifest.json` version → drives the zip filename (`vite.ext.config.ts` reads it) and the GitHub tag. Testers download the zip from the release page, unzip, and `Load unpacked` → `Artemis_Quiver_extension/`.
 
-### CI Flow (proposed)
+### Release Repo
+
+- **URL:** https://github.com/Arthias/Artemis-Quiver-Releases (public, artifacts only — no source)
+- **Layout:** nested repo at `release/` (gitignored by the parent repo)
+- **Contents:** versioned zips + `README.md` (install instructions) + `.gitignore`
+- **Process:** one command — `npm run release:ext`
+
+### Publish flow (manual, one command)
 
 ```
-tag push vX.Y.Z
-  └─ GH Action (private repo)
-       ├─ npm ci
-       ├─ npm run typecheck
-       ├─ npm run test
-       ├─ npm run build:ext          → release/Artemis_Quiver_extension-vX.Y.Z.zip
-       ├─ npm run qa:ext
-       ├─ compute SHA-256 of zip
-       └─ attach zip + checksum to GitHub Release vX.Y.Z
+npm run release:ext            → scripts/release.ps1
+  ├─ npm run build:ext           → release/Artemis_Quiver_extension-vX.Y.Z.zip
+  ├─ commit + tag vX.Y.Z + push  → release/ nested repo
+  └─ gh release create vX.Y.Z    → attaches zip + notes to public repo
 ```
 
-No external service secrets (no Google API tokens). The tag version is confirmed against `manifest.json` before building.
+Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 
 ---
 
@@ -46,19 +48,21 @@ No external service secrets (no Google API tokens). The tag version is confirmed
 - **Problem:** `manifest.json` = `0.1.0`, `package.json` = `0.0.1`, changelog = `v3.4.0` — three divergent sources.
 - **Fix:** Align all to `3.4.0`. Zip name and tag already derive from `manifest.json`. Keep a single source; bump all three together on each release.
 
-### C2 — Remove hardcoded LAN host permissions (functional blocker)
-- **File:** `src/extension/manifest.json:8` — `http://192.168.8.171:1234/*`.
-- **Problem:** That IP is the dev layer's LMStudio endpoint; it won't exist for beta testers.
-- **Fix:** Move to `optional_host_permissions` + runtime `chrome.permissions.request()`, or drop and route all LLM calls through the user-configured endpoints in the app.
+### C2 — Remove hardcoded LAN host permissions ✅ (implemented)
+- **File:** `src/extension/manifest.json`, `src/extension/background.ts`.
+- **Problem:** `host_permissions` + background `VITE_PROXY_MAP` logged a dev-layer IP (`http://192.168.8.171:1234`); it won't exist for beta testers and forced an over-broad static permission.
+- **Fix:** Removed the LAN IP. `host_permissions` now only `http://localhost/*` + `http://127.0.0.1/*`. Added `optional_host_permissions: ["http://*/*", "https://*/*"]`; `background.ts` calls `ensureHostPermission()` before fetching a non-local endpoint, requesting the origin at runtime via `chrome.permissions.request`.
 
-### C3 — Narrow `<all_urls>` (recommended)
-- **File:** `src/extension/manifest.json:20` (content script), `:32` (web_accessible_resources).
-- **Problem:** Matching every site shows a broad-install warning and is a surface area risk.
-- **Fix:** Scope to job-site host patterns (`*://*.linkedin.com/*`, `*://*.indeed.com/*`, `*://*.glassdoor.com/*`, ...). No longer a store-rejection blocker, but cleaner UX + smaller attack surface.
+### C3 — Overlay only runs on user-added sites (runtime registration) ✅ (implemented)
+- **File:** `src/extension/manifest.json`, `src/extension/background.ts`, `src/extension/popup.tsx`, `src/extension/job-sites.ts`.
+- **Problem:** Static `<all_urls>` content script (or even a fixed job-domain pattern list) shows a broad-install warning and is a surface area risk.
+- **Fix:** No static `content_scripts` block at all. Popup requests the specific origin via `chrome.permissions.request` when the user adds a site; background registers a per-site script (`overlay-<domain><path>`, truncated 32-char id) via `chrome.scripting.registerContentScripts` — only when `permissions.contains` passes. `onInstalled`/`onStartup`/`ARTEMIS_SYNC_SITE_SCRIPTS` reconcile registration with stored `jobSites`. `optional_host_permissions: ["*://*/*"]`; WAR narrowed to `["http://*/*","https://*/*"]`.
+- **Result:** Overlay can never inject on a site the user didn't authorize. Verified live: with only `www.linkedin.com/jobs/search-results` stored (no host permission granted), `chrome.scripting.getRegisteredContentScripts()` = `[]` and `#artemis-overlay` does not inject.
 
-### C4 — App-tab dependency onboarding
+### C4 — App-tab dependency onboarding ⏳ (awaiting user screenshots)
 - **Problem:** Fingerprint generation + error relay require an app tab open ([[../30-Features/Extension Overlay|Extension Overlay]]).
-- **Fix:** Document in the release notes + popup first-run copy: "open the web app once to link your profile." Consider a popup status panel showing "app tab required."
+- **Fix:** Add a 4th "Extension" step to `OnboardingWizard.tsx` (currently `["Welcome", "AI Setup", "Profile"]`) + `en.json`/`es.json` keys, explaining the app-tab requirement and how to add sites from the popup.
+- **Blocked on:** user-supplied screenshots — needs `permission-prompt.png` (Chrome permission dialog after clicking Add in the popup). Reference/staging images already exist under `src/assets/onboarding/`: `popup-add-site.png`, `overlay-badge.png`, `overlay-expanded.png` (user will retake tuned versions against real sites).
 
 ### C5 — WebLLM stability
 - **Problem:** 6.8 MB vendor chunk (WebLLM runtime); device-lost recovery is post-Sprint 9c hardening.
@@ -71,12 +75,14 @@ No external service secrets (no Google API tokens). The tag version is confirmed
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Version tag (`vX.Y.Z`) | ❌ | Must match `manifest.json` |
-| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | ❌ | Produced by `build:ext` |
-| SHA-256 checksum | ❌ | For integrity verification |
-| Release notes | ❌ | Extract from [[../90-Meta/CHANGELOG|CHANGELOG]] |
-| Install instructions | ❌ | Chickenized: download → unzip → `chrome://extensions` → Load unpacked → select `Artemis_Quiver_extension/` |
-| Headline the app-tab requirement | ❌ | C4 |
+| Public release repo | ✅ | `Arthias/Artemis-Quiver-Releases` created |
+| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0` published; **`v3.5.0` (C3) pending republish** |
+| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.5.0` zip not yet attached |
+| Release notes | ✅ | Generated from CHANGELOG + install steps |
+| Install README | ✅ | `release/README.md` — unzip → `chrome://extensions` → Load unpacked → `Artemis_Quiver_extension/` |
+| Headline the app-tab requirement | ✅ | In README + release notes (C4) |
+| SHA-256 checksum | ❌ | Optional; not yet automated |
+| CI automation (tag-triggered) | ❌ | Deferred — manual `release:ext` for now |
 
 ---
 
@@ -100,6 +106,11 @@ npm run qa:ext          # Extension QA (Playwright)
 - ✅ C1 version single-sourcing to `3.4.0`.
 - ✅ `.gitignore` covers `Artemis_Quiver_extension/` + `release/`.
 - ✅ Doc references updated (README, AGENTS, QA_AGENT, i18n, WebLLM).
+- ✅ `release/` initialized as nested public repo `Arthias/Artemis-Quiver-Releases` with install README.
+- ✅ `v3.4.0` tagged + GitHub Release published with zip attached.
+- ✅ `npm run release:ext` script automates build → commit → tag → push → publish.
+- ✅ C2 hardcoded LAN host permission removed (optional host permissions + runtime grant).
+- ✅ C3 runtime content-script registration — overlay only on user-authorized sites (verified live, `getRegisteredContentScripts()` = `[]` without host grant). Version bumped to `3.5.0`.
 
 ---
 

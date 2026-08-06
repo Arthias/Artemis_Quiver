@@ -1,12 +1,87 @@
 import { loadTranslations, t } from "./i18n";
 import { AppError, ErrorCodes } from "../app/utils/errors";
+import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns } from "./job-sites";
 
 loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
 
 const STORAGE_KEY = "artemis:overlayConfig";
 
+function contentScriptIdFor(entry: string): string {
+  const parsed = parseSiteEntry(entry);
+  const domain = parsed.domain.replace(/[^a-zA-Z0-9.-]/g, "_");
+  const path = parsed.pathPattern ? parsed.pathPattern.replace(/[^a-zA-Z0-9._*-]/g, "_") : "";
+  return ("overlay-" + domain + path).slice(0, 32);
+}
+
+// Reconcile registered overlay content scripts with the user's configured job
+// sites. One content script per site, registered via chrome.scripting so the
+// overlay only runs (and the extension only requests access to) sites the user
+// explicitly added — no <all_urls> content script.
+async function syncSiteContentScripts(): Promise<void> {
+  const config = await getConfig();
+  const sites: string[] = Array.isArray(config.jobSites) ? config.jobSites : [];
+
+  let registered: chrome.scripting.RegisteredContentScript[] = [];
+  try {
+    registered = await chrome.scripting.getRegisteredContentScripts();
+  } catch (err) {
+    console.warn("[Artemis] getRegisteredContentScripts failed:", err);
+  }
+  const registeredIds = new Set(registered.map((s) => s.id));
+
+  const desiredIds = new Set<string>();
+  for (const site of sites) {
+    const id = contentScriptIdFor(site);
+    desiredIds.add(id);
+    if (registeredIds.has(id)) continue;
+    // Only register if we already hold host permission for the site's origins —
+    // the popup grants it via chrome.permissions.request when the user adds it.
+    let hasPermission = false;
+    try {
+      hasPermission = await chrome.permissions.contains({ origins: siteToOriginPatterns(site) });
+    } catch (err) {
+      console.warn("[Artemis] permissions.contains failed for", site, err);
+    }
+    if (!hasPermission) continue;
+
+    try {
+      await chrome.scripting.registerContentScripts([
+        {
+          id,
+          matches: siteToMatchPatterns(site),
+          js: ["overlay.js"],
+          runAt: "document_idle",
+          allFrames: false,
+        },
+      ]);
+      registeredIds.add(id);
+      console.log("[Artemis] Registered overlay content script for", site);
+    } catch (err) {
+      console.warn("[Artemis] registerContentScripts failed for", site, err);
+    }
+  }
+
+  // Unregister scripts for sites that were removed from the config.
+  const toRemove = [...registeredIds].filter((id) => !desiredIds.has(id));
+  if (toRemove.length > 0) {
+    try {
+      await chrome.scripting.unregisterContentScripts({ ids: toRemove });
+      console.log("[Artemis] Unregistered overlay content scripts for removed sites:", toRemove);
+    } catch (err) {
+      console.warn("[Artemis] unregisterContentScripts failed:", err);
+    }
+  }
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  void syncSiteContentScripts();
+});
+chrome.runtime.onStartup.addListener(() => {
+  void syncSiteContentScripts();
+});
+
 const VITE_PROXY_MAP: Record<string, string> = {
-  "/api/lmstudio": "http://192.168.8.171:1234",
+  "/api/lmstudio": "http://localhost:1234",
   "/api/ollama": "http://localhost:11434",
 };
 
@@ -17,6 +92,32 @@ function fixExtensionBaseUrl(url: string): string {
     }
   }
   return url;
+}
+
+// Ensure the extension has host permission for the LLM endpoint origin so
+// background fetch() can reach it. Localhost is declared statically; anything
+// else (cloud APIs, LAN servers) is granted on demand via optional_host_permissions.
+async function ensureHostPermission(baseUrl: string): Promise<void> {
+  let origin: string;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    return; // invalid url — let the fetch fail naturally
+  }
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    return; // already in host_permissions
+  }
+  const originPattern = origin + "/*";
+  try {
+    if (await chrome.permissions.contains({ origins: [originPattern] })) return;
+  } catch {
+    return; // permissions API unavailable — proceed and let fetch handle it
+  }
+  try {
+    await chrome.permissions.request({ origins: [originPattern] });
+  } catch (err) {
+    console.warn("[Artemis] Failed to grant host permission for", origin, err);
+  }
 }
 
 // ── Action click: overlay handles this now via content script ──
@@ -71,6 +172,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     case "ARTEMIS_OPEN_APP":
       void handleOpenApp();
+      break;
+
+    case "ARTEMIS_SYNC_SITE_SCRIPTS":
+      void syncSiteContentScripts();
       break;
 
     case "ARTEMIS_EXTRACT_AND_IMPORT": {
@@ -159,6 +264,7 @@ async function callRemoteLLM(prompt: string, config: any): Promise<string> {
   };
   
   try {
+    await ensureHostPermission(endpoint.baseUrl);
     const resp = await fetch(endpoint.baseUrl + "/v1/chat/completions", {
       method: "POST",
       headers: {

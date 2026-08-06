@@ -355,6 +355,7 @@
     "customJobSites": "Sitios de Empleo Personalizados",
     "sitePlaceholder": "ej., mibolsa.com o mibolsa.com/empleos/*",
     "add": "Añadir",
+    "permissionDenied": "Permiso no concedido: Artemis no puede ejecutarse en ese sitio.",
     "saved": "✓ Guardado",
     "openAppTitle": "Abrir app Artemis Quiver"
   },

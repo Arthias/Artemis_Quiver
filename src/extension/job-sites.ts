@@ -76,3 +76,28 @@ export function isKnownJobSite(hostname: string, customSites: string[]): boolean
   ];
   return all.some((site) => hostname === site || hostname.endsWith("." + site));
 }
+
+// Match patterns used when registering the overlay content script for a site
+// (chrome.scripting.registerContentScripts). Mirrors matchJobSite() semantics:
+// subdomains match, and a path entry is treated as a prefix match.
+export function siteToMatchPatterns(entry: string): string[] {
+  const parsed = parseSiteEntry(entry);
+  const domain = parsed.domain;
+  const path = parsed.pathPattern ? (parsed.pathPattern.endsWith("*") ? parsed.pathPattern : parsed.pathPattern + "*") : "/*";
+  const isLocalOrIp = domain.startsWith("localhost") || domain.startsWith("127.") || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(domain);
+  if (isLocalOrIp) {
+    return [`*://${domain}${path}`];
+  }
+  return [`*://${domain}${path}`, `*://*.${domain}${path}`];
+}
+
+// Origin patterns to request/revoke via chrome.permissions for a site.
+export function siteToOriginPatterns(entry: string): string[] {
+  const parsed = parseSiteEntry(entry);
+  const domain = parsed.domain;
+  const isLocalOrIp = domain.startsWith("localhost") || domain.startsWith("127.") || /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(domain);
+  if (isLocalOrIp) {
+    return [`*://${domain}/*`];
+  }
+  return [`*://${domain}/*`, `*://*.${domain}/*`];
+}

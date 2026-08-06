@@ -1,12 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Artemis Quiver",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "Import job postings into Artemis Quiver and get AI-powered match scoring",
   "permissions": ["scripting", "storage", "activeTab"],
   "host_permissions": [
-    "http://192.168.8.171:1234/*",
-    "http://localhost:11434/*"
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -16,20 +19,13 @@
     "default_popup": "popup.html",
     "default_title": "Artemis Quiver Config"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["overlay.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
   "web_accessible_resources": [
     {
       "resources": ["nano-inject.js"],
-      "matches": ["<all_urls>"]
+      "matches": ["http://*/*", "https://*/*"]
     }
   ]
 }

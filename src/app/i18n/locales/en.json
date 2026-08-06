@@ -355,6 +355,7 @@
     "customJobSites": "Custom Job Sites",
     "sitePlaceholder": "e.g., myjobboard.com or myjobboard.com/jobs/*",
     "add": "Add",
+    "permissionDenied": "Permission not granted — Artemis can't run on that site.",
     "saved": "✓ Saved",
     "openAppTitle": "Open Artemis Quiver app"
   },
