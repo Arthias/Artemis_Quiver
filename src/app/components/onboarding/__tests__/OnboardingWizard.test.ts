@@ -49,8 +49,8 @@ describe("OnboardingWizard — Steps definition", () => {
 });
 
 describe("OnboardingWizard — WEBLLM_CATALOG", () => {
-  it("should list 13 models", () => {
-    expect(WEBLLM_CATALOG.length).toBe(13);
+  it("should list 4 curated models", () => {
+    expect(WEBLLM_CATALOG.length).toBe(4);
   });
 
   it("should have unique model IDs", () => {
@@ -64,8 +64,8 @@ describe("OnboardingWizard — WEBLLM_CATALOG", () => {
     });
   });
 
-  it("should have gemma3-1b-it as smallest model (sorted by vramGB ascending)", () => {
-    expect(WEBLLM_CATALOG[0].id).toBe("gemma3-1b-it-q4f16_1-MLC");
+  it("should have Qwen3.5-2B as smallest model (sorted by vramGB ascending)", () => {
+    expect(WEBLLM_CATALOG[0].id).toBe("Qwen3.5-2B-q4f16_1-MLC");
     expect(WEBLLM_CATALOG[0].vramGB).toBeLessThanOrEqual(WEBLLM_CATALOG[1].vramGB);
   });
 });
@@ -111,16 +111,16 @@ describe("OnboardingWizard — COMMON_MODELS", () => {
 
 describe("OnboardingWizard — isValidWebLLMModel", () => {
   it("should return true for known WebLLM model IDs", () => {
-    expect(isValidWebLLMModel("Llama-3.2-3B-Instruct-q4f32_1-MLC")).toBe(true);
-    expect(isValidWebLLMModel("Llama-3.2-1B-Instruct-q4f32_1-MLC")).toBe(true);
+    expect(isValidWebLLMModel("Qwen3.5-2B-q4f16_1-MLC")).toBe(true);
+    expect(isValidWebLLMModel("Qwen3.5-4B-q4f16_1-MLC")).toBe(true);
     expect(isValidWebLLMModel("DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC")).toBe(true);
-    expect(isValidWebLLMModel("Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC")).toBe(true);
+    expect(isValidWebLLMModel("Qwen3.5-9B-q4f16_1-MLC")).toBe(true);
   });
 
   it("should return false for unknown model IDs", () => {
     expect(isValidWebLLMModel("")).toBe(false);
     expect(isValidWebLLMModel("nonexistent-model")).toBe(false);
-    expect(isValidWebLLMModel("Llama-3.2-3B")).toBe(false); // truncated ID
+    expect(isValidWebLLMModel("Llama-3.2-3B-Instruct-q4f32_1-MLC")).toBe(false); // dropped from catalog
   });
 
   it("should return false for cloud-common model IDs", () => {

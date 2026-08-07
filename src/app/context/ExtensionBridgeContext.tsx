@@ -50,7 +50,7 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for live messages
-    const handler = (msg: ArtemisMessage, _sender: chrome.runtime.MessageSender, sendResponse: (resp: { profileMarkdown?: string; primaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey">; secondaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey">; error?: string }) => void) => {
+    const handler = (msg: ArtemisMessage, _sender: chrome.runtime.MessageSender, sendResponse: (resp: { profileMarkdown?: string; primaryEndpoint?: ModelEndpoint; secondaryEndpoint?: ModelEndpoint; error?: string }) => void) => {
       if (msg.type === "ARTEMIS_IMPORT") {
         addPending(msg.payload, true);
       } else if (msg.type === "ARTEMIS_REQUEST_PROFILE") {
@@ -72,7 +72,7 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
     if (isLive) setLatestImportId(id);
   }
 
-  async function respondWithProfile(): Promise<{ profileMarkdown: string; primaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey">; secondaryEndpoint?: Pick<ModelEndpoint, "baseUrl" | "model" | "apiKey"> } | { error: string }> {
+  async function respondWithProfile(): Promise<{ profileMarkdown: string; primaryEndpoint?: ModelEndpoint; secondaryEndpoint?: ModelEndpoint } | { error: string }> {
     try {
       const { getActiveProfileId, getProfile } = await import("../db");
       const activeProfileId = await getActiveProfileId();
@@ -82,8 +82,8 @@ export function ExtensionBridgeProvider({ children }: { children: ReactNode }) {
       const s = profile.settings;
       return {
         profileMarkdown: profile.profileMarkdown,
-        primaryEndpoint: s?.primary ? { baseUrl: s.primary.baseUrl, model: s.primary.model, apiKey: s.primary.apiKey } : undefined,
-        secondaryEndpoint: s?.secondary ? { baseUrl: s.secondary.baseUrl, model: s.secondary.model, apiKey: s.secondary.apiKey } : undefined,
+        primaryEndpoint: s?.primary?.baseUrl ? { ...s.primary } : undefined,
+        secondaryEndpoint: s?.secondary?.baseUrl ? { ...s.secondary } : undefined,
       };
     } catch (err) {
       console.error("[ExtensionBridge] Failed to read profile:", err);

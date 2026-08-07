@@ -61,7 +61,7 @@ Guidelines for QA agents running automated checks via Playwright MCP. Human manu
 
 ### 6. Extension
 - [ ] Popup renders: overlay toggle, fingerprint button, fallback mode, job sites list
-- [ ] Fingerprint generation flow (requires app tab open)
+- [ ] Fingerprint generation flow (works with no app tab open; provider-aware LLM)
 - [ ] Overlay injects on job pages (check badge states: ? / ... / score / !)
 - [ ] Click overlay expands detail panel
 - [ ] Import to Artemis creates pending import in sidebar

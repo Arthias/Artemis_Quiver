@@ -6,6 +6,29 @@ last_updated: 2026-06-13
 
 # Changelog
 
+## [v3.5.1] - August 7, 2026
+
+**Curated WebLLM model catalog**
+
+- Replaced the default WebLLM pull-down (former 13-card catalog) with 4 curated models spread across average-hardware tiers: `Qwen3.5-2B` (2.2 GB), `Qwen3.5-4B` (3.9 GB), `DeepSeek-R1-Distill-Qwen-7B` (5.1 GB), `Qwen3.5-9B` (6.4 GB). Default changed to `Qwen3.5-2B` — capable of job-eval + CV generation on the lightest cards.
+- Dropped the `descKey` localization branches (now show `(x.x GB)` sizes directly); removed `WEBLLM_CATALOG` test fixtures aligned to the old list; updated locale size strings (en + es).
+- Note: Gemma 4 (E2B/E4B) is not among WebLLM 0.2.84's shipped models and remains unavailable in-browser.
+- Verified: typecheck clean, 124/124 tests pass, `build` + `build:ext` succeed.
+
+## [v3.5.0] - August 6, 2026
+
+**Extension permission model + fingerprint flow hardening**
+
+- **Runtime content-script registration (C3):** Removed the static `<all_urls>` content script. The overlay now only runs on sites the user explicitly adds — the popup requests the specific origin via `chrome.permissions.request`, and the background registers a per-site overlay script (`chrome.scripting.registerContentScripts`) only when host permission is granted. `onInstalled`/`onStartup`/`ARTEMIS_SYNC_SITE_SCRIPTS` reconcile with stored job sites.
+- **Fingerprint gen no longer needs an app tab:** background reads the active profile directly from IndexedDB (`idbProfile.ts`, same extension origin). Falls back to the app-tab round trip only when the DB has no profile.
+- **Provider-aware background LLM:** fingerprint + fallback scoring now route through the app's openai-compatible / anthropic / gemini adapters (selected by the stored `provider` field), instead of a hardcoded OpenAI `/v1/chat/completions` call. Full endpoints (incl. `provider`) are persisted to `chrome.storage.local`.
+- **Popup config merge fix:** popup saves now merge with the stored config, so `primaryEndpoint`/`secondaryEndpoint` cached during fingerprint gen are no longer wiped by any popup edit (this silently broke remote scoring after touching the popup).
+- **`resolveEndpoint` hardening:** anything not `"secondary"` routes to primary (previously `"basic"` threw "No LLM endpoint configured").
+- **WebLLM guard:** background refuses `webllm` endpoints with guidance to generate the fingerprint from the app's Settings page.
+- **Bundled WebLLM model fix:** gemma3-1b shipped a config with BOTH `context_window_size` and `sliding_window_size` positive, which WebLLM 0.2.84 rejects. The catalog now carries per-model `overrides` (applied to `ModelRecord`) to work around such invalid configs.
+- **Curated WebLLM catalog:** trimmed from 13 to 4 cards spread across average-hardware tiers — `Qwen3.5-2B` (2.2GB), `Qwen3.5-4B` (3.9GB), `DeepSeek-R1-Distill-Qwen-7B` (5.1GB), `Qwen3.5-9B` (6.4GB). Default changed to `Qwen3.5-2B`. (Gemma 4 E2B/E4B is not shipped by WebLLM and is unavailable in-browser.)
+- New i18n keys: `background.noProfile`, `background.webllmNotSupported` (en + es).
+
 ## [v3.4.0] - July 6, 2026
 
 **WebLLM Stability Implementation Plan (Documentation)**

@@ -187,10 +187,10 @@
     "testFailed": "Test failed.",
     "testOk": "OK: \"{{reply}}\"",
     "sitePlaceholder": "linkedin.com/jobs/*",
-    "webllmRecommended": "(2.3 GB download - Recommended)",
-    "webllmLite": "(0.88 GB download - Lightweight)",
-    "webllmAdvanced": "(4.8 GB - Advanced)",
-    "webllmExpert": "(5.5 GB - Expert)"
+    "webllmRecommended": "(3.2 GB download - Recommended)",
+    "webllmLite": "(1.9 GB download - Lightweight)",
+    "webllmAdvanced": "(4.4 GB - Advanced)",
+    "webllmExpert": "(7.0 GB - Expert)"
   },
   "cv": {
     "title": "CV Builder (Themed PDF)",
@@ -361,11 +361,13 @@
   },
   "background": {
     "appNotOpen": "Artemis Quiver is not open. Open it first to generate a fingerprint.",
+    "noProfile": "No active profile found. Open Artemis Quiver, create a profile, and try again.",
     "noProfileData": "Could not read profile data.",
     "fingerprintFailed": "Failed to generate fingerprint.",
     "noEndpoint": "No LLM endpoint configured",
     "youAreSummarizer": "You are a text summarizer.",
     "llmRequestFailed": "LLM request failed: {{status}} for {{url}}",
+    "webllmNotSupported": "WebLLM runs inside the app. Generate the fingerprint from the app's Settings page instead.",
     "scorePrompt": "Score 0-100 how well this candidate matches this job. Reply with only the number."
   },
   "overlay": {

@@ -82,9 +82,9 @@ function ExtensionSettingsCard() {
         const cfg: any = stored["artemis:overlayConfig"] || {};
         cfg.fingerprint = result;
         cfg.lastFingerprintUpdate = new Date().toISOString();
-        cfg.primaryEndpoint = { baseUrl: endpoint.baseUrl, model: endpoint.model, apiKey: endpoint.apiKey };
+        cfg.primaryEndpoint = { ...endpoint };
         if (configCtx.config.secondary?.baseUrl) {
-          cfg.secondaryEndpoint = { baseUrl: configCtx.config.secondary.baseUrl, model: configCtx.config.secondary.model, apiKey: configCtx.config.secondary.apiKey };
+          cfg.secondaryEndpoint = { ...configCtx.config.secondary };
         }
         await chrome.storage.local.set({ "artemis:overlayConfig": cfg });
         setFpStorageKey(cfg.lastFingerprintUpdate);
@@ -521,7 +521,7 @@ function ModelEndpointCard({
                       <SelectItem key={i} value={m.id} className="text-xs">
                         <div className="flex items-center justify-between w-full gap-3">
                           <span>{m.name}</span>
-                          <span className="text-muted-foreground text-xs">{'descKey' in m ? t(m.descKey) : `(${m.sizeGB.toFixed(1)} GB)`}</span>
+                          <span className="text-muted-foreground text-xs">({m.sizeGB.toFixed(1)} GB)</span>
                         </div>
                       </SelectItem>
                     ))}

@@ -52,7 +52,13 @@ function Popup() {
   const saveConfig = useCallback((updater: (prev: OverlayConfig) => OverlayConfig) => {
     setConfig((prev) => {
       const updated = updater(prev);
-      chrome.storage.local.set({ [STORAGE_KEY]: updated });
+      // Merge with the stored config so fields the popup doesn't manage —
+      // primaryEndpoint/secondaryEndpoint cached by the background during
+      // fingerprint generation — survive any popup edit.
+      chrome.storage.local.get(STORAGE_KEY).then((res) => {
+        const stored = (res[STORAGE_KEY] || {}) as Partial<OverlayConfig>;
+        chrome.storage.local.set({ [STORAGE_KEY]: { ...stored, ...updated } });
+      });
       return updated;
     });
     setSaved(true);

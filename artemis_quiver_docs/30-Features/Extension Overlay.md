@@ -33,10 +33,10 @@ Job Page DOM
 Content script checks `location.hostname` against known job sites → injects overlay → reads fingerprint + config from `chrome.storage.local` → if fingerprint exists, scores match via Nano/fallback → shows badge.
 
 ### Fingerprint generation
-Popup → `ARTEMIS_GENERATE_FINGERPRINT` → background → `ARTEMIS_REQUEST_PROFILE` → app tab returns `{profileMarkdown, primaryEndpoint, secondaryEndpoint}` → background calls remote LLM → stores in `chrome.storage.local`.
+Popup → `ARTEMIS_GENERATE_FINGERPRINT` → background reads the active profile **directly from IndexedDB** (`ArtemisQuiverDB`, same extension origin — `idbProfile.ts`), falls back to `ARTEMIS_REQUEST_PROFILE` via an app tab if the DB has no profile → background calls remote LLM through the app's cloud adapters (openai-compatible/anthropic/gemini, picked by the stored `provider` field) → stores fingerprint + full endpoints in `chrome.storage.local`.
 
 ### Match scoring
-Overlay sends job text to background. Background routes: Nano (on-device) > secondary endpoint > primary endpoint > null (basic mode). Returns 0-100 score.
+Overlay sends job text to background. Background routes: Nano (on-device) > secondary endpoint > primary endpoint > null (basic mode). Returns 0-100 score. Remote calls also go through the provider-aware adapters.
 
 ### Import flow
 Overlay import button → `ARTEMIS_IMPORT_JOB` → background stores in `chrome.storage.session` as pending import → sidebar shows pending pill above "Recent Analyses".
@@ -59,7 +59,7 @@ Overlay import button → `ARTEMIS_IMPORT_JOB` → background stores in `chrome.
 | ✕ | Dismissed (re-appears on reload) |
 
 ## Known Quirks
-- **App tab must be open** for fingerprint gen + error relay
+- **App tab required only for** error relay + job import (fingerprint gen reads the profile from IndexedDB directly — no app tab needed)
 - **Vite proxy paths** don't exist in extension — set real URLs in Settings
 - **Reasoning models** output in `reasoning_content`, falls back to `reasoning_content?.trim()`
 - **Rebuild always**: `npm run build:ext && chrome://extensions → reload` after any extension change

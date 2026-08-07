@@ -187,10 +187,10 @@
     "testFailed": "Prueba fallida.",
     "testOk": "OK: \"{{reply}}\"",
     "sitePlaceholder": "linkedin.com/jobs/*",
-    "webllmRecommended": "(2.3 GB descarga - Recomendado)",
-    "webllmLite": "(0.88 GB descarga - Ligero)",
-    "webllmAdvanced": "(4.8 GB - Avanzado)",
-    "webllmExpert": "(5.5 GB - Experto)"
+    "webllmRecommended": "(3.2 GB descarga - Recomendado)",
+    "webllmLite": "(1.9 GB descarga - Ligero)",
+    "webllmAdvanced": "(4.4 GB - Avanzado)",
+    "webllmExpert": "(7.0 GB - Experto)"
   },
   "cv": {
     "title": "Creador de CV (PDF con Temas)",
@@ -361,11 +361,13 @@
   },
   "background": {
     "appNotOpen": "Artemis Quiver no está abierta. Ábrela primero para generar una huella.",
+    "noProfile": "No se encontró un perfil activo. Abre Artemis Quiver, crea un perfil e inténtalo de nuevo.",
     "noProfileData": "No se pudieron leer los datos del perfil.",
     "fingerprintFailed": "Error al generar la huella.",
     "noEndpoint": "No hay endpoint LLM configurado",
     "youAreSummarizer": "Eres un resumidor de texto.",
     "llmRequestFailed": "Solicitud LLM fallida: {{status}} para {{url}}",
+    "webllmNotSupported": "WebLLM se ejecuta dentro de la app. Genera la huella desde la página de Configuración de la app.",
     "scorePrompt": "Puntúa 0-100 qué tan bien encaja este candidato con este empleo. Responde solo con el número."
   },
   "overlay": {

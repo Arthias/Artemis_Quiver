@@ -168,7 +168,7 @@ function formatTestError(err: unknown): string {
 
 ### Catalog Unification
 
-`WEBLLM_MODELS` (13 models) in `WebLLMAdapter.ts` is the canonical list. Delete the duplicate `WEBLLM_CATALOG` in:
+`WEBLLM_MODELS` (4 curated models: Qwen3.5-2B/4B/9B + DeepSeek-R1-7B) in `WebLLMAdapter.ts` is the canonical list. Delete the duplicate `WEBLLM_CATALOG` in:
 - `Config.tsx`
 - `OnboardingWizard.tsx`
 
@@ -261,16 +261,12 @@ function recommendModel(models: typeof WEBLLM_MODELS, vramGB: number): string {
 
 ### Default Model Change
 
-In `defaults.ts`, change the default WebLLM model from:
+In `defaults.ts`, the default WebLLM model is:
 ```typescript
-model: "Llama-3.2-3B-Instruct-q4f32_1-MLC"  // 4.5 GB VRAM
-```
-to:
-```typescript
-model: "Llama-3.2-1B-Instruct-q4f32_1-MLC"  // 2.0 GB VRAM
+model: "Qwen3.5-2B-q4f16_1-MLC"  // 2.2 GB VRAM — lightest curated card
 ```
 
-This is a safe default. VRAM auto-sizing will recommend larger models if memory permits.
+This is a safe default that runs on integrated/low VRAM. VRAM auto-sizing recommends larger cards (Qwen3.5-4B, DeepSeek-R1-7B, Qwen3.5-9B) if memory permits.
 
 ---
 

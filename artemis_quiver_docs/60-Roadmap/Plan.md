@@ -43,7 +43,7 @@ Let non-technical users download and run a model directly in the browser via Web
 - `WebLLMAdapter.ts` created with `CreateMLCEngine()` wrapper
 - Provider type `"webllm"` registered in registry
 - `@mlc-ai/web-llm` installed (v0.2.84)
-- Model catalog: `WEBLLM_MODELS` (13 models) in adapter, `WEBLLM_CATALOG` duplicate in Config/Onboarding (needs unification — see Sprint 9c)
+- Model catalog: `WEBLLM_MODELS` (4 curated models: Qwen3.5-2B/4B/9B + DeepSeek-R1-7B) in adapter, `WEBLLM_CATALOG` duplicate in Config/Onboarding (needs unification — see Sprint 9c)
 - Download UI with progress bar via `initProgressCallback`
 - First-run onboarding: Local vs Remote choice in OnboardingWizard
 - Extension CSP updated with `"wasm-unsafe-eval"`

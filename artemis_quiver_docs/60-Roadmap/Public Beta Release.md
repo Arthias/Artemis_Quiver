@@ -60,14 +60,14 @@ Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 - **Result:** Overlay can never inject on a site the user didn't authorize. Verified live: with only `www.linkedin.com/jobs/search-results` stored (no host permission granted), `chrome.scripting.getRegisteredContentScripts()` = `[]` and `#artemis-overlay` does not inject.
 
 ### C4 — App-tab dependency onboarding ⏳ (awaiting user screenshots)
-- **Problem:** Fingerprint generation + error relay require an app tab open ([[../30-Features/Extension Overlay|Extension Overlay]]).
+- **Problem:** Error relay + job import require an app tab open ([[../30-Features/Extension Overlay|Extension Overlay]]). Fingerprint gen no longer does — the background reads the active profile directly from IndexedDB (v3.5.0).
 - **Fix:** Add a 4th "Extension" step to `OnboardingWizard.tsx` (currently `["Welcome", "AI Setup", "Profile"]`) + `en.json`/`es.json` keys, explaining the app-tab requirement and how to add sites from the popup.
 - **Blocked on:** user-supplied screenshots — needs `permission-prompt.png` (Chrome permission dialog after clicking Add in the popup). Reference/staging images already exist under `src/assets/onboarding/`: `popup-add-site.png`, `overlay-badge.png`, `overlay-expanded.png` (user will retake tuned versions against real sites).
 
 ### C5 — WebLLM stability
 - **Problem:** 6.8 MB vendor chunk (WebLLM runtime); device-lost recovery is post-Sprint 9c hardening.
 - **Fix:** Confirm Sprint 9c L1 (service-worker WebLLM) + L2 (auto-downgrade) are merged before beta. See [[../40-Development/WebLLM Stability and Service Worker|WebLLM Stability]].
-- **Status:** L1 SW entry (`webllm-sw.js`) already emitted by `build:ext` ✅ — verify handler + registry wiring shipped.
+- **Status:** L1 SW entry (`webllm-sw.js`) already emitted by `build:ext` ✅ — verify handler + registry wiring shipped. Catalog curated to 4 cards (Qwen3.5-2B/4B/9B + DeepSeek-R1-7B) ✅; gemma3-1b invalid-config crash fixed via per-model `overrides` ✅.
 
 ---
 
@@ -76,8 +76,8 @@ Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 | Item | Status | Notes |
 |------|--------|-------|
 | Public release repo | ✅ | `Arthias/Artemis-Quiver-Releases` created |
-| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0` published; **`v3.5.0` (C3) pending republish** |
-| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.5.0` zip not yet attached |
+| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0` published; **`v3.5.1` pending republish** |
+| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.5.1` zip not yet attached |
 | Release notes | ✅ | Generated from CHANGELOG + install steps |
 | Install README | ✅ | `release/README.md` — unzip → `chrome://extensions` → Load unpacked → `Artemis_Quiver_extension/` |
 | Headline the app-tab requirement | ✅ | In README + release notes (C4) |
@@ -110,7 +110,7 @@ npm run qa:ext          # Extension QA (Playwright)
 - ✅ `v3.4.0` tagged + GitHub Release published with zip attached.
 - ✅ `npm run release:ext` script automates build → commit → tag → push → publish.
 - ✅ C2 hardcoded LAN host permission removed (optional host permissions + runtime grant).
-- ✅ C3 runtime content-script registration — overlay only on user-authorized sites (verified live, `getRegisteredContentScripts()` = `[]` without host grant). Version bumped to `3.5.0`.
+- ✅ C3 runtime content-script registration — overlay only on user-authorized sites (verified live, `getRegisteredContentScripts()` = `[]` without host grant). Version bumped to `3.5.1`.
 
 ---
 

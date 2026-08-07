@@ -318,7 +318,7 @@ function AiSetupStep() {
                 {WEBLLM_MODELS.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     <span>{m.name}</span>
-                    <span className="text-muted-foreground text-xs ml-2">{'descKey' in m ? t(m.descKey) : `(${m.sizeGB.toFixed(1)} GB)`}</span>
+                    <span className="text-muted-foreground text-xs ml-2">({m.sizeGB.toFixed(1)} GB)</span>
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -98,8 +98,8 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 - `nano-inject.ts` injected as `<script>` into MAIN world, `window.postMessage` communication.
 - Popup (`popup.tsx`) — separate React entry, built by `vite.ext.config.ts`.
 - Background (`background.ts`) — message router: fingerprint gen, LLM fallback scoring, error relay.
-- **Fingerprint flow**: Popup → `ARTEMIS_GENERATE_FINGERPRINT` → background → `ARTEMIS_REQUEST_PROFILE` → app tab returns `{profileMarkdown, primaryEndpoint, secondaryEndpoint}` → background calls remote LLM → stored in `chrome.storage.local`.
-- **App tab must be open** for fingerprint gen + error relay.
+- **Fingerprint flow**: Popup → `ARTEMIS_GENERATE_FINGERPRINT` → background reads the active profile **directly from IndexedDB** (`ArtemisQuiverDB`, same extension origin — see `idbProfile.ts`), falls back to `ARTEMIS_REQUEST_PROFILE` via an app tab if the DB has no profile → background calls remote LLM via the app's cloud adapters (openai-compatible/anthropic/gemini) → stores fingerprint + full endpoints in `chrome.storage.local`.
+- **App tab required only for** error relay + job import (not fingerprint gen).
 - **Rebuild always**: `npm run build:ext && chrome://extensions → reload` after extension changes.
 
 ### Debugging

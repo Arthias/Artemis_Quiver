@@ -1,24 +1,38 @@
 import type { ChatMessage, ModelEndpoint } from "../../types/llm";
 import type { ProviderAdapter } from "./ProviderAdapter";
-import type { MLCEngineInterface, InitProgressReport } from "@mlc-ai/web-llm";
+import type { MLCEngineInterface, InitProgressReport, AppConfig, ChatOptions } from "@mlc-ai/web-llm";
 import { estimateAvailableVRAM, recommendModel } from "../../utils/vram";
 import { registerWebLLMSW } from "../../utils/sw-utils";
 
-/** Real @mlc-ai/web-llm model IDs from prebuiltAppConfig (v0_2_84/base). Sorted by vramGB ascending for auto-downgrade stepping. */
+export interface WebLLMModelEntry {
+  id: string;
+  name: string;
+  sizeGB: number;
+  vramGB: number;
+  descKey?: string;
+  /**
+ * Runtime overrides applied to the model's mlc-chat-config via
+ * `ModelRecord.overrides`. Used to work around invalid/shipped configs —
+ * e.g. WebLLM 0.2.84 rejected models with BOTH context_window_size and
+ * sliding_window_size positive. All curated models below are confirmed to ship
+ * a valid config with `context_window_size: 4096`, so no overrides are needed.
+ */
+  overrides?: ChatOptions;
+}
+
+/** Curated @mlc-ai/web-llm model IDs from prebuiltAppConfig (v0_2_84/base).
+ * Sorted by vramGB ascending for auto-downgrade stepping.
+ * Only 4 cards, spread across average-hardware tiers:
+ *   1. Qwen3.5-2B  — integrated / very low VRAM; still capable of job-eval + CV gen
+ *   2. Qwen3.5-4B  — low discrete GPU
+ *   3. DeepSeek-R1-Distill-Qwen-7B — mid discrete GPU; reasoning for honesty checks
+ *   4. Qwen3.5-9B  — upper tier; best quality
+ * Gemma 4 (E2B/E4B) is not shipped by WebLLM 0.2.84 and therefore unavailable. */
 export const WEBLLM_MODELS = [
-  { id: "gemma3-1b-it-q4f16_1-MLC", name: "Gemma 3 (1B)", sizeGB: 0.4, vramGB: 0.7 },
-  { id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 (1.5B)", sizeGB: 0.9, vramGB: 1.6 },
-  { id: "gemma-2-2b-it-q4f16_1-MLC", name: "Gemma 2 (2B)", sizeGB: 1.1, vramGB: 1.9 },
-  { id: "Llama-3.2-1B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (1B)", sizeGB: 0.88, vramGB: 2.0, descKey: "config.webllmLite" },
-  { id: "Qwen3-1.7B-q4f16_1-MLC", name: "Qwen3 (1.7B)", sizeGB: 1.1, vramGB: 2.0 },
-  { id: "Qwen2.5-3B-Instruct-q4f16_1-MLC", name: "Qwen 2.5 (3B)", sizeGB: 1.5, vramGB: 2.5 },
-  { id: "Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC", name: "Ministral 3 (3B)", sizeGB: 1.7, vramGB: 2.9 },
-  { id: "Qwen3-4B-q4f16_1-MLC", name: "Qwen3 (4B)", sizeGB: 2.1, vramGB: 3.4 },
-  { id: "Phi-4-mini-instruct-q4f16_1-MLC", name: "Phi-4 Mini (3.8B)", sizeGB: 2.0, vramGB: 3.4 },
-  { id: "Llama-3.2-3B-Instruct-q4f32_1-MLC", name: "Llama 3.2 (3B)", sizeGB: 2.3, vramGB: 4.5, descKey: "config.webllmRecommended" },
-  { id: "Llama-3.1-8B-Instruct-q4f32_1-MLC-1k", name: "Llama 3.1 (8B)", sizeGB: 4.2, vramGB: 5.3 },
-  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.8, vramGB: 8.0, descKey: "config.webllmAdvanced" },
-  { id: "Hermes-2-Pro-Llama-3-8B-q4f16_1-MLC", name: "Hermes 2 Pro (8B)", sizeGB: 5.5, vramGB: 10.0, descKey: "config.webllmExpert" },
+  { id: "Qwen3.5-2B-q4f16_1-MLC", name: "Qwen3.5 (2B)", sizeGB: 1.9, vramGB: 2.2 },
+  { id: "Qwen3.5-4B-q4f16_1-MLC", name: "Qwen3.5 (4B)", sizeGB: 3.2, vramGB: 3.9 },
+  { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek R1 (7B)", sizeGB: 4.4, vramGB: 5.1 },
+  { id: "Qwen3.5-9B-q4f16_1-MLC", name: "Qwen3.5 (9B)", sizeGB: 7.0, vramGB: 6.4 },
 ] as const;
 
 export type WebLLMStatusEvent =
@@ -107,6 +121,7 @@ export class WebLLMAdapter implements ProviderAdapter {
     const createEngine = this._useServiceWorker
       ? mod.CreateServiceWorkerMLCEngine
       : mod.CreateMLCEngine;
+    const prebuilt: AppConfig = mod.prebuiltAppConfig as AppConfig;
 
     for (let attempt = 0; attempt < WEBLLM_MODELS.length; attempt++) {
       const currentModelId = this._effectiveModelId || modelId;
@@ -114,7 +129,18 @@ export class WebLLMAdapter implements ProviderAdapter {
       this._loadedModelId = null;
 
       try {
+        // Apply per-model overrides to work around invalid shipped configs
+        // (e.g. gemma3-1b ships with both context_window_size and
+        // sliding_window_size positive, which WebLLM 0.2.84 rejects).
+        const entry = WEBLLM_MODELS.find((m) => m.id === currentModelId) as
+          | (WebLLMModelEntry & { id: string })
+          | undefined;
+        const appConfig = entry?.overrides
+          ? this._withModelOverrides(prebuilt, currentModelId, entry.overrides)
+          : undefined;
+
         this.engine = await createEngine(currentModelId, {
+          appConfig,
           initProgressCallback: (report: InitProgressReport) => {
             const pct = Math.round(report.progress * 100);
             this._progressCallback?.(pct);
@@ -137,6 +163,14 @@ export class WebLLMAdapter implements ProviderAdapter {
         throw err;
       }
     }
+  }
+
+  /** Clone the app config so the target model's record carries merged overrides. */
+  private _withModelOverrides(appConfig: AppConfig, modelId: string, overrides: ChatOptions): AppConfig {
+    const model_list = (appConfig.model_list || []).map((m) =>
+      m.model_id === modelId ? { ...m, overrides: { ...m.overrides, ...overrides } } : m
+    );
+    return { ...appConfig, model_list };
   }
 
   /** Load model into WebGPU. Real download. Dedupes concurrent inits per model. */

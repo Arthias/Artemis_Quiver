@@ -1,6 +1,12 @@
 import { loadTranslations, t } from "./i18n";
 import { AppError, ErrorCodes } from "../app/utils/errors";
 import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns } from "./job-sites";
+import { readActiveProfile } from "./idbProfile";
+import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatibleAdapter";
+import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
+import { geminiAdapter } from "../app/services/provider/GeminiAdapter";
+import type { ProviderAdapter } from "../app/services/provider/ProviderAdapter";
+import type { ModelEndpoint } from "../app/types/llm";
 
 loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
 
@@ -134,7 +140,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     if (!data?.text) return;
 
     const appUrl = chrome.runtime.getURL("index.html");
-    const existingTabs = await chrome.tabs.query({ url: appUrl });
+    const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
 
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
       await chrome.tabs.update(existingTabs[0].id, { active: true });
@@ -187,33 +193,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // ── Fingerprint generation ──
+interface FingerprintSource {
+  profileMarkdown: string;
+  primaryEndpoint?: ModelEndpoint;
+  secondaryEndpoint?: ModelEndpoint;
+}
+
 async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
   try {
-    const appUrl = chrome.runtime.getURL("index.html");
-    const existingTabs = await chrome.tabs.query({ url: appUrl });
-    
-    if (existingTabs.length === 0) {
-      console.log("[Artemis] App tab not found");
-      sendResponse({ error: t("background.appNotOpen") });
-      return;
-    }
-    
-    const tabId = existingTabs[0]!.id!;
-    const profileResp = await chrome.tabs.sendMessage(tabId, { type: "ARTEMIS_REQUEST_PROFILE" });
-    console.log("[Artemis] Profile response:", profileResp);
-    const profileMarkdown: string | undefined = (profileResp as any)?.profileMarkdown;
-    
-    if (!profileMarkdown) {
-      console.log("[Artemis] No profile markdown in response");
-      sendResponse({ error: t("background.noProfileData") });
-      return;
-    }
-    
+    // Preferred path: read the active profile straight from IndexedDB (same
+    // origin as the app), so no app tab needs to be open.
+    const source = await getFingerprintSource(sendResponse);
+    if (!source) return;
+
     const overlayCfg = await getConfig();
-    const fingerprint = await generateFingerprintFromProfile(profileMarkdown, overlayCfg, profileResp);
-    
+    const fingerprint = await generateFingerprintFromProfile(source, overlayCfg);
+
     if (fingerprint) {
-      await saveFingerprint(fingerprint, profileResp);
+      await saveFingerprint(fingerprint, source);
       console.log("[Artemis] Fingerprint generated:", fingerprint.slice(0, 60) + "...");
       sendResponse({ fingerprint });
     } else {
@@ -223,88 +220,111 @@ async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
     console.error("[Artemis] generate_fingerprint:", appError);
-    sendResponse({ error: err instanceof Error ? err.message : String(err) });
+    sendResponse({ error: appError.message });
   }
 }
 
+// Resolves profile data from IndexedDB first; falls back to asking an open app
+// tab (e.g. when the app hasn't written its database yet). Returns null after
+// sending an error response when neither path yields profile data.
+async function getFingerprintSource(sendResponse?: (resp: any) => void): Promise<FingerprintSource | null> {
+  const idbProfile = await readActiveProfile();
+  if (idbProfile) {
+    return {
+      profileMarkdown: idbProfile.profileMarkdown,
+      primaryEndpoint: idbProfile.primary,
+      secondaryEndpoint: idbProfile.secondary,
+    };
+  }
 
-async function generateFingerprintFromProfile(markdown: string, overlayCfg: any, appResp: any): Promise<string | null> {
-  const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${markdown.slice(0, 4000)}`;
-  const endpoints: any = {};
-  if (appResp?.primaryEndpoint) endpoints.primaryEndpoint = appResp.primaryEndpoint;
-  if (appResp?.secondaryEndpoint) endpoints.secondaryEndpoint = appResp.secondaryEndpoint;
-  
-  try {
-    if (overlayCfg.fallbackMode === "primary" || overlayCfg.fallbackMode === "secondary") {
-      return await callRemoteLLM(prompt, { ...overlayCfg, ...endpoints });
-    }
-    return await callRemoteLLM(prompt, { ...endpoints, fallbackMode: "primary" });
-  } catch (err) {
-    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    console.error("[Artemis] fingerprint_gen:", appError);
+  const appUrl = chrome.runtime.getURL("index.html");
+  const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
+  if (existingTabs.length === 0) {
+    sendResponse?.({ error: t("background.noProfile") });
     return null;
   }
+  const tabId = existingTabs[0]!.id!;
+  const profileResp = await chrome.tabs.sendMessage(tabId, { type: "ARTEMIS_REQUEST_PROFILE" });
+  const markdown: string | undefined = (profileResp as any)?.profileMarkdown;
+  if (!markdown) {
+    sendResponse?.({ error: t("background.noProfileData") });
+    return null;
+  }
+  return { profileMarkdown: markdown, ...(profileResp as any) };
+}
+
+async function generateFingerprintFromProfile(source: FingerprintSource, overlayCfg: any): Promise<string | null> {
+  const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${source.profileMarkdown.slice(0, 4000)}`;
+  const endpoints: any = {};
+  if (source.primaryEndpoint) endpoints.primaryEndpoint = source.primaryEndpoint;
+  if (source.secondaryEndpoint) endpoints.secondaryEndpoint = source.secondaryEndpoint;
+
+  const effectiveConfig = overlayCfg.fallbackMode === "primary" || overlayCfg.fallbackMode === "secondary"
+    ? { ...overlayCfg, ...endpoints }
+    : { ...endpoints, fallbackMode: "primary" };
+
+  return callRemoteLLM(prompt, effectiveConfig, { temperature: 0.3 });
 }
 
 
-async function callRemoteLLM(prompt: string, config: any): Promise<string> {
+function adapterFor(provider?: string): ProviderAdapter {
+  switch (provider) {
+    case "anthropic":
+      return anthropicAdapter;
+    case "google-gemini":
+      return geminiAdapter;
+    default:
+      // openai-compatible, or legacy endpoints cached without a provider field
+      return openAICompatibleAdapter;
+  }
+}
+
+async function callRemoteLLM(prompt: string, config: any, opts?: { temperature?: number }): Promise<string> {
   const endpoint = resolveEndpoint(config);
   if (!endpoint) {
     throw new AppError(ErrorCodes.LLM_CONFIG_MISSING, t("background.noEndpoint"));
   }
-  
-  const body = {
-    model: endpoint.model,
-    messages: [
-      { role: "system", content: t("background.youAreSummarizer") },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.3,
-    max_tokens: 600,
-  };
-  
-  try {
-    await ensureHostPermission(endpoint.baseUrl);
-    const resp = await fetch(endpoint.baseUrl + "/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
-    });
 
-    if (!resp.ok) {
-      throw new AppError(ErrorCodes.LLM_API_FAILURE, t("background.llmRequestFailed", { status: resp.status.toString(), url: endpoint.baseUrl + "/v1/chat/completions" }));
-    }
-    
-    const json = await resp.json() as any;
-    const msg = json?.choices?.[0]?.message;
-    const content = msg?.content?.trim() || msg?.reasoning_content?.trim() || "";
-    return content;
+  if (endpoint.provider === "webllm") {
+    throw new AppError(ErrorCodes.LLM_CONFIG_MISSING, t("background.webllmNotSupported"));
+  }
+
+  const ep: ModelEndpoint = opts?.temperature !== undefined
+    ? { ...endpoint, temperature: opts.temperature }
+    : endpoint;
+
+  const messages = [
+    { role: "system" as const, content: t("background.youAreSummarizer") },
+    { role: "user" as const, content: prompt },
+  ];
+
+  try {
+    await ensureHostPermission(ep.baseUrl);
+    return await adapterFor(ep.provider).chatCompletion(messages, ep, { timeoutMs: 30000 });
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    console.error("[Artemis] LLM call failed for", endpoint.baseUrl, appError);
+    console.error("[Artemis] LLM call failed for", ep.baseUrl, appError);
     throw appError;
   }
 }
 
+function resolveEndpoint(config: any): ModelEndpoint | null {
+  const normalize = (ep: ModelEndpoint): ModelEndpoint => ({ ...ep, baseUrl: fixExtensionBaseUrl(ep.baseUrl) });
 
-function resolveEndpoint(config: any) {
-  if (config.fallbackMode === "primary" || !config.fallbackMode) {
-    const ep = config.primaryEndpoint || { baseUrl: "http://localhost:11434", model: "google/gemma-4-e2b" };
-    return { ...ep, baseUrl: fixExtensionBaseUrl(ep.baseUrl) };
-  }
   if (config.fallbackMode === "secondary") {
     const useSecondary = config.secondaryUse === "quick-tasks" || config.secondaryUse === "always";
-    if (useSecondary && config.secondaryEndpoint) {
-      return { ...config.secondaryEndpoint, baseUrl: fixExtensionBaseUrl(config.secondaryEndpoint.baseUrl) };
-    }
-    const ep = config.primaryEndpoint || { baseUrl: "http://localhost:11434", model: "google/gemma-4-e2b" };
-    return { ...ep, baseUrl: fixExtensionBaseUrl(ep.baseUrl) };
+    if (useSecondary && config.secondaryEndpoint) return normalize(config.secondaryEndpoint);
   }
-  throw new Error(t("background.noEndpoint"));
+
+  if (config.primaryEndpoint) return normalize(config.primaryEndpoint);
+
+  return normalize({
+    label: "Primary",
+    provider: "openai-compatible",
+    baseUrl: "http://localhost:11434",
+    model: "google/gemma-4-e2b",
+    temperature: 0.7,
+  });
 }
 
 async function saveFingerprint(fingerprint: string, appResp?: any) {
@@ -354,7 +374,7 @@ async function handleExtractAndImport(tabId: number) {
     if (!data?.text) return;
     
     const appUrl = chrome.runtime.getURL("index.html");
-    const existingTabs = await chrome.tabs.query({ url: appUrl });
+    const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
       await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_IMPORT", payload: data });
       await chrome.tabs.update(existingTabs[0].id, { active: true });
@@ -409,7 +429,7 @@ async function handleOpenApp() {
 // ── Error relay (overlay/popup → app tab) ──
 async function relayErrorToApp(payload: any) {
   const appUrl = chrome.runtime.getURL("index.html");
-  const tabs = await chrome.tabs.query({ url: appUrl });
+  const tabs = await chrome.tabs.query({ url: appUrl + "*" });
   for (const tab of tabs) {
     if (tab.id) {
       chrome.tabs.sendMessage(tab.id, { type: "ARTEMIS_LOG_ERROR", payload }).catch(() => {});
