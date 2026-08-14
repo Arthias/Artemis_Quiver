@@ -5,6 +5,9 @@ import {
   extractBaseUrl,
   matchJobSite,
   isKnownJobSite,
+  toDomainEntry,
+  urlToSiteEntry,
+  entryFromUrlInput,
 } from "../job-sites";
 
 describe("DEFAULT_JOB_SITES", () => {
@@ -156,5 +159,82 @@ describe("isKnownJobSite (backward-compatible)", () => {
     expect(
       isKnownJobSite("myjobboard.com", ["https://myjobboard.com"])
     ).toBe(true);
+  });
+});
+
+describe("toDomainEntry (domain-only add)", () => {
+  it("drops the path from a path-pinned entry", () => {
+    expect(toDomainEntry("linkedin.com/jobs/view/123")).toBe("linkedin.com");
+  });
+
+  it("keeps a plain domain as-is", () => {
+    expect(toDomainEntry("linkedin.com")).toBe("linkedin.com");
+  });
+
+  it("strips protocol and lowercases", () => {
+    expect(toDomainEntry("HTTPS://www.LinkedIn.com/jobs/*")).toBe("www.linkedin.com");
+  });
+});
+
+describe("urlToSiteEntry (popup enable-here)", () => {
+  it("extracts hostname from a job URL, dropping the path", () => {
+    expect(urlToSiteEntry("https://www.linkedin.com/jobs/view/123")).toBe("www.linkedin.com");
+  });
+
+  it("lowercases the hostname", () => {
+    expect(urlToSiteEntry("https://Indeed.com/jobs/view/456")).toBe("indeed.com");
+  });
+
+  it("returns empty string for invalid URLs", () => {
+    expect(urlToSiteEntry("not-a-url")).toBe("");
+  });
+});
+
+describe("entryFromUrlInput (editable popup site URL)", () => {
+  it("bare hostname yields a domain-only entry", () => {
+    expect(entryFromUrlInput("www.awin.com")).toBe("www.awin.com");
+  });
+
+  it("URL with path yields a path-prefixed entry", () => {
+    expect(entryFromUrlInput("https://www.awin.com/gb/careers/vacancies/123")).toBe(
+      "www.awin.com/gb/careers/vacancies/123"
+    );
+  });
+
+  it("path keeps a trailing wildcard", () => {
+    expect(entryFromUrlInput("https://www.awin.com/gb/careers/vacancies/*")).toBe(
+      "www.awin.com/gb/careers/vacancies/*"
+    );
+  });
+
+  it("path without protocol is treated as https", () => {
+    expect(entryFromUrlInput("www.awin.com/gb/careers/vacancies")).toBe(
+      "www.awin.com/gb/careers/vacancies"
+    );
+  });
+
+  it("root path collapses to domain-only", () => {
+    expect(entryFromUrlInput("https://www.awin.com/")).toBe("www.awin.com");
+  });
+
+  it("trailing slashes on the path are stripped", () => {
+    expect(entryFromUrlInput("https://www.awin.com/gb/careers/")).toBe(
+      "www.awin.com/gb/careers"
+    );
+  });
+
+  it("lowercases host and path", () => {
+    expect(entryFromUrlInput("HTTPS://WWW.AWIN.COM/GB/Careers/Vacancies")).toBe(
+      "www.awin.com/gb/careers/vacancies"
+    );
+  });
+
+  it("garbage input falls back to domain-only", () => {
+    expect(entryFromUrlInput("not a url")).toBe("not a url");
+  });
+
+  it("empty or whitespace input yields empty string", () => {
+    expect(entryFromUrlInput("")).toBe("");
+    expect(entryFromUrlInput("   ")).toBe("");
   });
 });

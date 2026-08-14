@@ -51,10 +51,11 @@ async function syncSiteContentScripts(): Promise<void> {
     if (!hasPermission) continue;
 
     try {
+      const matches = siteToMatchPatterns(site);
       await chrome.scripting.registerContentScripts([
         {
           id,
-          matches: siteToMatchPatterns(site),
+          matches,
           js: ["overlay.js"],
           runAt: "document_idle",
           allFrames: false,
@@ -62,6 +63,10 @@ async function syncSiteContentScripts(): Promise<void> {
       ]);
       registeredIds.add(id);
       console.log("[Artemis] Registered overlay content script for", site);
+      // Inject into already-open tabs matching the site so the overlay appears
+      // without a page reload. Registration only affects newly navigated
+      // documents — existing tabs are picked up here.
+      void injectOverlayIntoTabs(matches);
     } catch (err) {
       console.warn("[Artemis] registerContentScripts failed for", site, err);
     }
@@ -85,6 +90,42 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(() => {
   void syncSiteContentScripts();
 });
+
+// Auto-reconcile registered content scripts whenever the overlay config is
+// written — from the popup OR the app's Settings page. This removes the need
+// for the caller to fire ARTEMIS_SYNC_SITE_SCRIPTS (which raced the async
+// storage write) and makes app-side edits take effect immediately.
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (!changes[STORAGE_KEY]) return;
+  void syncSiteContentScripts();
+});
+
+// Inject overlay.js into already-open tabs whose URL matches the given match
+// patterns. Used after registering a new content script so the overlay appears
+// without reloading those tabs. Best-effort: individual tab failures are logged
+// but ignored (e.g. the tab may be mid-navigation or on a restricted page).
+async function injectOverlayIntoTabs(matches: string[]): Promise<void> {
+  let tabs: chrome.tabs.Tab[] = [];
+  try {
+    tabs = await chrome.tabs.query({ url: matches });
+  } catch (err) {
+    console.warn("[Artemis] tabs.query failed for", matches, err);
+    return;
+  }
+  for (const tab of tabs) {
+    if (tab.id == null) continue;
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["overlay.js"],
+      });
+      console.log("[Artemis] Injected overlay.js into open tab", tab.id, tab.url);
+    } catch (err) {
+      console.warn("[Artemis] executeScript overlay failed for tab", tab.id, err);
+    }
+  }
+}
 
 const VITE_PROXY_MAP: Record<string, string> = {
   "/api/lmstudio": "http://localhost:1234",
@@ -185,9 +226,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       break;
 
     case "ARTEMIS_EXTRACT_AND_IMPORT": {
-      const tabId = _sender.tab?.id;
-      if (tabId) void handleExtractAndImport(tabId);
-      break;
+      // Messages from the popup have no _sender.tab, so the popup passes its
+      // active tab id in the payload.
+      const tabId = msg.payload?.tabId ?? _sender.tab?.id;
+      if (tabId) {
+        void handleExtractAndImport(tabId, sendResponse);
+      } else {
+        sendResponse({ error: "No active tab" });
+      }
+      return true; // keep channel open for async response
     }
   }
 });
@@ -363,27 +410,36 @@ async function handleLLMScore(
 }
 
 
-// ── Extract page content and import (relayed from overlay) ──
-async function handleExtractAndImport(tabId: number) {
+// ── Extract page content and import (relayed from popup / toolbar) ──
+async function handleExtractAndImport(tabId: number, sendResponse?: (resp: any) => void) {
   try {
     const [result] = await chrome.scripting.executeScript({
       target: { tabId },
       func: extractPageContent,
     });
     const data = result?.result as { title: string; text: string; url: string } | undefined;
-    if (!data?.text) return;
-    
+    if (!data?.text) {
+      sendResponse?.({ error: "No job content found on this page" });
+      return;
+    }
+
     const appUrl = chrome.runtime.getURL("index.html");
     const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
     if (existingTabs.length > 0 && existingTabs[0]?.id) {
       await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_IMPORT", payload: data });
       await chrome.tabs.update(existingTabs[0].id, { active: true });
     } else {
-      await chrome.storage.session.set({ "artemis:pendingImport": data });
+      const stored = await chrome.storage.session.get("artemis:pendingImports");
+      const existing = (stored as any)["artemis:pendingImports"] || [];
+      existing.push(data);
+      await chrome.storage.session.set({ "artemis:pendingImports": existing });
+      await chrome.tabs.create({ url: appUrl });
     }
+    sendResponse?.({ ok: true });
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.EXT_IMPORT_FAILED, err instanceof Error ? err.message : String(err));
     console.error("[Artemis] handleExtractAndImport:", appError);
+    sendResponse?.({ error: appError.message });
   }
 }
 

@@ -14,7 +14,7 @@ No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces c
 | `npm run dev` | Vite dev server (localhost:5173) |
 | `npm run build` | Production build |
 | `npm run build:ext` | Chrome extension → `Artemis_Quiver_extension/` (+ zip in `release/`) |
-| `npm run test` | vitest (138 tests, 13 files) |
+| `npm run test` | vitest (130 tests, 12 files) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:all` | Full auto-QA → `qa-reports/` |
 
@@ -96,9 +96,10 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 
 - Content script (`overlay.ts`) runs in ISOLATED world. `chrome.*` APIs for storage + messaging.
 - `nano-inject.ts` injected as `<script>` into MAIN world, `window.postMessage` communication.
-- Popup (`popup.tsx`) — separate React entry, built by `vite.ext.config.ts`.
-- Background (`background.ts`) — message router: fingerprint gen, LLM fallback scoring, error relay.
-- **Fingerprint flow**: Popup → `ARTEMIS_GENERATE_FINGERPRINT` → background reads the active profile **directly from IndexedDB** (`ArtemisQuiverDB`, same extension origin — see `idbProfile.ts`), falls back to `ARTEMIS_REQUEST_PROFILE` via an app tab if the DB has no profile → background calls remote LLM via the app's cloud adapters (openai-compatible/anthropic/gemini) → stores fingerprint + full endpoints in `chrome.storage.local`.
+- Popup (`popup.tsx`) — separate React entry, built by `vite.ext.config.ts`. It's an **action surface** (import current page, overlay status, links to Settings) — config lives in the app's Settings `ExtensionSettingsCard`.
+- Background (`background.ts`) — message router: **runtime content-script registration** (no static `content_scripts` in manifest), LLM fallback scoring, error relay, import/extract.
+- **Overlay registration**: per-site via `chrome.scripting.registerContentScripts` in `syncSiteContentScripts()`, gated on host permission. Auto-reconciles on `chrome.storage.onChanged` for `artemis:overlayConfig`; newly registered sites auto-inject into already-open tabs (`injectOverlayIntoTabs`).
+- **Fingerprint flow**: generated from the **app Settings** (`ExtensionSettingsCard`, uses the app's configured LLM incl. WebLLM) and written to `artemis:overlayConfig`. The background can also read the active profile **directly from IndexedDB** (`ArtemisQuiverDB`, same extension origin — see `idbProfile.ts`) with an app-tab fallback.
 - **App tab required only for** error relay + job import (not fingerprint gen).
 - **Rebuild always**: `npm run build:ext && chrome://extensions → reload` after extension changes.
 

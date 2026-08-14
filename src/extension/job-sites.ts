@@ -33,6 +33,48 @@ export function parseSiteEntry(entry: string): SiteEntry {
   };
 }
 
+// Drops any path pattern, leaving just the domain. Used when "add current site"
+// should cover the whole site rather than pinning the overlay to a job URL.
+export function toDomainEntry(entry: string): string {
+  return parseSiteEntry(entry).domain;
+}
+
+// Converts a page URL into a domain-only site entry for storage.
+export function urlToSiteEntry(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+// Builds a site entry from a user-supplied URL/path input. A bare hostname (or
+// root path) yields a domain-only entry; a path narrows the overlay to that
+// prefix, so the overlay only loads on matching job paths. A trailing "*" is
+// kept (prefix + wildcard), trailing "/" is dropped. Empty input => "".
+export function entryFromUrlInput(input: string): string {
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return "";
+  let candidate = trimmed;
+  if (!/^[a-z]+:\/\//i.test(candidate)) candidate = "https://" + candidate;
+  let host = "";
+  let path = "";
+  try {
+    const u = new URL(candidate);
+    host = u.hostname;
+    path = u.pathname;
+  } catch {
+    const parsed = parseSiteEntry(trimmed);
+    host = parsed.domain;
+    path = parsed.pathPattern || "";
+  }
+  if (!host) return "";
+  if (!path || path === "/") return host;
+  path = path.replace(/\/+$/, "");
+  if (!path.startsWith("/")) path = "/" + path;
+  return path === "/" ? host : host + path;
+}
+
 export function extractBaseUrl(url: string): string {
   const u = new URL(url);
   return `${u.protocol}//${u.host}`;

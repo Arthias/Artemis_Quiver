@@ -56,12 +56,14 @@ Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 ### C3 — Overlay only runs on user-added sites (runtime registration) ✅ (implemented)
 - **File:** `src/extension/manifest.json`, `src/extension/background.ts`, `src/extension/popup.tsx`, `src/extension/job-sites.ts`.
 - **Problem:** Static `<all_urls>` content script (or even a fixed job-domain pattern list) shows a broad-install warning and is a surface area risk.
-- **Fix:** No static `content_scripts` block at all. Popup requests the specific origin via `chrome.permissions.request` when the user adds a site; background registers a per-site script (`overlay-<domain><path>`, truncated 32-char id) via `chrome.scripting.registerContentScripts` — only when `permissions.contains` passes. `onInstalled`/`onStartup`/`ARTEMIS_SYNC_SITE_SCRIPTS` reconcile registration with stored `jobSites`. `optional_host_permissions: ["*://*/*"]`; WAR narrowed to `["http://*/*","https://*/*"]`.
+- **Fix:** No static `content_scripts` block at all. Popup requests the specific origin via `chrome.permissions.request` when the user adds a site; background registers a per-site script (`overlay-<domain><path>`, truncated 32-char id) via `chrome.scripting.registerContentScripts` — only when `permissions.contains` passes. `optional_host_permissions: ["*://*/*"]`; WAR narrowed to `["http://*/*","https://*/*"]`.
+- **v3.6.0 hardening:** Reconcile now auto-triggers on `chrome.storage.onChanged` (no manual sync message / no race with the async save). Newly registered sites auto-inject `overlay.js` into already-open matching tabs. Popup "Enable overlay here" adds domain-only entries (path pinning was a common "overlay stopped appearing" cause). `chrome.permissions.request` also wired into the app's Settings page add-site flow.
 - **Result:** Overlay can never inject on a site the user didn't authorize. Verified live: with only `www.linkedin.com/jobs/search-results` stored (no host permission granted), `chrome.scripting.getRegisteredContentScripts()` = `[]` and `#artemis-overlay` does not inject.
 
 ### C4 — App-tab dependency onboarding ⏳ (awaiting user screenshots)
-- **Problem:** Error relay + job import require an app tab open ([[../30-Features/Extension Overlay|Extension Overlay]]). Fingerprint gen no longer does — the background reads the active profile directly from IndexedDB (v3.5.0).
-- **Fix:** Add a 4th "Extension" step to `OnboardingWizard.tsx` (currently `["Welcome", "AI Setup", "Profile"]`) + `en.json`/`es.json` keys, explaining the app-tab requirement and how to add sites from the popup.
+- **Problem:** Error relay + job import require an app tab open ([[../30-Features/Extension Overlay|Extension Overlay]]). Fingerprint gen no longer does — the background reads the active profile directly from IndexedDB (v3.5.0), and since v3.6.0 fingerprint + fallback + sites are configured in the app's Settings page (`ExtensionSettingsCard`).
+- **Fix:** Add a 4th "Extension" step to `OnboardingWizard.tsx` (currently `["Welcome", "AI Setup", "Profile"]`) + `en.json`/`es.json` keys, explaining the app-tab requirement and how to enable the overlay from the toolbar popup.
+- **v3.6.0 rework:** The toolbar popup is now an action surface (import current page, one-click overlay enable, links to Settings) rather than a config editor — config management moved to app Settings. Deep-link from popup → `index.html#/config`.
 - **Blocked on:** user-supplied screenshots — needs `permission-prompt.png` (Chrome permission dialog after clicking Add in the popup). Reference/staging images already exist under `src/assets/onboarding/`: `popup-add-site.png`, `overlay-badge.png`, `overlay-expanded.png` (user will retake tuned versions against real sites).
 
 ### C5 — WebLLM stability
@@ -76,8 +78,8 @@ Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 | Item | Status | Notes |
 |------|--------|-------|
 | Public release repo | ✅ | `Arthias/Artemis-Quiver-Releases` created |
-| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0` published; **`v3.5.1` pending republish** |
-| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.5.1` zip not yet attached |
+| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0`, `v3.5.0`, `v3.5.1` published; **`v3.6.0` this release** |
+| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.6.0` zip built + ready to attach |
 | Release notes | ✅ | Generated from CHANGELOG + install steps |
 | Install README | ✅ | `release/README.md` — unzip → `chrome://extensions` → Load unpacked → `Artemis_Quiver_extension/` |
 | Headline the app-tab requirement | ✅ | In README + release notes (C4) |
@@ -111,6 +113,7 @@ npm run qa:ext          # Extension QA (Playwright)
 - ✅ `npm run release:ext` script automates build → commit → tag → push → publish.
 - ✅ C2 hardcoded LAN host permission removed (optional host permissions + runtime grant).
 - ✅ C3 runtime content-script registration — overlay only on user-authorized sites (verified live, `getRegisteredContentScripts()` = `[]` without host grant). Version bumped to `3.5.1`.
+- ✅ **`v3.6.0`** — overlay auto-reconcile (`storage.onChanged`), auto-inject into open tabs, toolbar popup rework (action surface), fallback-mode control + site CRUD moved to app Settings, pending-import key fix, versioned i18n cache, path-scoped "Enable overlay here", popup import tabId fix, tabbed Settings page. Verified: typecheck clean, 139/139 tests, `build:ext` OK, zip packaged. **Ready to tag + publish.**
 
 ---
 

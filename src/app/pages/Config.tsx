@@ -13,13 +13,14 @@ import {
 } from "../components/ui/select";
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
 import { useWorkspace } from "../context/WorkspaceProfileContext";
 import { chatCompletion, listModels as listModelsApi, testConnection } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import type { ThemeMode } from "../types/workspace";
-import { DEFAULT_JOB_SITES } from "../../extension/job-sites";
+import { DEFAULT_JOB_SITES, siteToOriginPatterns } from "../../extension/job-sites";
 import { getAdapter } from "../services/provider/registry";
 import { WEBLLM_MODELS } from "../services/provider/WebLLMAdapter";
 import {
@@ -44,6 +45,9 @@ function ExtensionSettingsCard() {
   const [excludedSites, setExcludedSites] = useState<string[]>([]);
   const [newSite, setNewSite] = useState("");
   const [overlayEnabled, setOverlayEnabled] = useState(true);
+  const [fallbackMode, setFallbackMode] = useState<"basic" | "secondary" | "primary">("basic");
+  const [hasSecondary, setHasSecondary] = useState(false);
+  const [permError, setPermError] = useState<string | null>(null);
   const [editingSite, setEditingSite] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [fingerprint, setFingerprint] = useState<string | null>(null);
@@ -104,6 +108,9 @@ function ExtensionSettingsCard() {
       setCustomSites(cfg.jobSites || []);
       setExcludedSites(cfg.excludedSites || []);
       setOverlayEnabled(cfg.enabled !== false);
+      const fm = cfg.fallbackMode;
+      setFallbackMode(fm === "secondary" || fm === "primary" ? fm : "basic");
+      setHasSecondary(!!cfg.secondaryEndpoint || !!configCtx.config.secondary?.baseUrl);
     });
   }, []);
 
@@ -115,6 +122,45 @@ function ExtensionSettingsCard() {
       cfg.jobSites = newCustom;
       cfg.excludedSites = newExcluded;
       cfg.enabled = overlayEnabled;
+      cfg.fallbackMode = fallbackMode;
+      chrome.storage.local.set({ "artemis:overlayConfig": cfg });
+    });
+  }
+
+  // Request host permission for the site's origins so the background can
+  // register a content script for it. The background auto-reconciles on the
+  // storage write (storage.onChanged) once permission is granted.
+  async function requestSitePermission(entry: string): Promise<boolean> {
+    const isExt = typeof chrome !== "undefined" && chrome.permissions?.request;
+    if (!isExt) return true;
+    try {
+      const granted = await chrome.permissions.request({ origins: siteToOriginPatterns(entry) });
+      if (!granted) setPermError(t("config.permissionDenied"));
+      return granted;
+    } catch {
+      return true; // API hiccup — don't block configuring the site
+    }
+  }
+
+  async function addSite() {
+    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    if (!trimmed || allSites.includes(trimmed)) return;
+    setPermError(null);
+    const granted = await requestSitePermission(trimmed);
+    if (!granted) return;
+    const next = [...customSites, trimmed];
+    setCustomSites(next);
+    setNewSite("");
+    save(next, excludedSites);
+  }
+
+  function setFallback(mode: "basic" | "secondary" | "primary") {
+    setFallbackMode(mode);
+    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
+    if (!isExt) return;
+    chrome.storage.local.get("artemis:overlayConfig").then((result) => {
+      const cfg = (result as any)["artemis:overlayConfig"] || {};
+      cfg.fallbackMode = mode;
       chrome.storage.local.set({ "artemis:overlayConfig": cfg });
     });
   }
@@ -123,15 +169,6 @@ function ExtensionSettingsCard() {
     ...DEFAULT_JOB_SITES.filter((s) => !excludedSites.includes(s)),
     ...customSites,
   ];
-
-  function addSite() {
-    const trimmed = newSite.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-    if (!trimmed || allSites.includes(trimmed)) return;
-    const next = [...customSites, trimmed];
-    setCustomSites(next);
-    setNewSite("");
-    save(next, excludedSites);
-  }
 
   function removeSite(site: string) {
     if (DEFAULT_JOB_SITES.includes(site)) {
@@ -268,6 +305,9 @@ function ExtensionSettingsCard() {
 
       <div>
         <Label className="mb-2 block">{t("config.addCustomSite")}</Label>
+        {permError && (
+          <p className="text-xs text-destructive mb-2">{permError}</p>
+        )}
         <div className="flex gap-2">
           <Input
             value={newSite}
@@ -317,6 +357,45 @@ function ExtensionSettingsCard() {
             <span className="text-xs text-muted-foreground">
               {t("config.updated")} {new Date(fpStorageKey).toLocaleDateString()}
             </span>
+          )}
+        </div>
+      </div>
+
+      <hr className="border-t border-border" />
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5 text-orange-500" />
+          <h3 className="text-base font-semibold">{t("config.overlayFallback")}</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t("config.overlayFallbackDesc")}
+        </p>
+        <div className="flex flex-col gap-2">
+          {([
+            { mode: "basic" as const, label: t("config.fallbackBasic") },
+            { mode: "secondary" as const, label: t("config.fallbackSecondary") },
+            { mode: "primary" as const, label: t("config.fallbackPrimary") },
+          ]).map(({ mode, label }) => {
+            const disabled = mode === "secondary" && !hasSecondary;
+            return (
+              <label
+                key={mode}
+                className={`flex items-center gap-2 text-sm ${disabled ? "text-muted-foreground/60 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <input
+                  type="radio"
+                  name="overlayFallback"
+                  checked={fallbackMode === mode}
+                  disabled={disabled}
+                  onChange={() => setFallback(mode)}
+                />
+                {label}
+              </label>
+            );
+          })}
+          {fallbackMode === "secondary" && !hasSecondary && (
+            <p className="text-xs text-muted-foreground">{t("config.fallbackSecondaryUnavailable")}</p>
           )}
         </div>
       </div>
@@ -951,8 +1030,16 @@ export function Config() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-          <Card className="p-6">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          <Tabs defaultValue="ai">
+            <TabsList className="mb-6">
+              <TabsTrigger value="ai">{t("config.tabModel")}</TabsTrigger>
+              <TabsTrigger value="general">{t("config.tabGeneral")}</TabsTrigger>
+              <TabsTrigger value="extension">{t("config.tabExtension")}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="ai" className="space-y-6">
+              <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Zap className="w-5 h-5 text-orange-500" />
               <h2 className="text-lg font-semibold">{t("config.llmProvider")}</h2>
@@ -1132,10 +1219,12 @@ export function Config() {
                 )}
               </div>
             )}
-          </Card>
+              </Card>
+            </TabsContent>
 
-          <Card className="p-6 space-y-6">
-            <h2 className="text-lg font-semibold">{t("config.general")}</h2>
+            <TabsContent value="general" className="space-y-6">
+              <Card className="p-6 space-y-6">
+                <h2 className="text-lg font-semibold">{t("config.general")}</h2>
 
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -1184,11 +1273,15 @@ export function Config() {
                 }
               />
             </div>
-          </Card>
+              </Card>
+              <DevModeLogViewer />
+              <ClearAllDataSection />
+            </TabsContent>
 
-          <ExtensionSettingsCard />
-          <DevModeLogViewer />
-          <ClearAllDataSection />
+            <TabsContent value="extension" className="space-y-6">
+              <ExtensionSettingsCard />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

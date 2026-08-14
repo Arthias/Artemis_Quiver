@@ -93,6 +93,9 @@
   "config": {
     "title": "Configuración",
     "autoSave": "Los cambios se guardan automáticamente",
+    "tabModel": "Modelo IA",
+    "tabGeneral": "General",
+    "tabExtension": "Extensión",
     "llmProvider": "Proveedor LLM",
     "cloud": "Nube",
     "local": "Local",
@@ -190,7 +193,14 @@
     "webllmRecommended": "(3.2 GB descarga - Recomendado)",
     "webllmLite": "(1.9 GB descarga - Ligero)",
     "webllmAdvanced": "(4.4 GB - Avanzado)",
-    "webllmExpert": "(7.0 GB - Experto)"
+    "webllmExpert": "(7.0 GB - Experto)",
+    "overlayFallback": "Respaldo de la superposición (cuando Gemini Nano no esté disponible)",
+    "overlayFallbackDesc": "Qué ruta de LLM usa la superposición para puntuar empleos cuando Gemini Nano en el dispositivo no puede ejecutarse.",
+    "fallbackBasic": "Básico — solo importar, sin puntuación",
+    "fallbackSecondary": "Endpoint secundario (tareas rápidas)",
+    "fallbackPrimary": "Endpoint principal",
+    "fallbackSecondaryUnavailable": "Configura un endpoint secundario en la sección de LLM de arriba para usar esta opción.",
+    "permissionDenied": "Permiso no concedido: la superposición no puede ejecutarse en este sitio hasta que se apruebe."
   },
   "cv": {
     "title": "Creador de CV (PDF con Temas)",
@@ -357,7 +367,19 @@
     "add": "Añadir",
     "permissionDenied": "Permiso no concedido: Artemis no puede ejecutarse en ese sitio.",
     "saved": "✓ Guardado",
-    "openAppTitle": "Abrir app Artemis Quiver"
+    "openAppTitle": "Abrir app Artemis Quiver",
+    "importJob": "Importar este empleo → Artemis",
+    "importingJob": "Importando...",
+    "imported": "✓ Importado — abriendo Artemis",
+    "importFailed": "Error al importar",
+    "overlayActive": "Superposición activa",
+    "overlayInactive": "Superposición no habilitada en este sitio",
+    "enableOverlay": "Habilitar superposición aquí",
+    "siteUrlHint": "Opcional: añade una ruta para limitar la superposición (p. ej. /gb/careers/vacancies)",
+    "reloadHint": "Si la superposición no aparece, recarga esta página.",
+    "openSettings": "Administrar en Configuración",
+    "fingerprintReady": "Lista",
+    "fingerprintMissing": "No generada"
   },
   "background": {
     "appNotOpen": "Artemis Quiver no está abierta. Ábrela primero para generar una huella.",

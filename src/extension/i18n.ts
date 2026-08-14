@@ -2,9 +2,21 @@
 
 let cache: Record<string, string> | null = null;
 
+// Key the storage cache by the extension version so a rebuilt locale file with
+// new keys is always re-fetched instead of serving stale cached translations
+// (raw keys shown). Old keys are orphaned, never read again.
+function cacheKey(): string {
+  let version = "dev";
+  try {
+    version = chrome.runtime.getManifest().version || "dev";
+  } catch {}
+  return `i18n_cache_${version}`;
+}
+
 export async function loadTranslations(locale: string): Promise<void> {
-  const result = await chrome.storage.local.get("i18n_cache");
-  const cached = result.i18n_cache as Record<string, Record<string, string>> | undefined;
+  const key = cacheKey();
+  const result = await chrome.storage.local.get(key);
+  const cached = result[key] as Record<string, Record<string, string>> | undefined;
   if (cached?.[locale]) {
     cache = cached[locale];
     return;
@@ -12,7 +24,7 @@ export async function loadTranslations(locale: string): Promise<void> {
   const resp = await fetch(chrome.runtime.getURL(`locales/${locale}.json`));
   const data = await resp.json();
   cache = data;
-  await chrome.storage.local.set({ i18n_cache: { [locale]: data } });
+  await chrome.storage.local.set({ [key]: { [locale]: data } });
 }
 
 function getNested(obj: Record<string, unknown> | null, path: string): unknown {

@@ -6,6 +6,27 @@ last_updated: 2026-06-13
 
 # Changelog
 
+## [v3.6.0] - August 14, 2026
+
+**Overlay loading fixes + toolbar popup rework (action surface)**
+
+- **Overlay auto-reconcile:** background now re-registers content scripts whenever `artemis:overlayConfig` changes in `chrome.storage.local` (`chrome.storage.onChanged`) — no manual `ARTEMIS_SYNC_SITE_SCRIPTS`, no registration race with the popup's async save.
+- **Auto-inject into open tabs:** after registering a site's content script, `overlay.js` is executed into already-open matching tabs (`injectOverlayIntoTabs`) so the overlay appears without reloading.
+- **Domain-only "enable here":** popup + Settings add sites as domain entries by default (the old popup prefill baked in `/jobs/view/123` paths, so the overlay silently stopped matching other job URLs). Path-specific entries still supported via the Settings editor.
+- **Popup = toolbar action surface:** hero "Import this job → Artemis" (`ARTEMIS_EXTRACT_AND_IMPORT`), overlay status with one-click enable, fingerprint status, and a deep link to Settings. Config UI (fallback, sites, fingerprint) moved out of the popup.
+- **Config moved to app Settings** (`ExtensionSettingsCard`): added overlay **fallback mode** control (basic/secondary/primary, `secondary` disabled until a secondary endpoint is configured); app-side `addSite` now requests host permission before saving.
+- **Pending-import key fix:** `handleExtractAndImport` stores into `artemis:pendingImports` (plural, what the app reads) and opens the app tab when none is open — toolbar imports no longer vanish.
+- New i18n keys: `config.overlayFallback*`, `config.fallback*`, `config.permissionDenied`, `extension.import*`, `extension.overlay*`, `extension.enableOverlay`, `extension.reloadHint`, `extension.openSettings`, `extension.fingerprint*` (en + es).
+- Verified: typecheck clean, 130/130 tests pass, `build` + `build:ext` succeed.
+
+### Follow-up fixes (same release)
+
+- **Raw i18n keys in popup/overlay:** the extension cached locale JSON in `chrome.storage.local` under a single `i18n_cache` key and served it without a staleness check — a cache written by an older build lacked the new keys, so the UI showed keys like `extension.importJob` literally. Cache key is now versioned (`i18n_cache_<manifest version>`), so a rebuilt extension always re-fetches its bundled `locales/*.json`.
+- **Editable site URL in popup:** "Enable overlay here" now defaults to the current site but shows an editable URL field, so the overlay can be scoped to a path (e.g. `https://www.awin.com/gb/careers/vacancies/*`) instead of only domain-wide. New `entryFromUrlInput()` helper (tested) converts any host/path input into a site entry; a root or empty path still yields a domain-only entry.
+- **Toolbar import "No active tab":** popup-initiated `ARTEMIS_EXTRACT_AND_IMPORT` messages have no `_sender.tab`, so the background always replied "No active tab". The popup now queries its own active tab and passes `tabId` in the payload; the background prefers `payload.tabId`, falling back to `_sender.tab?.id`.
+- **Settings navigation:** the Settings page is now tabbed (**AI Model** / **General** / **Extension**), so the extension config (fingerprint, fallback mode, sites) is one click away instead of buried at the bottom of a long page. New `config.tabModel` / `config.tabGeneral` / `config.tabExtension` keys (en + es).
+- Verified: typecheck clean, 139/139 tests pass (9 new `entryFromUrlInput` cases), `build:ext` succeeds.
+
 ## [v3.5.1] - August 7, 2026
 
 **Curated WebLLM model catalog**

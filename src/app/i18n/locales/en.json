@@ -93,6 +93,9 @@
   "config": {
     "title": "Settings",
     "autoSave": "Changes saved automatically",
+    "tabModel": "AI Model",
+    "tabGeneral": "General",
+    "tabExtension": "Extension",
     "llmProvider": "LLM Provider",
     "cloud": "Cloud",
     "local": "Local",
@@ -190,7 +193,14 @@
     "webllmRecommended": "(3.2 GB download - Recommended)",
     "webllmLite": "(1.9 GB download - Lightweight)",
     "webllmAdvanced": "(4.4 GB - Advanced)",
-    "webllmExpert": "(7.0 GB - Expert)"
+    "webllmExpert": "(7.0 GB - Expert)",
+    "overlayFallback": "Overlay fallback (when Gemini Nano is unavailable)",
+    "overlayFallbackDesc": "Which LLM path the overlay uses to score jobs when on-device Gemini Nano can't run.",
+    "fallbackBasic": "Basic — import only, no scoring",
+    "fallbackSecondary": "Secondary endpoint (quick tasks)",
+    "fallbackPrimary": "Primary endpoint",
+    "fallbackSecondaryUnavailable": "Configure a secondary endpoint in the LLM section above to use this option.",
+    "permissionDenied": "Permission not granted — the overlay can't run on this site until it's approved."
   },
   "cv": {
     "title": "CV Builder (Themed PDF)",
@@ -357,7 +367,19 @@
     "add": "Add",
     "permissionDenied": "Permission not granted — Artemis can't run on that site.",
     "saved": "✓ Saved",
-    "openAppTitle": "Open Artemis Quiver app"
+    "openAppTitle": "Open Artemis Quiver app",
+    "importJob": "Import this job → Artemis",
+    "importingJob": "Importing...",
+    "imported": "✓ Imported — opening Artemis",
+    "importFailed": "Import failed",
+    "overlayActive": "Overlay active",
+    "overlayInactive": "Overlay not enabled on this site",
+    "enableOverlay": "Enable overlay here",
+    "siteUrlHint": "Optional — add a path to limit the overlay (e.g. /gb/careers/vacancies)",
+    "reloadHint": "If the overlay doesn't appear, reload this page.",
+    "openSettings": "Manage in Settings",
+    "fingerprintReady": "Ready",
+    "fingerprintMissing": "Not generated"
   },
   "background": {
     "appNotOpen": "Artemis Quiver is not open. Open it first to generate a fingerprint.",

@@ -411,6 +411,39 @@ Expanded view shows guidance: "No profile fingerprint. Open the Artemis Quiver p
 
 ---
 
+## 2026-08-14: Overlay stops loading after v3.5.0 (runtime registration regression)
+
+### Issue #28: Overlay not loading — no static content script anymore
+
+**Symptom:** "The overlay was working and now it's not." Overlay never appears on job sites; app + import still work.
+
+**Root Cause:** v3.5.0 (commit `d55009c`) removed the static `<all_urls>` content script. The overlay is now registered **dynamically per site** (`chrome.scripting.registerContentScripts`) and requires BOTH the site in `config.jobSites` AND a granted host permission. Contributing causes:
+1. Existing installs that never granted host permissions for job sites (old flow used `<all_urls>`) → `permissions.contains` fails → sync skips every site.
+2. Popup "Add site" prefilled `hostname + first 2 path segments`, so adding from a job page pinned the entry to that exact URL (`/jobs/view/123`) → the next job URL didn't match.
+3. `saveConfig` (async storage write) fired before `ARTEMIS_SYNC_SITE_SCRIPTS` → background could read stale config and skip registration.
+4. `registerContentScripts` only affects newly navigated documents — an already-open job tab needed an F5.
+
+**Fix Applied:**
+1. `background.ts` now auto-reconciles on `chrome.storage.onChanged` for `artemis:overlayConfig` (no manual sync message, no race).
+2. Newly registered sites auto-inject `overlay.js` into already-open matching tabs (`injectOverlayIntoTabs`).
+3. Popup "Enable overlay here" adds a **domain-only** entry (drops the path); path-specific entries remain supported via the Settings editor.
+4. App Settings `addSite` also requests host permission before saving.
+5. Popup shows a "reload this page" hint as a fallback for SPA quirks.
+
+**Location:** `src/extension/background.ts`, `src/extension/popup.tsx`, `src/extension/job-sites.ts`, `src/app/pages/Config.tsx`
+
+---
+
+### Issue #29: Toolbar import stored to a pending key the app never reads
+
+**Symptom:** `ARTEMIS_EXTRACT_AND_IMPORT` (background `handleExtractAndImport`) stored the job under `artemis:pendingImport` (singular), but the app's `ExtensionBridgeContext` reads `artemis:pendingImports` (plural array) — so toolbar imports could silently vanish when no app tab was open.
+
+**Fix Applied:** `handleExtractAndImport` now pushes into `artemis:pendingImports` (same as the overlay's `ARTEMIS_IMPORT_JOB` path) and creates the app tab when none is open.
+
+**Location:** `src/extension/background.ts`
+
+---
+
 ## Known Limitations (not yet addressed)
 
 ### PDF rendering diverges from interactive preview
