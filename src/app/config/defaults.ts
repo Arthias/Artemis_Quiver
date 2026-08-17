@@ -1,4 +1,4 @@
-import type { LlmConfig } from "../types/llm";
+import type { LlmConfig, ProviderType } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 
 export const DEFAULT_PROFILE_MARKDOWN = `# Professional Profile
@@ -54,6 +54,15 @@ export const DEFAULT_LLM_CONFIG: LlmConfig = {
   secondary: DEFAULT_SECONDARY_ENDPOINT,
   secondaryUse: "never",
   autoSaveProfile: true,
+};
+
+// Sensible base-URL defaults per cloud provider, used both to placeholder and
+// to auto-fill the Base URL field in Settings when the user switches
+// provider. Providers not listed here (e.g. openai-compatible, which fronts
+// arbitrary self-hosted/local servers) keep the existing localhost-style
+// placeholder instead.
+export const PROVIDER_DEFAULT_BASE_URLS: Partial<Record<ProviderType, string>> = {
+  "google-gemini": "https://generativelanguage.googleapis.com",
 };
 
 export const MINIMAL_PROFILE_MARKDOWN = `# Professional Profile

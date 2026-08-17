@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, X, Check } from "lucide-react";
 
 export function InlineInput({ value, onSave, className, placeholder, style }: {
@@ -8,13 +8,17 @@ export function InlineInput({ value, onSave, className, placeholder, style }: {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
   if (editing) {
     return (
       <input
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        onBlur={() => { onSave(draft || value); setEditing(false); }}
-        onKeyDown={e => { if (e.key === "Enter") { onSave(draft || value); setEditing(false); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+        onBlur={() => { onSave(draft ?? value); setEditing(false); }}
+        onKeyDown={e => { if (e.key === "Enter") { onSave(draft ?? value); setEditing(false); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
         autoFocus
         className={`bg-white text-gray-900 border border-gray-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 ${className ?? ""}`}
         placeholder={placeholder}
@@ -40,6 +44,10 @@ export function InlineTextarea({ value, onSave, className }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
 
   if (editing) {
     return (

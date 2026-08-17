@@ -25,7 +25,7 @@ export const geminiAdapter: ProviderAdapter = {
 
     try {
       const response = await fetch(
-        `${baseUrl}/v1/models/${endpoint.model}:generateContent`,
+        `${baseUrl}/v1beta/models/${endpoint.model}:generateContent`,
         {
           method: "POST",
           headers: {
@@ -72,7 +72,7 @@ export const geminiAdapter: ProviderAdapter = {
     const headers: Record<string, string> = {};
     if (endpoint.apiKey) headers["x-goog-api-key"] = endpoint.apiKey;
 
-    const response = await fetch(`${baseUrl}/v1/models`, { headers });
+    const response = await fetch(`${baseUrl}/v1beta/models`, { headers });
     if (!response.ok) {
       throw new AppError(ErrorCodes.LLM_API_FAILURE, `Failed to list models (${response.status})`);
     }

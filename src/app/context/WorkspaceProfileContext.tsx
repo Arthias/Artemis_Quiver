@@ -27,8 +27,11 @@ import {
   saveProfile,
   deleteProfile as deleteProfileFromDb,
   ensureDbInitialized,
+  addErrorLog,
 } from "../db";
-import { Loader2 } from "lucide-react";
+import { AppError, ErrorCodes } from "../utils/errors";
+import { Button } from "../components/ui/button";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface WorkspaceProfileContextValue {
   manifest: WorkspaceManifest;
@@ -52,8 +55,18 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
   const [loading, setLoading] = useState(true);
   const [manifest, setManifest] = useState<WorkspaceManifest | null>(null);
   const [profileData, setProfileData] = useState<ProfileWorkspaceData | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [initAttempt, setInitAttempt] = useState(0);
+
+  const retryInit = useCallback(() => {
+    setInitError(null);
+    setLoading(true);
+    setInitAttempt((n) => n + 1);
+  }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function init() {
       try {
         await ensureDbInitialized();
@@ -70,6 +83,8 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         if (!loadedData) {
           throw new Error("Failed to load active profile data.");
         }
+
+        if (cancelled) return;
 
         setManifest({
           activeProfileId: activeProf.id,
@@ -93,12 +108,31 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         applyTheme(loadedData.settings.theme);
       } catch (err) {
         console.error("[WorkspaceProfileContext] Init error:", err);
+        if (cancelled) return;
+
+        const message = err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : String(err);
+        setInitError(message);
+
+        void addErrorLog({
+          timestamp: new Date().toISOString(),
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          source: "app",
+          code: err instanceof AppError ? err.code : ErrorCodes.DB_INIT_FAILED,
+          numericCode: err instanceof AppError ? err.numericCode : undefined,
+          severity: err instanceof AppError ? err.severity : "CRITICAL",
+          metadata: { phase: "workspace-init" },
+        });
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     init();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initAttempt]);
 
   const activeProfile = useMemo(() => {
     if (!manifest) return null;
@@ -412,7 +446,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
     touchLastUsed,
   ]);
 
-  if (loading || !value) {
+  if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
@@ -420,6 +454,23 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
           <p className="text-sm font-medium text-muted-foreground animate-pulse">
             Loading Workspace...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!value) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <div className="flex flex-col items-center gap-4 max-w-md px-4 text-center">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <p className="text-sm font-medium text-foreground">
+            Failed to load your workspace.
+          </p>
+          {initError && (
+            <p className="text-xs text-muted-foreground break-words">{initError}</p>
+          )}
+          <Button onClick={retryInit}>Retry</Button>
         </div>
       </div>
     );

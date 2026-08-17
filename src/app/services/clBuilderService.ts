@@ -2,6 +2,7 @@ import type { ModelEndpoint } from "../types/llm";
 import type { ChatMessage } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
+import { extractJsonObject } from "../utils/jsonParse";
 import { clGeneratePrompt, clEditPrompt } from "./prompts";
 import i18n from "../i18n";
 
@@ -17,7 +18,7 @@ export interface GenerateCoverLetterOptions {
 function parseClJson(raw: string): string {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = extractJsonObject(raw, ErrorCodes.CL_GENERATION_FAILED);
   } catch {
     throw new AppError(
       ErrorCodes.CL_GENERATION_FAILED,
@@ -30,7 +31,7 @@ function parseClJson(raw: string): string {
       "Invalid cover letter structure: missing senderName or bodyParagraphs",
     );
   }
-  return raw;
+  return JSON.stringify(parsed);
 }
 
 export async function generateCoverLetter(

@@ -42,11 +42,24 @@ export type WebLLMStatusEvent =
   | { type: "fatal"; message: string }
   | { type: "unloaded" };
 
-const DEVICE_LOST_PATTERNS = /device lost|device removed|requestDevice|DXGI_ERROR/i;
+/**
+ * Patterns indicating a fatal, unrecoverable-in-place failure that should
+ * trigger auto-downgrade / a fatal status event:
+ *  - GPU device loss (WebGPU context lost, driver crash, requestDevice, etc.)
+ *  - A dead/unresponsive service worker channel — e.g. the SW itself was
+ *    killed under memory pressure. This surfaces as a closed message port,
+ *    a "disconnected" postMessage failure, or (via our own SW_ROUNDTRIP_TIMEOUT_MS
+ *    race below) a plain timeout when the SW never replies at all.
+ */
+const FATAL_ERROR_PATTERNS = /device lost|device removed|requestDevice|DXGI_ERROR|message port closed|disconnected|no response|timed out/i;
 
-function isDeviceLostError(err: unknown): boolean {
-  return DEVICE_LOST_PATTERNS.test(err instanceof Error ? err.message : String(err));
+function isFatalError(err: unknown): boolean {
+  return FATAL_ERROR_PATTERNS.test(err instanceof Error ? err.message : String(err));
 }
+
+/** Max time to wait for a reply over the WebLLM service-worker message channel
+ * before treating it as a dead/unresponsive service worker. */
+const SW_ROUNDTRIP_TIMEOUT_MS = 30_000;
 
 export class WebLLMAdapter implements ProviderAdapter {
   private engine: MLCEngineInterface | null = null;
@@ -84,6 +97,25 @@ export class WebLLMAdapter implements ProviderAdapter {
   }
 
   /**
+   * Races a promise that goes over the service-worker message channel against
+   * a timeout, so a silently-dead service worker (killed under memory
+   * pressure, never posts a reply) surfaces as a clear timeout error instead
+   * of hanging forever. No-op (returns the promise unmodified) when this
+   * adapter isn't running in service-worker mode.
+   */
+  private _withSwTimeout<T>(promise: Promise<T>): Promise<T> {
+    if (!this._useServiceWorker) return promise;
+    const timeout = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(
+          "WebLLM service worker did not respond — message port closed or timed out."
+        ));
+      }, SW_ROUNDTRIP_TIMEOUT_MS);
+    });
+    return Promise.race([promise, timeout]);
+  }
+
+  /**
    * Try to downgrade to the next smaller model after consecutive failures.
    * Updates _effectiveModelId and resets engine state on success.
    * Returns true if downgraded, false if no smaller model is available.
@@ -109,7 +141,7 @@ export class WebLLMAdapter implements ProviderAdapter {
     }
 
     if (this._currentModelIndex <= 0 && this._consecutiveFailures >= this._maxFailuresBeforeDowngrade) {
-      this._emitStatus({ type: "fatal", message: "WebLLM unavailable on this device \u2014 all models failed." });
+      this._emitStatus({ type: "fatal", message: "WebLLM unavailable on this device — all models failed." });
     }
 
     return false;
@@ -139,7 +171,10 @@ export class WebLLMAdapter implements ProviderAdapter {
           ? this._withModelOverrides(prebuilt, currentModelId, entry.overrides)
           : undefined;
 
-        this.engine = await createEngine(currentModelId, {
+        // When running in service-worker mode, this round-trips through the
+        // SW's message channel — race it against a timeout so a dead SW
+        // surfaces as a fatal error instead of hanging forever.
+        const enginePromise: Promise<MLCEngineInterface> = createEngine(currentModelId, {
           appConfig,
           initProgressCallback: (report: InitProgressReport) => {
             const pct = Math.round(report.progress * 100);
@@ -147,17 +182,18 @@ export class WebLLMAdapter implements ProviderAdapter {
             this._emitStatus({ type: "loading", progress: pct });
           },
         });
+        this.engine = await this._withSwTimeout(enginePromise);
         this._loadedModelId = currentModelId;
         this._effectiveModelId = currentModelId;
         this._consecutiveFailures = 0;
         this._emitStatus({ type: "ready", model: currentModelId });
         return;
       } catch (err) {
-        if (isDeviceLostError(err)) {
+        if (isFatalError(err)) {
           const downgraded = await this._tryDowngrade();
           if (downgraded) continue;
           throw new Error(
-            "WebGPU device was lost and all recovery attempts failed. Close other GPU-heavy tabs, restart Chrome."
+            "WebGPU device was lost (or the WebLLM service worker stopped responding) and all recovery attempts failed. Close other GPU-heavy tabs, restart Chrome."
           );
         }
         throw err;
@@ -219,12 +255,12 @@ export class WebLLMAdapter implements ProviderAdapter {
     if (this.engine && this._loadedModelId !== modelId) {
       if (await hasModelInCache(modelId)) {
         try {
-          await this.engine.reload(modelId);
+          await this._withSwTimeout(this.engine.reload(modelId));
           this._loadedModelId = modelId;
           this._effectiveModelId = modelId;
           return;
         } catch (err) {
-          if (isDeviceLostError(err)) {
+          if (isFatalError(err)) {
             this.engine = null;
             this._loadedModelId = null;
             this._initPromise = null;
@@ -234,14 +270,14 @@ export class WebLLMAdapter implements ProviderAdapter {
               return;
             }
             throw new Error(
-              "WebGPU device was lost during model reload. All recovery attempts failed."
+              "WebGPU device was lost (or the WebLLM service worker stopped responding) during model reload. All recovery attempts failed."
             );
           }
           throw err;
         }
       }
       throw new Error(
-        `WebLLM model "${modelId}" not cached. Go to Settings \u2192 Download first.`
+        `WebLLM model "${modelId}" not cached. Go to Settings → Download first.`
       );
     }
 
@@ -251,7 +287,7 @@ export class WebLLMAdapter implements ProviderAdapter {
         return;
       }
       throw new Error(
-        `WebLLM model "${modelId}" not cached. Go to Settings \u2192 Download first.`
+        `WebLLM model "${modelId}" not cached. Go to Settings → Download first.`
       );
     }
   }
@@ -265,14 +301,19 @@ export class WebLLMAdapter implements ProviderAdapter {
 
     for (let attempt = 0; attempt < WEBLLM_MODELS.length; attempt++) {
       try {
-        const reply = await this.engine!.chat.completions.create({
-          messages: messages as any,
-          temperature: endpoint.temperature,
-          max_tokens: endpoint.maxTokens || 4096,
-        });
+        // In service-worker mode this call round-trips over the SW message
+        // channel — race it against a timeout so a dead SW surfaces as a
+        // clear error instead of hanging forever.
+        const reply = await this._withSwTimeout(
+          this.engine!.chat.completions.create({
+            messages: messages as any,
+            temperature: endpoint.temperature,
+            max_tokens: endpoint.maxTokens || 4096,
+          })
+        );
         return reply.choices?.[0]?.message?.content?.trim() || "";
       } catch (err) {
-        if (isDeviceLostError(err)) {
+        if (isFatalError(err)) {
           this.engine = null;
           this._loadedModelId = null;
           this._initPromise = null;
@@ -282,7 +323,7 @@ export class WebLLMAdapter implements ProviderAdapter {
             continue;
           }
           throw new Error(
-            "WebGPU device was lost during generation. All recovery attempts failed. Close other GPU-heavy tabs, restart Chrome."
+            "WebGPU device was lost (or the WebLLM service worker stopped responding) during generation. All recovery attempts failed. Close other GPU-heavy tabs, restart Chrome."
           );
         }
         const msg = err instanceof Error ? err.message : String(err);
@@ -291,11 +332,13 @@ export class WebLLMAdapter implements ProviderAdapter {
           this._loadedModelId = null;
           this._initPromise = null;
           await this.ensureEngine(endpoint);
-          const reply = await this.engine!.chat.completions.create({
-            messages: messages as any,
-            temperature: endpoint.temperature,
-            max_tokens: endpoint.maxTokens || 4096,
-          });
+          const reply = await this._withSwTimeout(
+            this.engine!.chat.completions.create({
+              messages: messages as any,
+              temperature: endpoint.temperature,
+              max_tokens: endpoint.maxTokens || 4096,
+            })
+          );
           return reply.choices?.[0]?.message?.content?.trim() || "";
         }
         throw err;
@@ -324,7 +367,7 @@ export class WebLLMAdapter implements ProviderAdapter {
       return `Model "${modelId}" loaded from cache. Ready.`;
     }
 
-    return `Model "${modelId}" not cached. Go to Settings \u2192 select model \u2192 Download.`;
+    return `Model "${modelId}" not cached. Go to Settings → select model → Download.`;
   }
 
   async unload(): Promise<void> {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, X, Plus } from "lucide-react";
 import type { CVContent, CVSection } from "../../types/cv";
 import type { CVTheme } from "./cvThemes";
@@ -317,14 +317,18 @@ function ExecutiveCertificationItem({ value, theme, onUpdate, onRemove }: {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
   if (editing) {
     return (
       <div className="flex items-center gap-1">
         <input
           value={draft}
           onChange={e => setDraft(e.target.value)}
-          onBlur={() => { onUpdate(draft || value); setEditing(false); }}
-          onKeyDown={e => { if (e.key === "Enter") { onUpdate(draft || value); setEditing(false); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+          onBlur={() => { onUpdate(draft ?? value); setEditing(false); }}
+          onKeyDown={e => { if (e.key === "Enter") { onUpdate(draft ?? value); setEditing(false); } if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
           autoFocus
           className="flex-1 bg-white text-gray-900 border border-gray-300 rounded px-1.5 py-0.5 text-xs"
         />

@@ -349,6 +349,14 @@ function AiSetupStep() {
                     }
                   });
                 }
+                if (adapter.onStatus) {
+                  adapter.onStatus((event) => {
+                    if (event.type === "fatal") {
+                      setTestError(event.message);
+                      setTesting(false);
+                    }
+                  });
+                }
                 await adapter.init({ ...config.primary, model: targetId, baseUrl: "" });
                 setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
               } catch (err: unknown) {

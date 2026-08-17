@@ -19,6 +19,7 @@ import { useWorkspace } from "../context/WorkspaceProfileContext";
 import { chatCompletion, listModels as listModelsApi, testConnection } from "../services/llmService";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
+import { PROVIDER_DEFAULT_BASE_URLS } from "../config/defaults";
 import type { ThemeMode } from "../types/workspace";
 import { DEFAULT_JOB_SITES, siteToOriginPatterns } from "../../extension/job-sites";
 import { getAdapter } from "../services/provider/registry";
@@ -36,6 +37,8 @@ import { ensureDbInitialized } from "../db";
 import { useOnboarding } from "../context/OnboardingContext";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../components/ui/LanguageSelector";
+import { toast } from "sonner";
+import { AppError } from "../utils/errors";
 
 function ExtensionSettingsCard() {
   const { t } = useTranslation();
@@ -543,6 +546,10 @@ function ModelEndpointCard({
                 if (v === "webllm" && !isValidWebLLMModel(endpoint.model || "")) {
                   patch.model = WEBLLM_MODELS[0].id;
                 }
+                const defaultBaseUrl = PROVIDER_DEFAULT_BASE_URLS[v as ProviderType];
+                if (defaultBaseUrl && !endpoint.baseUrl) {
+                  patch.baseUrl = defaultBaseUrl;
+                }
                 onChange(patch);
               }}
             >
@@ -565,7 +572,7 @@ function ModelEndpointCard({
                   type="text"
                   value={endpoint.baseUrl}
                   onChange={(e) => onChange({ baseUrl: e.target.value })}
-                  placeholder="http://localhost:11434"
+                  placeholder={PROVIDER_DEFAULT_BASE_URLS[endpoint.provider] || "http://localhost:11434"}
                   className="bg-input-background border-border"
                 />
               </div>
@@ -631,6 +638,14 @@ function ModelEndpointCard({
                                 if (pct >= 100) {
                                   setTestMessage(t("config.downloadCompleteCached", { name: target?.name || "model" }));
                                   setWebLLMCache(targetId, true);
+                                  setTesting(false);
+                                }
+                              });
+                            }
+                            if (adapter.onStatus) {
+                              adapter.onStatus((event: { type: string; message?: string }) => {
+                                if (event.type === "fatal") {
+                                  setTestError(event.message || t("config.testFailed"));
                                   setTesting(false);
                                 }
                               });
@@ -871,9 +886,10 @@ function ClearAllDataSection() {
       await ensureDbInitialized();
       await resetOnboarding();
       window.location.reload();
-    } catch {
+    } catch (err) {
       setClearing(false);
       setShowDialog(false);
+      toast.error(err instanceof AppError ? err.userMessage : t("config.clearAllDataFailed"));
     }
   };
 

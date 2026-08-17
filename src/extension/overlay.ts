@@ -130,8 +130,8 @@ async function savePosition(pos: OverlayPosition): Promise<void> {
 const STYLES = `
   #artemis-overlay {
     all: initial;
+    display: block;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    position: fixed; z-index: 2147483647;
     cursor: grab; user-select: none;
     border-radius: 12px; background: #1e293b; color: #f1f5f9;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
@@ -218,6 +218,14 @@ console.error = (...args: any[]) => {
 };
 
 // Module state
+// hostEl is the light-DOM anchor appended to document.body — the only overlay
+// node a host page's own CSS can ever touch, so it is positioned purely via
+// inline styles set through the DOM API (see injectOverlay). overlayShadowRoot
+// is its shadow tree, and overlayEl is the actual overlay UI root that lives
+// inside that shadow tree (styled via adoptedStyleSheets, fully isolated from
+// the host page's CSS and unaffected by the page's style-src CSP).
+let hostEl: HTMLDivElement | null = null;
+let overlayShadowRoot: ShadowRoot | null = null;
 let overlayEl: HTMLDivElement | null = null;
 let isExpanded = false;
 let hasFingerprint = false;
@@ -352,10 +360,13 @@ function render() {
   `;
 }
 
-function setupOverlayEvents(el: HTMLElement) {
+function setupOverlayEvents(el: HTMLElement, host: HTMLElement) {
   let justDragged = false;
 
   // Drag: mousedown on [data-drag] header
+  // Positioning lives on `host` (the light-DOM anchor, position:fixed via
+  // inline styles) rather than `el` (the shadow-root content, which is a
+  // normal in-flow box inside the host) — see injectOverlay.
   el.addEventListener("mousedown", (e) => {
     const header = (e.target as HTMLElement).closest("[data-drag]");
     if (!header) return;
@@ -363,21 +374,21 @@ function setupOverlayEvents(el: HTMLElement) {
 
     let wasDragged = false;
     const startX = e.clientX, startY = e.clientY;
-    const origX = parseInt(el.style.left) || 0;
-    const origY = parseInt(el.style.top) || 0;
+    const origX = parseInt(host.style.left) || 0;
+    const origY = parseInt(host.style.top) || 0;
 
     const onMove = (me: MouseEvent) => {
       const dx = me.clientX - startX, dy = me.clientY - startY;
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) wasDragged = true;
-      el.style.left = (origX + dx) + "px";
-      el.style.top = (origY + dy) + "px";
+      host.style.left = (origX + dx) + "px";
+      host.style.top = (origY + dy) + "px";
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       if (wasDragged) {
         justDragged = true;
-        void savePosition({ x: parseInt(el.style.left) || 0, y: parseInt(el.style.top) || 0 });
+        void savePosition({ x: parseInt(host.style.left) || 0, y: parseInt(host.style.top) || 0 });
       }
     };
     document.addEventListener("mousemove", onMove);
@@ -393,7 +404,9 @@ function setupOverlayEvents(el: HTMLElement) {
     if (btn) {
       const action = (btn as HTMLElement).dataset.action;
       if (action === "close") {
-        el.remove();
+        host.remove();
+        hostEl = null;
+        overlayShadowRoot = null;
         overlayEl = null;
         return;
       }
@@ -429,20 +442,37 @@ async function injectOverlay(config: OverlayConfig) {
 
   injectNanoBridge();
 
-  const style = document.createElement("style");
-  style.textContent = STYLES;
-  document.head.appendChild(style);
+  // Host div lives in the page's light DOM (it's the only overlay node a
+  // host page's CSS can ever select into), so its own layout-critical styles
+  // are set directly via the DOM API rather than the injected stylesheet.
+  const host = document.createElement("div");
+  host.id = "artemis-overlay";
+  host.style.cssText = "all: initial; position: fixed; z-index: 2147483647; top: 0; left: 0;";
+  document.body.appendChild(host);
+  hostEl = host;
+
+  // Everything else — markup and styling — lives inside a shadow tree, which
+  // host page CSS (even with !important) cannot reach into. The stylesheet is
+  // applied via the Constructable Stylesheets API (adoptedStyleSheets), which
+  // is programmatic CSSOM, not a page-authored <style>/<link>, so it is not
+  // subject to the page's style-src CSP the way an injected <style> tag is.
+  const shadow = host.attachShadow({ mode: "open" });
+  overlayShadowRoot = shadow;
+
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(STYLES);
+  shadow.adoptedStyleSheets = [sheet];
 
   const el = document.createElement("div");
   el.id = "artemis-overlay";
-  document.body.appendChild(el);
+  shadow.appendChild(el);
   overlayEl = el;
 
   loadPosition().then((pos) => {
-    el.style.bottom = "auto";
-    el.style.right = "auto";
-    el.style.left = pos.x + "px";
-    el.style.top = pos.y + "px";
+    host.style.bottom = "auto";
+    host.style.right = "auto";
+    host.style.left = pos.x + "px";
+    host.style.top = pos.y + "px";
   });
 
   isExpanded = false;
@@ -464,7 +494,7 @@ async function injectOverlay(config: OverlayConfig) {
   };
 
   render();
-  setupOverlayEvents(el);
+  setupOverlayEvents(el, host);
 
   if (hasFingerprint) {
     void computeMatch(cleaned.text, config);
@@ -474,7 +504,7 @@ async function injectOverlay(config: OverlayConfig) {
   if (!storageInit) {
     storageInit = true;
     chrome.storage.onChanged.addListener((changes) => {
-      if (!overlayEl) return;
+      if (!overlayEl || !overlayShadowRoot) return;
       const change = changes[STORAGE_KEY];
       if (!change) return;
       const newConfig = (change.newValue || change.oldValue) as OverlayConfig | undefined;
@@ -752,9 +782,11 @@ function parseScore(raw: string): number | null {
 async function init() {
   console.log("[Artemis] Overlay init on", location.hostname, "URL:", location.href);
 
-  if (overlayEl) {
+  if (hostEl) {
     console.log("[Artemis] init: removing stale overlay");
-    overlayEl.remove();
+    hostEl.remove();
+    hostEl = null;
+    overlayShadowRoot = null;
     overlayEl = null;
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, X, Check, Plus } from "lucide-react";
 import type { CVSection } from "../../types/cv";
 import type { CVTheme } from "./cvThemes";
@@ -17,6 +17,10 @@ export function ExperienceItemCard({ item, onUpdate, onRemove }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...item });
+
+  useEffect(() => {
+    if (!editing) setDraft({ ...item });
+  }, [item, editing]);
 
   if (editing) {
     return (
@@ -109,6 +113,10 @@ export function EducationItemCard({ item, onUpdate, onRemove }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...item });
+
+  useEffect(() => {
+    if (!editing) setDraft({ ...item });
+  }, [item, editing]);
 
   if (editing) {
     return (

@@ -2,6 +2,7 @@ import type { ModelEndpoint } from "../types/llm";
 import type { ChatMessage } from "../types/llm";
 import { chatCompletion } from "./llmService";
 import { AppError, ErrorCodes, type ErrorCode } from "../utils/errors";
+import { extractJsonObject } from "../utils/jsonParse";
 import {
   cvEditPrompt,
   selectPrompt,
@@ -34,7 +35,7 @@ function normalizeSection(section: Record<string, unknown>): Record<string, unkn
 function normalizeCvJson(rawJson: string): string {
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(rawJson);
+    parsed = extractJsonObject(rawJson, ErrorCodes.CV_JSON_PARSE) as Record<string, unknown>;
   } catch (e) {
     throw new AppError(
       ErrorCodes.CV_JSON_PARSE,
