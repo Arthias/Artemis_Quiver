@@ -3,6 +3,7 @@ import type { ChatMessage } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { chatCompletion } from "./llmService";
 import { clGeneratePrompt, clEditPrompt } from "./prompts";
+import i18n from "../i18n";
 
 const MAX_RETRIES = 3;
 
@@ -47,7 +48,7 @@ export async function generateCoverLetter(
     ? `\n\n## Draft to refine (from job analysis)\n\n${options.seedDraft}`
     : "";
 
-  const systemPrompt = clGeneratePrompt(company, role, hasJobDescription);
+  const systemPrompt = clGeneratePrompt(company, role, hasJobDescription, i18n.language);
 
   let lastRaw = "";
   let lastErrorMessage = "";
@@ -97,7 +98,7 @@ export async function editCoverLetter(
   profileMarkdown: string,
   endpoint: ModelEndpoint
 ): Promise<string> {
-  const systemPrompt = clEditPrompt(userRequest);
+  const systemPrompt = clEditPrompt(userRequest, i18n.language);
   let lastRaw = "";
   let lastErrorMessage = "";
 

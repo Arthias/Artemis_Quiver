@@ -35,9 +35,22 @@ University of Technology, 2018
 - Certified Kubernetes Administrator (CKA)
 `;
 
+// WebLLM (in-browser, WebGPU-based local inference) is unreliable across
+// hardware — it crashes on machines without a compatible/capable GPU. It
+// remains available as an explicit opt-in from Settings, but new installs
+// should default to a cloud provider so the app works out of the box on
+// any machine. OpenRouter is used as the default cloud target since it
+// exposes an OpenAI-compatible API surface and has been confirmed to work
+// reliably where a direct Gemini connection did not.
 export const DEFAULT_LLM_CONFIG: LlmConfig = {
-  providerMode: "local",
-  primary: { ...DEFAULT_PRIMARY_ENDPOINT, provider: "webllm", model: "Qwen3.5-2B-q4f16_1-MLC", baseUrl: "" },
+  providerMode: "cloud",
+  primary: {
+    ...DEFAULT_PRIMARY_ENDPOINT,
+    label: "OpenRouter",
+    provider: "openai-compatible",
+    baseUrl: "https://openrouter.ai/api/v1",
+    model: "",
+  },
   secondary: DEFAULT_SECONDARY_ENDPOINT,
   secondaryUse: "never",
   autoSaveProfile: true,

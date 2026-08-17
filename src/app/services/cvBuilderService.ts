@@ -5,9 +5,11 @@ import { AppError, ErrorCodes, type ErrorCode } from "../utils/errors";
 import {
   cvEditPrompt,
   selectPrompt,
+  localeInstruction,
   type OptimizationMode,
   type PromptContext,
 } from "./prompts";
+import i18n from "../i18n";
 
 const JSON_MODES: OptimizationMode[] = ["standard", "ats-optimize", "career-transition"];
 const MAX_RETRIES = 3;
@@ -71,6 +73,7 @@ function buildMessages(
     recommendations: cvRecommendations,
     previousField: options?.previousField,
     newField: options?.newField,
+    locale: i18n.language,
   };
 
   const systemPrompt = selectPrompt(mode, undefined, ctx);
@@ -158,7 +161,7 @@ export async function editCv(
   return withJsonRetry(
     (attempt, lastRaw, lastError) => {
       const messages: ChatMessage[] = [
-        { role: "system", content: cvEditPrompt(userRequest) },
+        { role: "system", content: `${cvEditPrompt(userRequest)}${localeInstruction(i18n.language)}` },
         { role: "user", content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}` },
       ];
       if (attempt >= 2 && lastRaw) {
@@ -188,6 +191,7 @@ export async function optimizeCv(
     recommendations: context?.recommendations,
     previousField: context?.previousField,
     newField: context?.newField,
+    locale: i18n.language,
   };
 
   const systemPrompt = selectPrompt(mode, undefined, ctx);

@@ -3,6 +3,8 @@ import type { ChatMessage, ModelEndpoint } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { extractJsonObject } from "../utils/jsonParse";
 import { chatCompletion } from "./llmService";
+import { localeInstruction } from "./prompts";
+import i18n from "../i18n";
 
 const ANALYSIS_SYSTEM_PROMPT = `You are a job application coach. Analyze job postings against a candidate profile.
 Respond with a single JSON object only (no markdown fences, no extra text).
@@ -99,7 +101,7 @@ export async function analyzeJobPosting(
 ): Promise<{ result: AnalysisResult; markdown: string }> {
   const content = await chatCompletion(
     [
-      { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
+      { role: "system", content: `${ANALYSIS_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
       {
         role: "user",
         content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}`,
@@ -138,7 +140,7 @@ export async function followUpChat(
 
   return chatCompletion(
     [
-      { role: "system", content: FOLLOWUP_SYSTEM_PROMPT },
+      { role: "system", content: `${FOLLOWUP_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
       {
         role: "user",
         content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}\n\n## Conversation so far\n\n${history || "No previous questions — this is the first follow-up."}`,

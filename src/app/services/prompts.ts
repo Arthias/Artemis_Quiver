@@ -27,6 +27,32 @@ export interface PromptContext {
 }
 
 // ============================================================================
+// Language enforcement
+// Appended to every generated prompt so output — including LLM-chosen labels
+// like skill category names ("Programming Languages", not just body text) —
+// matches the user's selected UI language instead of silently defaulting to
+// English. `locale` is expected to be an i18next language code (e.g. "en",
+// "es"); unset/"en" is a no-op since English is the baseline for every prompt.
+// ============================================================================
+
+const LOCALE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  it: "Italian",
+  fr: "French",
+  de: "German",
+  pt: "Portuguese",
+};
+
+export function localeInstruction(locale?: string): string {
+  const code = ((locale ?? "en").split("-")[0] ?? "en").toLowerCase();
+  if (!code || code === "en") return "";
+  const name = LOCALE_NAMES[code] ?? code;
+  const example = name === "Spanish" ? `e.g. write "Lenguajes de programación", not "Programming Languages"` : `translate every label, not just the prose`;
+  return `\n\nLANGUAGE: Respond ENTIRELY in ${name}. This applies to every piece of generated text, including field/category labels the model itself invents (${example}). Never default to English or mix languages within the response.`;
+}
+
+// ============================================================================
 // CV Generation (base: structured JSON from profile)
 // ============================================================================
 
@@ -288,6 +314,9 @@ Be specific. Reference particular lines or sections of the resume. Don't just sa
 // CV Edit System Prompt (general)
 // ============================================================================
 
+// Note: callers are responsible for appending `localeInstruction(locale)` —
+// see `selectPrompt` (routes through here for edit-mode) and
+// `cvBuilderService.editCv` (calls this directly).
 export function cvEditPrompt(userRequest: string): string {
   return `You are an expert CV editor. Apply the user's requested changes to the CV JSON below.
 
@@ -311,32 +340,35 @@ export function selectPrompt(
   userRequest: string | undefined,
   ctx: PromptContext
 ): string {
-  switch (mode) {
-    case "standard":
-      return cvGeneratePrompt(ctx);
-    case "summary-rewrite":
-      return summaryRewritePrompt(ctx);
-    case "bullet-optimize":
-      return bulletOptimizePrompt(ctx);
-    case "ats-optimize":
-      return atsOptimizePrompt(ctx);
-    case "career-transition":
-      return careerTransitionPrompt(ctx);
-    case "audit":
-      return auditPrompt(ctx);
-    case "work-history-align":
-      return workHistoryAlignPrompt(ctx);
-    case "skills-section":
-      return skillsSectionPrompt(ctx);
-    case "headline":
-      return headlinePrompt(ctx);
-    case "hiring-manager":
-      return hiringManagerPrompt(ctx);
-    default:
-      return userRequest
-        ? cvEditPrompt(userRequest)
-        : cvGeneratePrompt(ctx);
-  }
+  const base = (() => {
+    switch (mode) {
+      case "standard":
+        return cvGeneratePrompt(ctx);
+      case "summary-rewrite":
+        return summaryRewritePrompt(ctx);
+      case "bullet-optimize":
+        return bulletOptimizePrompt(ctx);
+      case "ats-optimize":
+        return atsOptimizePrompt(ctx);
+      case "career-transition":
+        return careerTransitionPrompt(ctx);
+      case "audit":
+        return auditPrompt(ctx);
+      case "work-history-align":
+        return workHistoryAlignPrompt(ctx);
+      case "skills-section":
+        return skillsSectionPrompt(ctx);
+      case "headline":
+        return headlinePrompt(ctx);
+      case "hiring-manager":
+        return hiringManagerPrompt(ctx);
+      default:
+        return userRequest
+          ? cvEditPrompt(userRequest)
+          : cvGeneratePrompt(ctx);
+    }
+  })();
+  return `${base}${localeInstruction(ctx.locale)}`;
 }
 
 // ============================================================================
@@ -387,6 +419,7 @@ export function clGeneratePrompt(
   _company: string,
   _role: string,
   hasJobDescription: boolean,
+  locale?: string,
 ): string {
   const parts: string[] = [
     "You are an expert cover letter writer and career coach.",
@@ -406,10 +439,10 @@ WRITING GUIDELINES:
 
 ${CL_JSON_FORMAT}`);
 
-  return parts.join("\n");
+  return `${parts.join("\n")}${localeInstruction(locale)}`;
 }
 
-export function clEditPrompt(userRequest: string): string {
+export function clEditPrompt(userRequest: string, locale?: string): string {
   return `You are a cover letter editor. Apply the user's requested changes to the cover letter JSON below.
 
 User request: "${userRequest}"
@@ -420,7 +453,7 @@ RULES:
 - Keep the same tone unless asked to change it
 - Return ONLY valid JSON, no text outside
 
-${CL_JSON_FORMAT}`;
+${CL_JSON_FORMAT}${localeInstruction(locale)}`;
 }
 
 
