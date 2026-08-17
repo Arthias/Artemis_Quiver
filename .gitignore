@@ -64,3 +64,4 @@ temp/
 .fseventsd/
 .Spotlight-V100/
 .Trashes/
+.aider*

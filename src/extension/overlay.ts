@@ -503,18 +503,29 @@ async function cleanPageText(): Promise<{ title: string; text: string; url: stri
   const isLinkedIn = location.hostname.includes("linkedin.com");
 
   if (isLinkedIn) {
-    // Wait for LinkedIn's SPA-rendered job detail section to appear
-    if (!document.querySelector(".jobs-unified-top-card__title, .job-details-jobs-unified-top-card__job-title")) {
+    // Wait for LinkedIn's SPA to render the job DESCRIPTION section. The title
+    // card appears first, so gating on the title alone captured innerText while
+    // "About the job" was still loading — the quickscan then sent Nano a page
+    // without the description and the model answered "no job posting was
+    // provided" (import worked because it runs after the page settled).
+    const startMarkers = ["about the job", "about this role", "job description"];
+    const hasDescription = (): boolean => {
+      const t = document.body.innerText;
+      const lower = t.toLowerCase();
+      let idx = -1;
+      for (const m of startMarkers) {
+        const i = lower.indexOf(m);
+        if (i !== -1 && i > idx) idx = i;
+      }
+      return idx !== -1 && t.slice(idx).length > 120;
+    };
+    if (!hasDescription()) {
       await new Promise<void>((resolve) => {
         let elapsed = 0;
-        const maxWait = 6000;
+        const maxWait = 8000;
         const interval = setInterval(() => {
           elapsed += 500;
-          if (
-            document.querySelector(".jobs-unified-top-card__title, .job-details-jobs-unified-top-card__job-title") ||
-            document.body.innerText.toLowerCase().includes("about the job") ||
-            elapsed >= maxWait
-          ) {
+          if (hasDescription() || elapsed >= maxWait) {
             clearInterval(interval);
             resolve();
           }
@@ -523,7 +534,6 @@ async function cleanPageText(): Promise<{ title: string; text: string; url: stri
     }
 
     let text = document.body.innerText;
-    const startMarkers = ["about the job", "about this role", "job description"];
     const endMarkers = ["job search faster with premium", "about the company", "show more", "people also viewed"];
     const lines = text.split("\n").map((l) => l.trim());
     let startIdx = 0;
