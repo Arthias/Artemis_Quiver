@@ -1,6 +1,6 @@
 import { loadTranslations, t } from "./i18n";
 import { AppError, ErrorCodes } from "../app/utils/errors";
-import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns } from "./job-sites";
+import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry } from "./job-sites";
 import { readActiveProfile } from "./idbProfile";
 import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatibleAdapter";
 import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
@@ -25,7 +25,23 @@ function contentScriptIdFor(entry: string): string {
 // explicitly added — no <all_urls> content script.
 async function syncSiteContentScripts(): Promise<void> {
   const config = await getConfig();
-  const sites: string[] = Array.isArray(config.jobSites) ? config.jobSites : [];
+  let sites: string[] = Array.isArray(config.jobSites) ? config.jobSites : [];
+
+  // Migrate legacy path-pinned entries (the old popup baked page paths into
+  // site entries, silently hiding the overlay on job boards like LinkedIn).
+  // Persist the cleaned list so content-script registration and in-page
+  // matching stay in sync.
+  const migrated = sites.map((s) => normalizeSiteEntry(s));
+  const changed = migrated.some((s, i) => s !== sites[i]);
+  if (changed) {
+    sites = migrated;
+    try {
+      await chrome.storage.local.set({ [STORAGE_KEY]: { ...config, jobSites: migrated } });
+      console.log("[Artemis] Migrated legacy path-pinned site entries:", sites);
+    } catch (err) {
+      console.warn("[Artemis] Failed to persist migrated site entries:", err);
+    }
+  }
 
   let registered: chrome.scripting.RegisteredContentScript[] = [];
   try {

@@ -8,6 +8,7 @@ import {
   toDomainEntry,
   urlToSiteEntry,
   entryFromUrlInput,
+  normalizeSiteEntry,
 } from "../job-sites";
 
 describe("DEFAULT_JOB_SITES", () => {
@@ -236,5 +237,29 @@ describe("entryFromUrlInput (editable popup site URL)", () => {
   it("empty or whitespace input yields empty string", () => {
     expect(entryFromUrlInput("")).toBe("");
     expect(entryFromUrlInput("   ")).toBe("");
+  });
+});
+
+describe("normalizeSiteEntry (legacy path-pin migration)", () => {
+  it("collapses a legacy page-pin on a known job board to the domain", () => {
+    expect(normalizeSiteEntry("www.linkedin.com/jobs/search-results")).toBe("www.linkedin.com");
+  });
+
+  it("collapses a subdomain pin on a known board", () => {
+    expect(normalizeSiteEntry("linkedin.com/jobs/view/123")).toBe("linkedin.com");
+  });
+
+  it("preserves a deliberate wildcard pin on a known board", () => {
+    expect(normalizeSiteEntry("linkedin.com/jobs/view/*")).toBe("linkedin.com/jobs/view/*");
+  });
+
+  it("preserves a path pin on a non-board site", () => {
+    expect(normalizeSiteEntry("www.awin.com/gb/careers/vacancies")).toBe("www.awin.com/gb/careers/vacancies");
+    expect(normalizeSiteEntry("app.welcometothejungle.com/jobs/")).toBe("app.welcometothejungle.com/jobs/");
+  });
+
+  it("leaves domain-only entries unchanged", () => {
+    expect(normalizeSiteEntry("linkedin.com")).toBe("linkedin.com");
+    expect(normalizeSiteEntry("www.hitachienergy.com")).toBe("www.hitachienergy.com");
   });
 });

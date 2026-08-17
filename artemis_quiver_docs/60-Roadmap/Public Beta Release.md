@@ -78,8 +78,8 @@ Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 | Item | Status | Notes |
 |------|--------|-------|
 | Public release repo | ✅ | `Arthias/Artemis-Quiver-Releases` created |
-| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0`, `v3.5.0`, `v3.5.1` published; **`v3.6.0` this release** |
-| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.6.0` zip built + ready to attach |
+| Version tag (`vX.Y.Z`) | 🔄 | `v3.4.0`, `v3.5.0`, `v3.5.1`, `v3.6.0` published; **`v3.6.1` this release** |
+| Attach `Artemis_Quiver_extension-vX.Y.Z.zip` | 🔄 | Produced by `build:ext`; `v3.6.1` zip built + ready to attach |
 | Release notes | ✅ | Generated from CHANGELOG + install steps |
 | Install README | ✅ | `release/README.md` — unzip → `chrome://extensions` → Load unpacked → `Artemis_Quiver_extension/` |
 | Headline the app-tab requirement | ✅ | In README + release notes (C4) |
@@ -113,7 +113,8 @@ npm run qa:ext          # Extension QA (Playwright)
 - ✅ `npm run release:ext` script automates build → commit → tag → push → publish.
 - ✅ C2 hardcoded LAN host permission removed (optional host permissions + runtime grant).
 - ✅ C3 runtime content-script registration — overlay only on user-authorized sites (verified live, `getRegisteredContentScripts()` = `[]` without host grant). Version bumped to `3.5.1`.
-- ✅ **`v3.6.0`** — overlay auto-reconcile (`storage.onChanged`), auto-inject into open tabs, toolbar popup rework (action surface), fallback-mode control + site CRUD moved to app Settings, pending-import key fix, versioned i18n cache, path-scoped "Enable overlay here", popup import tabId fix, tabbed Settings page. Verified: typecheck clean, 139/139 tests, `build:ext` OK, zip packaged. **Ready to tag + publish.**
+- ✅ **`v3.6.0`** — overlay auto-reconcile (`storage.onChanged`), auto-inject into open tabs, toolbar popup rework (action surface), fallback-mode control + site CRUD moved to app Settings, pending-import key fix, versioned i18n cache, path-scoped "Enable overlay here", popup import tabId fix, tabbed Settings page. Verified: typecheck clean, 139/139 tests, `build:ext` OK, zip packaged. Published.
+- ✅ **`v3.6.1`** — legacy path-pin migration (`normalizeSiteEntry`): background + overlay now collapse page-pinned entries on known job boards to the domain, so an allowed site like LinkedIn (saved as `www.linkedin.com/jobs/search-results`) shows the overlay on job postings again. Wildcard + non-board pins preserved. Verified: typecheck clean, 144/144 tests, `build:ext` OK, zip packaged. **Ready to tag + publish.**
 
 ---
 

@@ -52,6 +52,22 @@ function domainMatches(entryDomain: string, hostname: string): boolean {
   return hostname === entryDomain || hostname.endsWith("." + entryDomain);
 }
 
+// Mirrors DEFAULT_JOB_SITES in job-sites.ts (content scripts can't import).
+const KNOWN_BOARDS = [
+  "linkedin.com", "indeed.com", "glassdoor.com", "monster.com",
+  "ziprecruiter.com", "careerbuilder.com", "dice.com", "simplyhired.com",
+  "upwork.com", "freelancer.com", "stackoverflow.com", "weworkremotely.com", "remoteok.com",
+];
+
+// Same rule as normalizeSiteEntry(): collapse legacy page-pins on known job
+// boards to the domain so the overlay shows up where users actually are.
+function normalizeEntry(entry: string): string {
+  const parsed = parseSiteEntry(entry);
+  if (!parsed.pathPattern || parsed.pathPattern.endsWith("*")) return entry;
+  if (KNOWN_BOARDS.some((site) => domainMatches(site, parsed.domain))) return parsed.domain;
+  return entry;
+}
+
 function matchJobSite(url: string, entries: string[]): boolean {
   let hostname: string;
   let pathname: string;
@@ -88,7 +104,9 @@ interface OverlayPosition {
 async function loadConfig(): Promise<OverlayConfig> {
   try {
     const result = await chrome.storage.local.get(STORAGE_KEY);
-    return (result[STORAGE_KEY] as OverlayConfig) || { enabled: true, jobSites: [], fallbackMode: "basic" };
+    const cfg = (result[STORAGE_KEY] as OverlayConfig) || { enabled: true, jobSites: [], fallbackMode: "basic" };
+    if (Array.isArray(cfg.jobSites)) cfg.jobSites = cfg.jobSites.map(normalizeEntry);
+    return cfg;
   } catch (e) {
     console.error("[Artemis] Failed to load config:", e);
     return { enabled: true, jobSites: [], fallbackMode: "basic" };

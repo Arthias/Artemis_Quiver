@@ -25,7 +25,16 @@ last_updated: 2026-06-13
 - **Editable site URL in popup:** "Enable overlay here" now defaults to the current site but shows an editable URL field, so the overlay can be scoped to a path (e.g. `https://www.awin.com/gb/careers/vacancies/*`) instead of only domain-wide. New `entryFromUrlInput()` helper (tested) converts any host/path input into a site entry; a root or empty path still yields a domain-only entry.
 - **Toolbar import "No active tab":** popup-initiated `ARTEMIS_EXTRACT_AND_IMPORT` messages have no `_sender.tab`, so the background always replied "No active tab". The popup now queries its own active tab and passes `tabId` in the payload; the background prefers `payload.tabId`, falling back to `_sender.tab?.id`.
 - **Settings navigation:** the Settings page is now tabbed (**AI Model** / **General** / **Extension**), so the extension config (fingerprint, fallback mode, sites) is one click away instead of buried at the bottom of a long page. New `config.tabModel` / `config.tabGeneral` / `config.tabExtension` keys (en + es).
-- Verified: typecheck clean, 139/139 tests pass (9 new `entryFromUrlInput` cases), `build:ext` succeeds.
+- Verified: typecheck clean, 139/139 tests pass, `build:ext` succeeds.
+
+## [v3.6.1] - August 17, 2026
+
+**Overlay regression fix: legacy path-pin migration**
+
+- **Problem:** configs saved by the pre-3.6.0 popup baked the page path into each site entry (e.g. `www.linkedin.com/jobs/search-results`), which silently restricted both content-script registration and in-page matching to that exact path — on LinkedIn job postings (`/jobs/view/*`) the overlay never appeared with no error. Reproduced against real configs: LinkedIn job pages never matched; other path-scoped sites (WTTJ `/jobs/`, awin `/gb/careers/vacancies`) still worked.
+- **Fix:** new `normalizeSiteEntry()` collapses non-wildcard path pins on known job boards to the domain. The background (`syncSiteContentScripts`) migrates + persists the cleaned `jobSites` list on every reconcile (registering the corrected domain-wide script; stale script IDs cleaned up as before), and the overlay applies the same rule at load (`KNOWN_BOARDS` inlined — content scripts can't import).
+- **Preserved:** deliberate wildcard pins (`site.com/jobs/*`) and pins on non-board sites (e.g. `www.awin.com/gb/careers/vacancies`) are left untouched.
+- Verified live: the user's stored config (`www.linkedin.com/jobs/search-results`, `www.hitachienergy.com/`, `app.welcometothejungle.com/jobs/`, `www.awin.com/gb/careers/vacancies`) migrates to `www.linkedin.com` and now matches LinkedIn job postings + searches, with awin/WTTJ scoping intact. Typecheck clean, 144/144 tests pass (5 new `normalizeSiteEntry` cases), `build:ext` OK.
 
 ## [v3.5.1] - August 7, 2026
 

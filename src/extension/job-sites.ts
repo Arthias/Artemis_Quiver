@@ -75,6 +75,21 @@ export function entryFromUrlInput(input: string): string {
   return path === "/" ? host : host + path;
 }
 
+// Migrates legacy path-pinned site entries. The pre-v3.6.0 popup baked the
+// current page's path into the entry (e.g. "www.linkedin.com/jobs/search-results"),
+// which silently restricted the overlay to that exact path — on job boards whose
+// URL schemes vary (postings live under /jobs/view/*, not /jobs/search-results)
+// the overlay never appeared even though the site was "allowed". Entries on known
+// job boards with a page-specific (non-wildcard) path are collapsed to the domain.
+// Deliberate wildcard pins ("site.com/jobs/*") and pins on non-board sites are
+// preserved.
+export function normalizeSiteEntry(entry: string): string {
+  const parsed = parseSiteEntry(entry);
+  if (!parsed.pathPattern || parsed.pathPattern.endsWith("*")) return entry;
+  const onKnownBoard = DEFAULT_JOB_SITES.some((site) => domainMatches(site, parsed.domain));
+  return onKnownBoard ? parsed.domain : entry;
+}
+
 export function extractBaseUrl(url: string): string {
   const u = new URL(url);
   return `${u.protocol}//${u.host}`;
