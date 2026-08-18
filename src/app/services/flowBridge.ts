@@ -137,6 +137,34 @@ export interface FlowJobSummary {
   date_posted: string;
   ingested_at: string;
   job_type: string;
+  label: string;
+}
+
+export interface FlowJobDetail extends FlowJobSummary {
+  description: string;
+  job_url: string;
+  company_url: string;
+  country: string;
+  emails: string;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string;
+  salary_rate: string;
+  fit_reasoning: string | null;
+  rejection_category: string;
+  summary: string | null;
+  archived_at: string | null;
+  alternate_sources: string | null;
+}
+
+export interface FlowDashboardStats {
+  total_jobs: number;
+  by_status: Record<string, number>;
+  by_source: Record<string, number>;
+  ingested_today: number;
+  last_scrape: string | null;
+  avg_score: number;
+  unscored_count: number;
 }
 
 export interface FlowJobListResponse {
@@ -188,6 +216,22 @@ async function flowPost<T>(baseUrl: string, path: string, action: string): Promi
   }
 }
 
+async function flowPatch<T>(baseUrl: string, path: string, body: unknown, action: string): Promise<T> {
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`${action} failed: ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    logFlowError(err, baseUrl, action);
+    throw err;
+  }
+}
+
 /** The ranked digest — best-scoring new jobs, per the decided "digest, not board" default presentation. */
 export function getFlowDigest(baseUrl: string, limit = 20): Promise<FlowJobListResponse> {
   return flowGet(
@@ -220,4 +264,31 @@ export function startSearch(baseUrl: string): Promise<{ status: string; message:
 
 export function stopSearch(baseUrl: string): Promise<{ status: string; running: boolean }> {
   return flowPost(baseUrl, "/api/pipeline/search/stop", "stopSearch");
+}
+
+// --- Job detail, tracking, and stats --------------------------------------
+
+export function getJob(baseUrl: string, jobId: string): Promise<FlowJobDetail> {
+  return flowGet(baseUrl, `/api/jobs/${jobId}`, "getJob");
+}
+
+export function updateJobStatus(baseUrl: string, jobId: string, status: string): Promise<void> {
+  return flowPatch(baseUrl, `/api/jobs/${jobId}/status`, { status }, "updateJobStatus");
+}
+
+export function updateJobLabel(baseUrl: string, jobId: string, label: string): Promise<void> {
+  return flowPatch(baseUrl, `/api/jobs/${jobId}/label`, { label }, "updateJobLabel");
+}
+
+export function getDashboardStats(baseUrl: string): Promise<FlowDashboardStats> {
+  return flowGet(baseUrl, "/api/dashboard/stats", "getDashboardStats");
+}
+
+/** Status-grouped jobs for the Board tab. Archived is deliberately never passed here — it has its own tab. */
+export function getJobsByStatus(baseUrl: string, status: string, limit = 100): Promise<FlowJobListResponse> {
+  return flowGet(baseUrl, `/api/jobs?status=${status}&limit=${limit}`, "getJobsByStatus");
+}
+
+export function getArchivedJobs(baseUrl: string, limit = 100): Promise<FlowJobListResponse> {
+  return flowGet(baseUrl, `/api/jobs?status=archived&show_archived=true&sort_by=ingested_at&sort_dir=desc&limit=${limit}`, "getArchivedJobs");
 }

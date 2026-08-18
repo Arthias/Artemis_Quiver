@@ -4,8 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Workflow, Play, Pause, RefreshCw, Loader2 } from "lucide-react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
+import { JobCard } from "../components/flow/JobCard";
+import { JobDetailDialog } from "../components/flow/JobDetailDialog";
 import {
   checkFlowHealth,
   getFlowDigest,
@@ -15,19 +18,16 @@ import {
   getSearchStatus,
   startSearch,
   stopSearch,
+  getJobsByStatus,
+  getArchivedJobs,
+  getDashboardStats,
   type FlowStatus,
   type FlowJobSummary,
   type FlowRankStatus,
   type FlowSearchStatus,
+  type FlowDashboardStats,
 } from "../services/flowBridge";
 import { submitFlowFeedback } from "../services/flowChatService";
-
-function scoreClass(score: number): string {
-  if (score >= 80) return "text-green-600 dark:text-green-400";
-  if (score >= 60) return "text-blue-600 dark:text-blue-400";
-  if (score >= 40) return "text-amber-600 dark:text-amber-400";
-  return "text-muted-foreground";
-}
 
 function FlowHeader({
   t,
@@ -100,6 +100,217 @@ function ControlBlock({
   );
 }
 
+function JobCardList({
+  jobs,
+  loading,
+  error,
+  emptyMessage,
+  onSelect,
+}: {
+  jobs: FlowJobSummary[];
+  loading: boolean;
+  error: string | null;
+  emptyMessage: string;
+  onSelect: (id: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (jobs.length === 0) return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+  return (
+    <div className="space-y-2">
+      {jobs.map((job) => (
+        <JobCard key={job.id} job={job} onClick={() => onSelect(job.id)} />
+      ))}
+    </div>
+  );
+}
+
+const BOARD_STATUSES = ["new", "applied", "interviewing", "offer", "rejected"] as const;
+
+function BoardTab({
+  flowBaseUrl,
+  refreshKey,
+  onSelect,
+  t,
+}: {
+  flowBaseUrl: string;
+  refreshKey: number;
+  onSelect: (id: string) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [byStatus, setByStatus] = useState<Record<string, FlowJobSummary[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.all(BOARD_STATUSES.map((s) => getJobsByStatus(flowBaseUrl, s)))
+      .then((results) => {
+        if (cancelled) return;
+        const next: Record<string, FlowJobSummary[]> = {};
+        BOARD_STATUSES.forEach((s, i) => { next[s] = results[i]?.jobs ?? []; });
+        setByStatus(next);
+      })
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [flowBaseUrl, refreshKey]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+
+  return (
+    <div className="space-y-6">
+      {BOARD_STATUSES.map((status) => (
+        <div key={status}>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-sm font-semibold">{t(`flow.status_${status}`)}</h3>
+            <span className="text-xs text-muted-foreground">{byStatus[status]?.length ?? 0}</span>
+          </div>
+          {(byStatus[status]?.length ?? 0) === 0 ? (
+            <p className="text-xs text-muted-foreground">{t("flow.boardColumnEmpty")}</p>
+          ) : (
+            <div className="space-y-2">
+              {(byStatus[status] ?? []).map((job) => (
+                <JobCard key={job.id} job={job} onClick={() => onSelect(job.id)} />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ArchiveTab({
+  flowBaseUrl,
+  refreshKey,
+  onSelect,
+  t,
+}: {
+  flowBaseUrl: string;
+  refreshKey: number;
+  onSelect: (id: string) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [jobs, setJobs] = useState<FlowJobSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getArchivedJobs(flowBaseUrl)
+      .then((d) => !cancelled && setJobs(d.jobs))
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [flowBaseUrl, refreshKey]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">{t("flow.archiveDesc")}</p>
+      <JobCardList jobs={jobs} loading={loading} error={error} emptyMessage={t("flow.archiveEmpty")} onSelect={onSelect} />
+    </div>
+  );
+}
+
+function StatsTab({ flowBaseUrl, refreshKey, t }: { flowBaseUrl: string; refreshKey: number; t: ReturnType<typeof useTranslation>["t"] }) {
+  const [stats, setStats] = useState<FlowDashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getDashboardStats(flowBaseUrl)
+      .then((s) => !cancelled && setStats(s))
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [flowBaseUrl, refreshKey]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (!stats) return null;
+
+  const scored = stats.total_jobs - stats.unscored_count;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded border border-border p-3">
+          <div className="text-2xl font-bold">{stats.total_jobs}</div>
+          <div className="text-xs text-muted-foreground">{t("flow.statFound")}</div>
+        </div>
+        <div className="rounded border border-border p-3">
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{scored}</div>
+          <div className="text-xs text-muted-foreground">{t("flow.statScored")}</div>
+        </div>
+        <div className="rounded border border-border p-3">
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.unscored_count}</div>
+          <div className="text-xs text-muted-foreground">{t("flow.statUnscored")}</div>
+        </div>
+        <div className="rounded border border-border p-3">
+          <div className="text-2xl font-bold">{stats.ingested_today}</div>
+          <div className="text-xs text-muted-foreground">{t("flow.statToday")}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="rounded border border-border p-3">
+          <h3 className="text-sm font-medium mb-2">{t("flow.statByStatus")}</h3>
+          <div className="space-y-1.5">
+            {Object.entries(stats.by_status).map(([status, count]) => (
+              <div key={status} className="flex items-center justify-between text-sm">
+                <span className="capitalize text-muted-foreground">{t(`flow.status_${status}` as const)}</span>
+                <span className="font-medium">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded border border-border p-3">
+          <h3 className="text-sm font-medium mb-2">{t("flow.statBySource")}</h3>
+          <div className="space-y-1.5">
+            {Object.entries(stats.by_source).slice(0, 8).map(([source, count]) => (
+              <div key={source} className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{source || t("flow.unknownSource")}</span>
+                <span className="font-medium">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {t("flow.lastScrape")}: {stats.last_scrape ? new Date(stats.last_scrape).toLocaleString() : t("flow.never")}
+      </p>
+    </div>
+  );
+}
+
 export function Flow() {
   const { t } = useTranslation();
   const { config } = useConfig();
@@ -118,6 +329,8 @@ export function Flow() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatResult, setChatResult] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [trackingRefreshKey, setTrackingRefreshKey] = useState(0);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connected = status?.connected ?? false;
@@ -217,6 +430,11 @@ export function Flow() {
     }
   }
 
+  function handleJobChanged() {
+    setTrackingRefreshKey((k) => k + 1);
+    refresh(); // digest/total-jobs count can shift too
+  }
+
   if (!flowBaseUrl || (!checking && !connected)) {
     return (
       <div className="h-full flex flex-col">
@@ -269,38 +487,50 @@ export function Flow() {
               </div>
             </Card>
 
-            <Card className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{t("flow.digest")}</h2>
-                <Button size="sm" variant="ghost" onClick={refresh}>
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-              </div>
-              {digestError && <p className="text-sm text-destructive">{digestError}</p>}
-              {digest.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("flow.digestEmpty")}</p>
-              ) : (
-                <div className="space-y-2">
-                  {digest.map((job) => (
-                    <div
-                      key={job.id}
-                      className="flex items-center justify-between gap-3 rounded border border-border p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{job.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {job.company} · {job.location}
-                          {job.is_remote ? ` · ${t("flow.remote")}` : ""}
-                        </p>
-                      </div>
-                      <span className={`text-sm font-semibold shrink-0 ${scoreClass(job.score)}`}>
-                        {Math.round(job.score)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+            <Tabs defaultValue="digest">
+              <TabsList>
+                <TabsTrigger value="digest">{t("flow.tabDigest")}</TabsTrigger>
+                <TabsTrigger value="board">{t("flow.tabBoard")}</TabsTrigger>
+                <TabsTrigger value="archive">{t("flow.tabArchive")}</TabsTrigger>
+                <TabsTrigger value="stats">{t("flow.tabStats")}</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="digest" className="mt-4">
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">{t("flow.digest")}</h2>
+                    <Button size="sm" variant="ghost" onClick={refresh}>
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <JobCardList
+                    jobs={digest}
+                    loading={false}
+                    error={digestError}
+                    emptyMessage={t("flow.digestEmpty")}
+                    onSelect={setSelectedJobId}
+                  />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="board" className="mt-4">
+                <Card className="p-6">
+                  <BoardTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} onSelect={setSelectedJobId} t={t} />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="archive" className="mt-4">
+                <Card className="p-6">
+                  <ArchiveTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} onSelect={setSelectedJobId} t={t} />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="stats" className="mt-4">
+                <Card className="p-6">
+                  <StatsTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} t={t} />
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
@@ -322,6 +552,13 @@ export function Flow() {
           </div>
         )}
       </div>
+
+      <JobDetailDialog
+        jobId={selectedJobId}
+        flowBaseUrl={flowBaseUrl}
+        onOpenChange={(open) => !open && setSelectedJobId(null)}
+        onChanged={handleJobChanged}
+      />
     </div>
   );
 }
