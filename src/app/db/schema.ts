@@ -35,7 +35,7 @@ export interface ErrorLogRecord {
   timestamp: string;
   message: string;
   stack?: string;
-  source: "app" | "overlay" | "popup" | "background" | "llm" | "unknown";
+  source: "app" | "overlay" | "popup" | "background" | "llm" | "flow" | "unknown";
   code?: string;
   numericCode?: number;
   severity?: string;

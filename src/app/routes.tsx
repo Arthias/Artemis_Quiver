@@ -17,6 +17,9 @@ const CLBuilder = lazy(() =>
 const Config = lazy(() =>
   import("./pages/Config").then((m) => ({ default: m.Config }))
 );
+const Flow = lazy(() =>
+  import("./pages/Flow").then((m) => ({ default: m.Flow }))
+);
 
 function PageFallback() {
   return (
@@ -68,6 +71,14 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<PageFallback />}>
             <Config />
+          </Suspense>
+        ),
+      },
+      {
+        path: "flow",
+        element: (
+          <Suspense fallback={<PageFallback />}>
+            <Flow />
           </Suspense>
         ),
       },

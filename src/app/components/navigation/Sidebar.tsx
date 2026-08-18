@@ -11,6 +11,7 @@ import {
   MessageSquare,
   ChevronRight,
   Inbox,
+  Workflow,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
@@ -26,6 +27,7 @@ const navigation = [
   { nameKey: "nav.profile", href: "/profile", icon: User },
   { nameKey: "nav.cvBuilder", href: "/cv-builder", icon: FileText },
   { nameKey: "nav.coverLetter", href: "/cl-builder", icon: Mail },
+  { nameKey: "nav.flow", href: "/flow", icon: Workflow },
   { nameKey: "nav.settings", href: "/config", icon: Settings },
 ];
 

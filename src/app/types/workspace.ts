@@ -5,6 +5,10 @@ export type ThemeMode = "light" | "dark";
 
 export interface ProfileSettings extends LlmConfig {
   theme: ThemeMode;
+  /** Flow's host:port, e.g. "http://localhost:8000" — entered explicitly, never auto-discovered. */
+  flowBaseUrl?: string;
+  /** Set once both sendProfileToFlow and sendConfigToFlow have succeeded; gates the "Start Flow" control. */
+  flowConfiguredAt?: string;
 }
 
 export interface WorkspaceProfileMeta {

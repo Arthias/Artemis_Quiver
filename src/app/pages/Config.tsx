@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint, Workflow, Send, CheckCircle2, XCircle } from "lucide-react";
 import { useErrorLog } from "../context/ErrorLogContext";
 import {
   Select,
@@ -15,8 +15,10 @@ import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
+import { useProfile } from "../context/ProfileContext";
 import { useWorkspace } from "../context/WorkspaceProfileContext";
 import { chatCompletion, listModels as listModelsApi, testConnection } from "../services/llmService";
+import { checkFlowHealth, sendProfileToFlow, sendConfigToFlow, testEndpointFromFlow, type FlowStatus } from "../services/flowBridge";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import { PROVIDER_DEFAULT_BASE_URLS } from "../config/defaults";
@@ -402,6 +404,285 @@ function ExtensionSettingsCard() {
           )}
         </div>
       </div>
+    </Card>
+  );
+}
+
+function FlowEndpointRow({
+  endpoint,
+  label,
+  flowBaseUrl,
+  connected,
+  onSent,
+}: {
+  endpoint: ModelEndpoint;
+  label: string;
+  flowBaseUrl: string;
+  connected: boolean;
+  onSent: () => void;
+}) {
+  const { t } = useTranslation();
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [testingQuiver, setTestingQuiver] = useState(false);
+  const [testingFlow, setTestingFlow] = useState(false);
+  const [quiverResult, setQuiverResult] = useState<"ok" | "fail" | null>(null);
+  const [flowResult, setFlowResult] = useState<"ok" | "fail" | null>(null);
+
+  const supported = endpoint.provider === "anthropic" || endpoint.provider === "openai-compatible";
+
+  async function handleSend() {
+    setSending(true);
+    setSendError(null);
+    try {
+      await sendConfigToFlow(flowBaseUrl, endpoint);
+      setSent(true);
+      onSent();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleTestQuiver() {
+    setTestingQuiver(true);
+    setQuiverResult(null);
+    try {
+      await testConnection(endpoint);
+      setQuiverResult("ok");
+    } catch {
+      setQuiverResult("fail");
+    } finally {
+      setTestingQuiver(false);
+    }
+  }
+
+  async function handleTestFlow() {
+    setTestingFlow(true);
+    setFlowResult(null);
+    const result = await testEndpointFromFlow(flowBaseUrl, endpoint);
+    setFlowResult(result.reachable ? "ok" : "fail");
+    setTestingFlow(false);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded border border-border p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">{label}</p>
+          <p className="text-xs text-muted-foreground">
+            {endpoint.provider} · {endpoint.model || t("config.flowNoModel")}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!connected || !supported || sending}
+          onClick={handleSend}
+          title={!supported ? t("config.flowProviderUnsupported") : undefined}
+        >
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          {sent ? t("config.flowSent") : t("config.flowSend")}
+        </Button>
+      </div>
+      {!supported && (
+        <p className="text-xs text-muted-foreground">{t("config.flowProviderUnsupported")}</p>
+      )}
+      {sendError && <p className="text-xs text-destructive">{sendError}</p>}
+      <div className="flex items-center gap-4 text-xs">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+          onClick={handleTestQuiver}
+          disabled={testingQuiver}
+        >
+          {testingQuiver ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : quiverResult === "ok" ? (
+            <CheckCircle2 className="w-3 h-3 text-green-500" />
+          ) : quiverResult === "fail" ? (
+            <XCircle className="w-3 h-3 text-destructive" />
+          ) : null}
+          {t("config.flowTestFromQuiver")}
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+          onClick={handleTestFlow}
+          disabled={testingFlow || !connected}
+        >
+          {testingFlow ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : flowResult === "ok" ? (
+            <CheckCircle2 className="w-3 h-3 text-green-500" />
+          ) : flowResult === "fail" ? (
+            <XCircle className="w-3 h-3 text-destructive" />
+          ) : null}
+          {t("config.flowTestFromFlow")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FlowSettingsCard() {
+  const { t } = useTranslation();
+  const { config, updateConfig } = useConfig();
+  const { profile } = useProfile();
+  const [flowBaseUrlInput, setFlowBaseUrlInput] = useState(config.flowBaseUrl || "http://localhost:8000");
+  const [connecting, setConnecting] = useState(false);
+  const [status, setStatus] = useState<FlowStatus | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [profilePushed, setProfilePushed] = useState(false);
+  const [primaryPushed, setPrimaryPushed] = useState(false);
+  const [secondaryPushed, setSecondaryPushed] = useState(false);
+  const [pushingProfile, setPushingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [started, setStarted] = useState(false);
+
+  const connected = status?.connected ?? false;
+  const canStart = Boolean(config.flowConfiguredAt) || (profilePushed && (primaryPushed || secondaryPushed));
+
+  async function handleConnect() {
+    setConnecting(true);
+    setConnectError(null);
+    updateConfig({ flowBaseUrl: flowBaseUrlInput });
+    const result = await checkFlowHealth(flowBaseUrlInput);
+    setStatus(result);
+    if (!result.connected) setConnectError(t("config.flowNotFound"));
+    setConnecting(false);
+  }
+
+  async function handleSendProfile() {
+    if (!config.flowBaseUrl) return;
+    setPushingProfile(true);
+    setProfileError(null);
+    try {
+      await sendProfileToFlow(config.flowBaseUrl, profile);
+      setProfilePushed(true);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPushingProfile(false);
+    }
+  }
+
+  useEffect(() => {
+    if (profilePushed && (primaryPushed || secondaryPushed) && !config.flowConfiguredAt) {
+      updateConfig({ flowConfiguredAt: new Date().toISOString() });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilePushed, primaryPushed, secondaryPushed]);
+
+  async function handleStart() {
+    if (!config.flowBaseUrl) return;
+    setStarting(true);
+    setStartError(null);
+    try {
+      const res = await fetch(`${config.flowBaseUrl}/api/pipeline/search`, { method: "POST" });
+      if (!res.ok) throw new Error(`Failed to start Flow: ${res.statusText}`);
+      setStarted(true);
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  return (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Workflow className="w-5 h-5 text-teal-500" />
+        <h2 className="text-lg font-semibold">{t("config.flowTitle")}</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">{t("config.flowDesc")}</p>
+
+      <div className="flex items-center gap-2">
+        <Input
+          value={flowBaseUrlInput}
+          onChange={(e) => setFlowBaseUrlInput(e.target.value)}
+          placeholder="http://localhost:8000"
+          className="bg-input-background flex-1"
+        />
+        <Button size="sm" onClick={handleConnect} disabled={connecting}>
+          {connecting && <Loader2 className="w-4 h-4 animate-spin" />}
+          {t("config.flowConnect")}
+        </Button>
+      </div>
+
+      {connectError && <p className="text-xs text-destructive">{connectError}</p>}
+
+      {status && (
+        <div className="flex items-center gap-2 text-sm">
+          {connected ? (
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+          ) : (
+            <XCircle className="w-4 h-4 text-destructive" />
+          )}
+          <span>{connected ? t("config.flowConnected") : t("config.flowDisconnected")}</span>
+          {connected && typeof status.totalJobs === "number" && (
+            <span className="text-muted-foreground">· {t("config.flowTotalJobs", { n: status.totalJobs })}</span>
+          )}
+        </div>
+      )}
+
+      {connected && (
+        <>
+          <hr className="border-t border-border" />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>{t("config.flowSendProfile")}</Label>
+                <p className="text-xs text-muted-foreground">{t("config.flowSendProfileDesc")}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleSendProfile} disabled={pushingProfile}>
+                {pushingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {profilePushed ? t("config.flowSent") : t("config.flowSend")}
+              </Button>
+            </div>
+            {profileError && <p className="text-xs text-destructive">{profileError}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="mb-1 block">{t("config.flowSendConfig")}</Label>
+            <FlowEndpointRow
+              endpoint={config.primary}
+              label={t("config.primaryModel")}
+              flowBaseUrl={config.flowBaseUrl!}
+              connected={connected}
+              onSent={() => setPrimaryPushed(true)}
+            />
+            <FlowEndpointRow
+              endpoint={config.secondary}
+              label={t("config.secondaryModel")}
+              flowBaseUrl={config.flowBaseUrl!}
+              connected={connected}
+              onSent={() => setSecondaryPushed(true)}
+            />
+          </div>
+
+          <hr className="border-t border-border" />
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label>{t("config.flowStart")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {canStart ? t("config.flowStartReady") : t("config.flowStartBlocked")}
+              </p>
+            </div>
+            <Button size="sm" onClick={handleStart} disabled={!canStart || starting || started}>
+              {starting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {started ? t("config.flowStarted") : t("config.flowStart")}
+            </Button>
+          </div>
+          {startError && <p className="text-xs text-destructive">{startError}</p>}
+        </>
+      )}
     </Card>
   );
 }
@@ -1052,6 +1333,7 @@ export function Config() {
               <TabsTrigger value="ai">{t("config.tabModel")}</TabsTrigger>
               <TabsTrigger value="general">{t("config.tabGeneral")}</TabsTrigger>
               <TabsTrigger value="extension">{t("config.tabExtension")}</TabsTrigger>
+              <TabsTrigger value="flow">{t("config.tabFlow")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="ai" className="space-y-6">
@@ -1296,6 +1578,10 @@ export function Config() {
 
             <TabsContent value="extension" className="space-y-6">
               <ExtensionSettingsCard />
+            </TabsContent>
+
+            <TabsContent value="flow" className="space-y-6">
+              <FlowSettingsCard />
             </TabsContent>
           </Tabs>
         </div>
