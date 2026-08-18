@@ -1,10 +1,22 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-06-13
+last_updated: 2026-08-18
 ---
 
 # Changelog
+
+## [v3.7.0] - August 18, 2026
+
+**Artemis Flow integration: connect, push profile/config, and a Flow panel**
+
+- **New `flowBridge.ts` service:** health check via Flow's `/api/health` identity field, profile push (`PUT /api/profile`), LLM config push with explicit provider-vocabulary mapping (Quiver's `openai-compatible`/`anthropic`/`google-gemini`/`webllm` vs Flow's `ollama`/`lmstudio`/`anthropic` — `google-gemini`/`webllm` are surfaced as unsupported rather than silently mismapped), dual-vantage-point endpoint testing (`/api/settings/llm/test`), and digest/search/rank status calls.
+- **New "Flow" tab in Settings:** host:port entry + Connect, Send Profile to Flow, Send Primary/Send Secondary (two explicit actions, no inferred default), per-endpoint Test from Quiver / Test from Flow, and a Start Flow action gated on both a profile and an LLM config having been sent at least once.
+- **New `/flow` page + always-visible sidebar entry:** connection status, independent Search/Scoring start-stop controls, a ranked digest of Flow's best-scoring new jobs, and a chat-tuning panel (reusing the CV/CL builder's `BuilderAssistantPanel`) wired to Flow's strategy feedback endpoint.
+- Flow is treated as a dependent service, not a peer — nothing here is required for Quiver's own analysis/CV/CL/extension features, and the `/flow` page degrades to a "connect first" empty state rather than erroring when Flow isn't configured.
+- Full i18n coverage (en/es) for all new strings.
+- Corrects a version-number drift: `package.json` had been stuck at 3.5.1 since before the 3.6.0/3.6.1 releases below; it and the extension `manifest.json` are now both 3.7.0.
+- Verified: typecheck clean, build succeeds, 141/144 tests pass (3 pre-existing unrelated failures — a `providerMode` default mismatch between `config/defaults.ts` and its own tests, not touched by this change). Both new surfaces verified live via Playwright against the dev server: render correctly with zero console errors, and a failed Flow connection degrades gracefully.
 
 ## [v3.6.0] - August 14, 2026
 
