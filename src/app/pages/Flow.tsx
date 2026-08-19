@@ -5,6 +5,10 @@ import { Workflow, Play, Pause, RefreshCw, Loader2, Search as SearchIcon, X } fr
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import { Badge } from "../components/ui/badge";
+import { Separator } from "../components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
@@ -24,11 +28,17 @@ import {
   getArchivedJobs,
   getDashboardStats,
   searchJobs,
+  getStrategy,
+  updateStrategy,
+  generateStrategy,
+  getStrategyHistory,
   type FlowStatus,
   type FlowJobSummary,
   type FlowRankStatus,
   type FlowSearchStatus,
   type FlowDashboardStats,
+  type FlowStrategy,
+  type FlowStrategyHistoryEntry,
 } from "../services/flowBridge";
 import { submitFlowFeedback } from "../services/flowChatService";
 
@@ -377,6 +387,223 @@ function SearchTab({
   );
 }
 
+function arrayToText(arr: string[] | undefined | null): string {
+  return (arr || []).join(", ");
+}
+
+function textToArray(text: string): string[] {
+  return text.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function StrategyTab({
+  flowBaseUrl,
+  refreshKey,
+  onChanged,
+  t,
+}: {
+  flowBaseUrl: string;
+  refreshKey: number;
+  onChanged: () => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [strategy, setStrategy] = useState<FlowStrategy | null>(null);
+  const [history, setHistory] = useState<FlowStrategyHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [keywordsText, setKeywordsText] = useState("");
+  const [locationsText, setLocationsText] = useState("");
+  const [excludeText, setExcludeText] = useState("");
+  const [companiesText, setCompaniesText] = useState("");
+  const [sourcesText, setSourcesText] = useState("");
+  const [resultsWanted, setResultsWanted] = useState("50");
+  const [salaryFloor, setSalaryFloor] = useState("");
+  const [salaryFloorCurrency, setSalaryFloorCurrency] = useState("USD");
+
+  const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  function applyToForm(s: FlowStrategy) {
+    setKeywordsText(arrayToText(s.keywords));
+    setLocationsText(arrayToText(s.locations));
+    setExcludeText(arrayToText(s.exclude_keywords));
+    setCompaniesText(arrayToText(s.target_companies));
+    setSourcesText(arrayToText(s.sources));
+    setResultsWanted(String(s.results_wanted ?? 50));
+    setSalaryFloor(s.salary_floor != null ? String(s.salary_floor) : "");
+    setSalaryFloorCurrency(s.salary_floor_currency || "USD");
+  }
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [s, h] = await Promise.all([
+        getStrategy(flowBaseUrl),
+        getStrategyHistory(flowBaseUrl, 10),
+      ]);
+      setStrategy(s);
+      applyToForm(s);
+      setHistory(h);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [flowBaseUrl]);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, refreshKey]);
+
+  async function handleSave() {
+    if (!strategy) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await updateStrategy(flowBaseUrl, {
+        ...strategy,
+        keywords: textToArray(keywordsText),
+        locations: textToArray(locationsText),
+        exclude_keywords: textToArray(excludeText),
+        target_companies: textToArray(companiesText),
+        sources: textToArray(sourcesText),
+        results_wanted: Number(resultsWanted) || strategy.results_wanted,
+        salary_floor: salaryFloor.trim() === "" ? null : Number(salaryFloor),
+        salary_floor_currency: salaryFloorCurrency.trim() || "USD",
+      });
+      setStrategy(updated);
+      applyToForm(updated);
+      setHistory(await getStrategyHistory(flowBaseUrl, 10));
+      onChanged();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    setRegenerating(true);
+    setSaveError(null);
+    try {
+      const updated = await generateStrategy(flowBaseUrl);
+      setStrategy(updated);
+      applyToForm(updated);
+      setHistory(await getStrategyHistory(flowBaseUrl, 10));
+      onChanged();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (!strategy) return null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">{t("flow.strategyCurrent")}</h3>
+          <p className="text-xs text-muted-foreground">
+            {strategy.version > 0 ? t("flow.strategyVersion", { v: strategy.version }) : t("flow.strategyNone")}
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={handleRegenerate} disabled={regenerating || saving}>
+          {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {t("flow.strategyRegenerate")}
+        </Button>
+      </div>
+
+      {strategy.reasoning && (
+        <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-3">{strategy.reasoning}</p>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-keywords">{t("flow.strategyKeywords")}</Label>
+          <Textarea id="strategy-keywords" rows={2} value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-locations">{t("flow.strategyLocations")}</Label>
+          <Textarea id="strategy-locations" rows={2} value={locationsText} onChange={(e) => setLocationsText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-exclude">{t("flow.strategyExclude")}</Label>
+          <Textarea id="strategy-exclude" rows={2} value={excludeText} onChange={(e) => setExcludeText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-companies">{t("flow.strategyCompanies")}</Label>
+          <Textarea id="strategy-companies" rows={2} value={companiesText} onChange={(e) => setCompaniesText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-sources">{t("flow.strategySources")}</Label>
+          <Input id="strategy-sources" value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-results">{t("flow.strategyResultsWanted")}</Label>
+          <Input id="strategy-results" type="number" min={1} value={resultsWanted} onChange={(e) => setResultsWanted(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-salary">{t("flow.strategySalaryFloor")}</Label>
+          <Input id="strategy-salary" type="number" min={0} value={salaryFloor} onChange={(e) => setSalaryFloor(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="strategy-currency">{t("flow.strategyCurrency")}</Label>
+          <Input id="strategy-currency" value={salaryFloorCurrency} onChange={(e) => setSalaryFloorCurrency(e.target.value)} />
+        </div>
+      </div>
+
+      {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+
+      <div className="flex items-center justify-between">
+        <Button size="sm" onClick={handleSave} disabled={saving || regenerating}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {t("flow.strategySave")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => applyToForm(strategy)} disabled={saving || regenerating}>
+          {t("flow.strategyResetEdits")}
+        </Button>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">{t("flow.strategyHistory")}</h3>
+        {history.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t("flow.strategyHistoryEmpty")}</p>
+        ) : (
+          <div className="space-y-2">
+            {history.map((entry) => (
+              <div key={entry.version} className="text-xs border border-border rounded-md p-2 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">v{entry.version}</Badge>
+                  <span className="text-muted-foreground">{new Date(entry.created_at).toLocaleString()}</span>
+                </div>
+                {entry.feedback && (
+                  <p className="text-muted-foreground">{t("flow.strategyHistoryFeedback")}: {entry.feedback}</p>
+                )}
+                {entry.strategy?.reasoning && <p>{entry.strategy.reasoning}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatsTab({ flowBaseUrl, refreshKey, t }: { flowBaseUrl: string; refreshKey: number; t: ReturnType<typeof useTranslation>["t"] }) {
   const [stats, setStats] = useState<FlowDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -478,6 +705,7 @@ export function Flow() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [trackingRefreshKey, setTrackingRefreshKey] = useState(0);
+  const [strategyRefreshKey, setStrategyRefreshKey] = useState(0);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connected = status?.connected ?? false;
@@ -568,13 +796,24 @@ export function Flow() {
     setChatMessage("");
     try {
       const result = await submitFlowFeedback(flowBaseUrl, text);
-      setChatResult(result.strategy?.reasoning || t("flow.chatApplied"));
+      if (result.error) {
+        setChatError(result.error);
+      } else if (result.refined) {
+        setChatResult(result.strategy?.reasoning ? `${t("flow.chatApplied")} ${result.strategy.reasoning}` : t("flow.chatApplied"));
+        setStrategyRefreshKey((k) => k + 1);
+      } else {
+        setChatResult(result.strategy?.reasoning ? `${t("flow.chatNoChange")} ${result.strategy.reasoning}` : t("flow.chatNoChange"));
+      }
       await refresh();
     } catch (err) {
       setChatError(err instanceof Error ? err.message : String(err));
     } finally {
       setChatLoading(false);
     }
+  }
+
+  function handleStrategyChanged() {
+    setStrategyRefreshKey((k) => k + 1);
   }
 
   function handleJobChanged() {
@@ -638,6 +877,7 @@ export function Flow() {
               <TabsList>
                 <TabsTrigger value="digest">{t("flow.tabDigest")}</TabsTrigger>
                 <TabsTrigger value="board">{t("flow.tabBoard")}</TabsTrigger>
+                <TabsTrigger value="strategy">{t("flow.tabStrategy")}</TabsTrigger>
                 <TabsTrigger value="search">{t("flow.tabSearch")}</TabsTrigger>
                 <TabsTrigger value="archive">{t("flow.tabArchive")}</TabsTrigger>
                 <TabsTrigger value="stats">{t("flow.tabStats")}</TabsTrigger>
@@ -664,6 +904,12 @@ export function Flow() {
               <TabsContent value="board" className="mt-4">
                 <Card className="p-6">
                   <BoardTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} onSelect={setSelectedJobId} t={t} />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="strategy" className="mt-4">
+                <Card className="p-6">
+                  <StrategyTab flowBaseUrl={flowBaseUrl} refreshKey={strategyRefreshKey} onChanged={handleStrategyChanged} t={t} />
                 </Card>
               </TabsContent>
 

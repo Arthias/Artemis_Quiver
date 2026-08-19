@@ -311,6 +311,47 @@ export function getArchivedJobs(baseUrl: string, limit = 100): Promise<FlowJobLi
   return flowGet(baseUrl, `/api/jobs?status=archived&show_archived=true&sort_by=ingested_at&sort_dir=desc&limit=${limit}`, "getArchivedJobs");
 }
 
+// --- Search strategy visibility and control ---------------------------------
+
+export interface FlowStrategy {
+  keywords: string[];
+  locations: string[];
+  exclude_keywords: string[];
+  target_companies: string[];
+  salary_floor: number | null;
+  salary_floor_currency: string;
+  sources: string[];
+  results_wanted: number;
+  reasoning: string;
+  version: number;
+}
+
+export interface FlowStrategyHistoryEntry {
+  version: number;
+  strategy: Omit<FlowStrategy, "version">;
+  feedback: string;
+  created_at: string;
+}
+
+/** The strategy actually used the next time a search runs (see POST /pipeline/search). */
+export function getStrategy(baseUrl: string): Promise<FlowStrategy> {
+  return flowGet(baseUrl, "/api/strategy", "getStrategy");
+}
+
+/** Manual edit from the Strategy tab — saved as a new version, same as a chat-driven refinement. */
+export function updateStrategy(baseUrl: string, strategy: FlowStrategy): Promise<FlowStrategy> {
+  return flowPut(baseUrl, "/api/strategy", strategy, "updateStrategy");
+}
+
+/** Regenerates the strategy from the candidate profile, discarding manual/chat edits. */
+export function generateStrategy(baseUrl: string): Promise<FlowStrategy> {
+  return flowPost(baseUrl, "/api/strategy/generate", "generateStrategy");
+}
+
+export function getStrategyHistory(baseUrl: string, limit = 10): Promise<FlowStrategyHistoryEntry[]> {
+  return flowGet(baseUrl, `/api/strategy/history?limit=${limit}`, "getStrategyHistory");
+}
+
 // --- Backlog cap settings --------------------------------------------------
 
 export interface FlowBacklogConfig {

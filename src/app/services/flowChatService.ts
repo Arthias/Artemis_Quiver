@@ -1,5 +1,6 @@
 export interface FlowFeedbackResult {
   refined: boolean;
+  error?: string | null;
   strategy: {
     keywords: string[];
     locations: string[];
