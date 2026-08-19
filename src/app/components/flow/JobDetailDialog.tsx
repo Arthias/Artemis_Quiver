@@ -25,6 +25,10 @@ interface JobDetailDialogProps {
   onChanged?: () => void;
 }
 
+function isAbsoluteUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 function formatSalary(job: FlowJobDetail): string {
   if (job.salary_min == null && job.salary_max == null) return "—";
   const c = job.salary_currency || "$";
@@ -214,15 +218,26 @@ export function JobDetailDialog({ jobId, flowBaseUrl, onOpenChange, onChanged }:
             {job.job_url && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">{t("flow.jobUrl")}</p>
-                <a
-                  href={job.job_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline break-all inline-flex items-center gap-1"
-                >
-                  {job.job_url}
-                  <ExternalLink className="w-3 h-3 shrink-0" />
-                </a>
+                {/* Defends against a source ever storing a relative/broken URL again
+                 * (as jobdrop's dice scraper did — see Flow's jobdrop_source.py) — a
+                 * relative href here would resolve against this extension's own
+                 * chrome-extension:// origin instead of the real job site, producing
+                 * a dead link with no visible sign anything was wrong. */}
+                {isAbsoluteUrl(job.job_url) ? (
+                  <a
+                    href={job.job_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline break-all inline-flex items-center gap-1"
+                  >
+                    {job.job_url}
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground break-all">
+                    {job.job_url} <span className="italic">({t("flow.brokenJobUrl")})</span>
+                  </p>
+                )}
               </div>
             )}
 

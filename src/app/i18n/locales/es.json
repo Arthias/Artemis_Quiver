@@ -314,6 +314,7 @@
     "scoreRationale": "Razón de la Puntuación",
     "rejectionCategory": "Categoría de rechazo",
     "jobUrl": "URL del Empleo",
+    "brokenJobUrl": "enlace roto — la fuente devolvió una URL relativa",
     "description": "Descripción",
     "noDescription": "No hay descripción disponible.",
     "alsoSeenOn": "También visto en",

@@ -314,6 +314,7 @@
     "scoreRationale": "Score Rationale",
     "rejectionCategory": "Rejection category",
     "jobUrl": "Job URL",
+    "brokenJobUrl": "broken link — source returned a relative URL",
     "description": "Description",
     "noDescription": "No description available.",
     "alsoSeenOn": "Also seen on",
