@@ -68,6 +68,15 @@ function ExtensionSettingsCard() {
   const [fpLoading, setFpLoading] = useState(false);
   const [fpError, setFpError] = useState<string | null>(null);
   const [fpStorageKey, setFpStorageKey] = useState<string | null>(null);
+  // Whether the extension actually holds the optional host permission for
+  // each configured site — being in jobSites/DEFAULT_JOB_SITES does NOT mean
+  // the overlay will show up there. chrome.scripting.registerContentScripts()
+  // silently no-ops without this permission (see background.ts), which is
+  // why the overlay can "not pop up" on a site that looks configured here —
+  // most visibly for the 13 DEFAULT_JOB_SITES, which are listed as available
+  // out of the box but never actually had permission requested for them.
+  const [sitePermissions, setSitePermissions] = useState<Record<string, boolean>>({});
+  const [grantingSite, setGrantingSite] = useState<string | null>(null);
 
   useEffect(() => {
     const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
@@ -183,6 +192,44 @@ function ExtensionSettingsCard() {
     ...DEFAULT_JOB_SITES.filter((s) => !excludedSites.includes(s)),
     ...customSites,
   ];
+
+  useEffect(() => {
+    const isExt = typeof chrome !== "undefined" && chrome.permissions?.contains;
+    if (!isExt || allSites.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      allSites.map(async (site) => {
+        try {
+          const granted = await chrome.permissions.contains({ origins: siteToOriginPatterns(site) });
+          return [site, granted] as const;
+        } catch {
+          return [site, true] as const; // API hiccup — don't show a false warning
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+      setSitePermissions(Object.fromEntries(results));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customSites, excludedSites]);
+
+  async function grantSitePermission(site: string) {
+    setGrantingSite(site);
+    setPermError(null);
+    try {
+      const granted = await chrome.permissions.request({ origins: siteToOriginPatterns(site) });
+      if (!granted) {
+        setPermError(t("config.permissionDenied"));
+        return;
+      }
+      setSitePermissions((prev) => ({ ...prev, [site]: true }));
+    } catch {
+      setPermError(t("config.permissionDenied"));
+    } finally {
+      setGrantingSite(null);
+    }
+  }
 
   function removeSite(site: string) {
     if (DEFAULT_JOB_SITES.includes(site)) {
@@ -302,8 +349,26 @@ function ExtensionSettingsCard() {
                   </button>
                 </span>
               ) : (
-                <span key={site} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted text-xs">
+                <span
+                  key={site}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
+                    sitePermissions[site] === false ? "bg-amber-500/10 border border-amber-500/30" : "bg-muted"
+                  }`}
+                  title={sitePermissions[site] === false ? t("config.sitePermissionMissing") : undefined}
+                >
+                  {sitePermissions[site] === false && (
+                    <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                  )}
                   {site}
+                  {sitePermissions[site] === false && (
+                    <button
+                      onClick={() => grantSitePermission(site)}
+                      disabled={grantingSite === site}
+                      className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium underline underline-offset-2"
+                    >
+                      {grantingSite === site ? "…" : t("config.grantAccess")}
+                    </button>
+                  )}
                   <button onClick={() => startEdit(site)} className="text-muted-foreground hover:text-foreground">
                     <Pencil className="w-3 h-3" />
                   </button>
@@ -315,6 +380,12 @@ function ExtensionSettingsCard() {
             )
           )}
         </div>
+        {Object.values(sitePermissions).some((granted) => granted === false) && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3 shrink-0" />
+            {t("config.sitePermissionMissingHint")}
+          </p>
+        )}
       </div>
 
       <div>

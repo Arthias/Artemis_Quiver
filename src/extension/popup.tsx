@@ -54,7 +54,23 @@ function Popup() {
   const [permError, setPermError] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<string | undefined>(undefined);
   const [fingerprintDate, setFingerprintDate] = useState<string | undefined>(undefined);
+  // Ground-truth for whether the overlay will actually run here — being in
+  // config.jobSites is NOT enough (a site can be listed, e.g. one of the
+  // built-in defaults, without the extension ever having been granted the
+  // host permission it needs; registration then silently no-ops). This is
+  // populated from the background's diagnostics rather than derived from
+  // config alone, so the popup can't show a false "active" checkmark.
+  const [siteDiagnostic, setSiteDiagnostic] = useState<{ hasPermission: boolean; isRegistered: boolean } | null | undefined>(undefined);
+  const [grantingHere, setGrantingHere] = useState(false);
   const enableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refreshDiagnostics = useCallback((hostname: string) => {
+    chrome.runtime.sendMessage({ type: "ARTEMIS_GET_OVERLAY_DIAGNOSTICS" }).then((resp) => {
+      const sites = (resp?.sites || []) as { site: string; hasPermission: boolean; isRegistered: boolean }[];
+      const match = sites.find((d) => domainMatchesEntry(d.site, hostname));
+      setSiteDiagnostic(match ? { hasPermission: match.hasPermission, isRegistered: match.isRegistered } : null);
+    }).catch(() => setSiteDiagnostic(null));
+  }, []);
 
   useEffect(() => {
     loadTranslations(navigator.language.split("-")[0] || "en")
@@ -80,6 +96,7 @@ function Popup() {
             setCurrentHost(url.hostname);
             setCurrentUrl(url.href);
             setSiteUrlInput(`${url.protocol}//${url.hostname}`);
+            refreshDiagnostics(url.hostname);
           }
         } catch {}
       }
@@ -137,35 +154,59 @@ function Popup() {
     }
   }, [importState]);
 
-  const overlayEnabledHere =
-    config.enabled &&
-    currentHost !== "" &&
-    config.jobSites.some((s) => domainMatchesEntry(s, currentHost));
+  const siteIsConfigured = currentHost !== "" && config.jobSites.some((s) => domainMatchesEntry(s, currentHost));
+  // True active state requires the background to confirm BOTH the host
+  // permission is held AND the content script actually got registered —
+  // config.jobSites membership alone (the old check) can be true for a site
+  // that was never granted permission, e.g. the built-in defaults, which
+  // previously showed a false "active" checkmark here while the overlay
+  // silently never appeared on the page.
+  const overlayEnabledHere = config.enabled && siteIsConfigured && !!siteDiagnostic?.hasPermission && !!siteDiagnostic?.isRegistered;
+  const siteMissingPermission = config.enabled && siteIsConfigured && siteDiagnostic != null && !siteDiagnostic.hasPermission;
 
   const enableOverlayHere = useCallback(async () => {
     const entry = entryFromUrlInput(siteUrlInput) || urlToSiteEntry(currentUrl);
     if (!entry) return;
-    if (config.jobSites.some((s) => s === entry)) {
-      setEnableState("done");
-      return;
-    }
     setEnableState("working");
     setPermError(null);
     try {
+      // Idempotent — resolves immediately with true if already granted, so
+      // this is safe to call even for a site that's already in jobSites.
       const granted = await chrome.permissions.request({ origins: siteToOriginPatterns(entry) });
       if (!granted) {
         setPermError(t("extension.permissionDenied"));
         setEnableState("idle");
         return;
       }
-      saveConfig((c) => ({ ...c, jobSites: [...c.jobSites, entry] }));
+      if (!config.jobSites.some((s) => s === entry)) {
+        saveConfig((c) => ({ ...c, jobSites: [...c.jobSites, entry] }));
+      }
       setEnableState("done");
+      refreshDiagnostics(currentHost);
       if (enableTimerRef.current) clearTimeout(enableTimerRef.current);
       enableTimerRef.current = setTimeout(() => setEnableState("idle"), 4000);
     } catch {
       setEnableState("idle");
     }
-  }, [siteUrlInput, currentUrl, config.jobSites, saveConfig]);
+  }, [siteUrlInput, currentUrl, currentHost, config.jobSites, saveConfig, refreshDiagnostics]);
+
+  const grantPermissionHere = useCallback(async () => {
+    setGrantingHere(true);
+    setPermError(null);
+    try {
+      const entry = config.jobSites.find((s) => domainMatchesEntry(s, currentHost)) || urlToSiteEntry(currentUrl);
+      if (!entry) return;
+      const granted = await chrome.permissions.request({ origins: siteToOriginPatterns(entry) });
+      if (!granted) {
+        setPermError(t("extension.permissionDenied"));
+        return;
+      }
+      chrome.runtime.sendMessage({ type: "ARTEMIS_SYNC_SITE_SCRIPTS" }).catch(() => {});
+      refreshDiagnostics(currentHost);
+    } finally {
+      setGrantingHere(false);
+    }
+  }, [config.jobSites, currentHost, currentUrl, refreshDiagnostics]);
 
   const setOverlayEnabled = useCallback((enabled: boolean) => {
     saveConfig((c) => ({ ...c, enabled }));
@@ -262,6 +303,28 @@ function Popup() {
         ) : overlayEnabledHere ? (
           <div style={{ fontSize: "13px", color: "#22c55e" }}>
             {t("extension.overlayActive")} · {currentHost}
+          </div>
+        ) : siteMissingPermission ? (
+          <div>
+            <div style={{ fontSize: "13px", color: "#f59e0b", marginBottom: "6px" }}>
+              {t("extension.overlayPermissionMissing")} · {currentHost}
+            </div>
+            <button
+              onClick={grantPermissionHere}
+              disabled={grantingHere}
+              style={{
+                padding: "6px 12px", border: "1px solid rgba(245,158,11,0.4)", borderRadius: "6px",
+                background: "#1e293b", color: "#fbbf24", fontSize: "12px",
+                cursor: grantingHere ? "default" : "pointer", whiteSpace: "nowrap",
+              }}
+            >
+              {grantingHere ? "..." : t("extension.grantAccess")}
+            </button>
+            {permError && (
+              <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>
+                {permError}
+              </div>
+            )}
           </div>
         ) : currentHost ? (
           <div>

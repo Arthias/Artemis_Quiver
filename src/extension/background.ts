@@ -1,6 +1,6 @@
 import { loadTranslations, t } from "./i18n";
 import { AppError, ErrorCodes } from "../app/utils/errors";
-import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry } from "./job-sites";
+import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry, matchJobSite } from "./job-sites";
 import { readActiveProfile } from "./idbProfile";
 import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatibleAdapter";
 import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
@@ -98,6 +98,66 @@ async function syncSiteContentScripts(): Promise<void> {
       console.warn("[Artemis] unregisterContentScripts failed:", err);
     }
   }
+}
+
+export interface OverlaySiteDiagnostic {
+  site: string;
+  hasPermission: boolean;
+  isRegistered: boolean;
+}
+
+export interface OverlayDiagnostics {
+  sites: OverlaySiteDiagnostic[];
+  activeTabUrl: string | null;
+  activeTabMatchesConfiguredSite: boolean;
+}
+
+/** Surfaces per-site permission/registration state so the popup can explain
+ * *why* the overlay isn't showing up, instead of it just silently not
+ * appearing — chrome.scripting.registerContentScripts() silently no-ops
+ * when the extension doesn't (yet) hold the optional host permission for
+ * that site (see the `if (!hasPermission) continue;` above), which is the
+ * most likely cause of "the overlay does not pop up". */
+async function getOverlayDiagnostics(): Promise<OverlayDiagnostics> {
+  const config = await getConfig();
+  const sites: string[] = Array.isArray(config.jobSites) ? config.jobSites : [];
+
+  let registered: chrome.scripting.RegisteredContentScript[] = [];
+  try {
+    registered = await chrome.scripting.getRegisteredContentScripts();
+  } catch (err) {
+    console.warn("[Artemis] diagnostics: getRegisteredContentScripts failed:", err);
+  }
+  const registeredIds = new Set(registered.map((s) => s.id));
+
+  const siteDiagnostics: OverlaySiteDiagnostic[] = [];
+  for (const site of sites) {
+    let hasPermission = false;
+    try {
+      hasPermission = await chrome.permissions.contains({ origins: siteToOriginPatterns(site) });
+    } catch (err) {
+      console.warn("[Artemis] diagnostics: permissions.contains failed for", site, err);
+    }
+    siteDiagnostics.push({
+      site,
+      hasPermission,
+      isRegistered: registeredIds.has(contentScriptIdFor(site)),
+    });
+  }
+
+  let activeTabUrl: string | null = null;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    activeTabUrl = tab?.url ?? null;
+  } catch (err) {
+    console.warn("[Artemis] diagnostics: tabs.query failed:", err);
+  }
+
+  return {
+    sites: siteDiagnostics,
+    activeTabUrl,
+    activeTabMatchesConfiguredSite: activeTabUrl ? matchJobSite(activeTabUrl, sites) : false,
+  };
 }
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -240,6 +300,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     case "ARTEMIS_SYNC_SITE_SCRIPTS":
       void syncSiteContentScripts();
       break;
+
+    case "ARTEMIS_GET_OVERLAY_DIAGNOSTICS":
+      void getOverlayDiagnostics().then(sendResponse);
+      return true; // keep channel open for async response
 
     case "ARTEMIS_EXTRACT_AND_IMPORT": {
       // Messages from the popup have no _sender.tab, so the popup passes its
