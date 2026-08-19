@@ -111,7 +111,14 @@ export function JobDetailDialog({ jobId, flowBaseUrl, onOpenChange, onChanged }:
             {job.status === "archived" && (
               <div className="flex items-center justify-between gap-3 rounded border border-border bg-muted/40 p-3">
                 <div>
-                  <p className="text-xs font-medium">{t("flow.archived")}</p>
+                  <p className="text-xs font-medium">
+                    {t("flow.archived")}
+                    {job.archive_reason && (
+                      <span className="ml-1.5 font-normal text-muted-foreground">
+                        · {t(`flow.archiveReason_${job.archive_reason}`, job.archive_reason)}
+                      </span>
+                    )}
+                  </p>
                   {job.archived_at && (
                     <p className="text-xs text-muted-foreground">
                       {new Date(job.archived_at).toLocaleDateString()}

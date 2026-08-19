@@ -18,7 +18,16 @@ import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useWorkspace } from "../context/WorkspaceProfileContext";
 import { chatCompletion, listModels as listModelsApi, testConnection } from "../services/llmService";
-import { checkFlowHealth, sendProfileToFlow, sendConfigToFlow, testEndpointFromFlow, type FlowStatus } from "../services/flowBridge";
+import {
+  checkFlowHealth,
+  sendProfileToFlow,
+  sendConfigToFlow,
+  testEndpointFromFlow,
+  getBacklogConfig,
+  updateBacklogConfig,
+  type FlowStatus,
+  type FlowBacklogConfig,
+} from "../services/flowBridge";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import { PROVIDER_DEFAULT_BASE_URLS } from "../config/defaults";
@@ -681,9 +690,125 @@ function FlowSettingsCard() {
             </Button>
           </div>
           {startError && <p className="text-xs text-destructive">{startError}</p>}
+
+          <hr className="border-t border-border" />
+
+          <BacklogSettingsSection flowBaseUrl={config.flowBaseUrl!} />
         </>
       )}
     </Card>
+  );
+}
+
+function BacklogSettingsSection({ flowBaseUrl }: { flowBaseUrl: string }) {
+  const { t } = useTranslation();
+  const [cfg, setCfg] = useState<FlowBacklogConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getBacklogConfig(flowBaseUrl)
+      .then((c) => !cancelled && setCfg(c))
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowBaseUrl]);
+
+  function field(key: keyof FlowBacklogConfig, value: string) {
+    if (!cfg) return;
+    const num = Number(value);
+    setCfg({ ...cfg, [key]: Number.isFinite(num) ? num : cfg[key] });
+    setSaved(false);
+  }
+
+  async function handleSave() {
+    if (!cfg) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateBacklogConfig(flowBaseUrl, cfg);
+      setCfg(updated);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        {t("config.flowBacklogLoading")}
+      </div>
+    );
+  }
+  if (!cfg) return error ? <p className="text-xs text-destructive">{error}</p> : null;
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label>{t("config.flowBacklogTitle")}</Label>
+        <p className="text-xs text-muted-foreground">{t("config.flowBacklogDesc")}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs text-muted-foreground">{t("config.flowSoftCap")}</Label>
+          <Input
+            type="number"
+            min={1}
+            value={cfg.soft_cap}
+            onChange={(e) => field("soft_cap", e.target.value)}
+            className="bg-input-background"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">{t("config.flowHardCap")}</Label>
+          <Input
+            type="number"
+            min={1}
+            value={cfg.hard_cap}
+            onChange={(e) => field("hard_cap", e.target.value)}
+            className="bg-input-background"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">{t("config.flowArchiveRetention")}</Label>
+          <Input
+            type="number"
+            min={1}
+            value={cfg.archive_retention_days}
+            onChange={(e) => field("archive_retention_days", e.target.value)}
+            className="bg-input-background"
+          />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">{t("config.flowArchiveThreshold")}</Label>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={cfg.archive_score_threshold}
+            onChange={(e) => field("archive_score_threshold", e.target.value)}
+            className="bg-input-background"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
+          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+          {saved ? t("config.flowBacklogSaved") : t("config.flowBacklogSave")}
+        </Button>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+    </div>
   );
 }
 

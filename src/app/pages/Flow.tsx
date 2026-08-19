@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Workflow, Play, Pause, RefreshCw, Loader2 } from "lucide-react";
+import { Workflow, Play, Pause, RefreshCw, Loader2, Search as SearchIcon, X } from "lucide-react";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
@@ -21,6 +23,7 @@ import {
   getJobsByStatus,
   getArchivedJobs,
   getDashboardStats,
+  searchJobs,
   type FlowStatus,
   type FlowJobSummary,
   type FlowRankStatus,
@@ -174,9 +177,9 @@ function BoardTab({
   if (error) return <p className="text-sm text-destructive">{error}</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
       {BOARD_STATUSES.map((status) => (
-        <div key={status}>
+        <div key={status} className="min-w-0">
           <div className="flex items-center gap-2 mb-2">
             <h3 className="text-sm font-semibold">{t(`flow.status_${status}`)}</h3>
             <span className="text-xs text-muted-foreground">{byStatus[status]?.length ?? 0}</span>
@@ -186,7 +189,7 @@ function BoardTab({
           ) : (
             <div className="space-y-2">
               {(byStatus[status] ?? []).map((job) => (
-                <JobCard key={job.id} job={job} onClick={() => onSelect(job.id)} />
+                <JobCard key={job.id} job={job} onClick={() => onSelect(job.id)} compact />
               ))}
             </div>
           )}
@@ -226,6 +229,150 @@ function ArchiveTab({
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">{t("flow.archiveDesc")}</p>
       <JobCardList jobs={jobs} loading={loading} error={error} emptyMessage={t("flow.archiveEmpty")} onSelect={onSelect} />
+    </div>
+  );
+}
+
+const SEARCH_STATUSES = ["new", "applied", "interviewing", "offer", "rejected", "archived"] as const;
+const SEARCH_SORT_OPTIONS = ["ingested_at", "date_posted", "score", "salary_max", "title"] as const;
+
+function SearchTab({
+  flowBaseUrl,
+  refreshKey,
+  onSelect,
+  t,
+}: {
+  flowBaseUrl: string;
+  refreshKey: number;
+  onSelect: (id: string) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [scoreMin, setScoreMin] = useState("");
+  const [sortBy, setSortBy] = useState<(typeof SEARCH_SORT_OPTIONS)[number]>("ingested_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const [jobs, setJobs] = useState<FlowJobSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Debounce free-text search so we're not firing a request per keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(searchText.trim()), 300);
+    return () => clearTimeout(id);
+  }, [searchText]);
+
+  const hasFilters = debouncedSearch !== "" || statusFilter !== "all" || scoreMin !== "";
+
+  function clearFilters() {
+    setSearchText("");
+    setStatusFilter("all");
+    setScoreMin("");
+    setSortBy("ingested_at");
+    setSortDir("desc");
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const parsedScoreMin = scoreMin.trim() === "" ? undefined : Number(scoreMin);
+    searchJobs(flowBaseUrl, {
+      search: debouncedSearch || undefined,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      scoreMin: parsedScoreMin !== undefined && Number.isFinite(parsedScoreMin) ? parsedScoreMin : undefined,
+      sortBy,
+      sortDir,
+      limit: 100,
+    })
+      .then((d) => {
+        if (cancelled) return;
+        setJobs(d.jobs);
+        setTotal(d.total);
+      })
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [flowBaseUrl, refreshKey, debouncedSearch, statusFilter, scoreMin, sortBy, sortDir]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[180px]">
+          <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder={t("flow.searchPlaceholder")}
+            className="pl-8"
+          />
+        </div>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder={t("flow.filterStatus")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("flow.filterAllStatuses")}</SelectItem>
+            {SEARCH_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>{t(`flow.status_${s}`)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          value={scoreMin}
+          onChange={(e) => setScoreMin(e.target.value)}
+          placeholder={t("flow.filterScoreMin")}
+          className="w-[110px]"
+        />
+
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SEARCH_SORT_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>{t(`flow.sort_${s}`)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+          title={t(sortDir === "desc" ? "flow.sortDesc" : "flow.sortAsc")}
+        >
+          {sortDir === "desc" ? "↓" : "↑"}
+        </Button>
+
+        {hasFilters && (
+          <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>
+            <X className="w-3.5 h-3.5" />
+            {t("flow.filterClear")}
+          </Button>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {loading ? t("flow.searching") : t("flow.searchResults", { n: total })}
+      </p>
+
+      <JobCardList
+        jobs={jobs}
+        loading={loading}
+        error={error}
+        emptyMessage={t("flow.searchEmpty")}
+        onSelect={onSelect}
+      />
     </div>
   );
 }
@@ -491,6 +638,7 @@ export function Flow() {
               <TabsList>
                 <TabsTrigger value="digest">{t("flow.tabDigest")}</TabsTrigger>
                 <TabsTrigger value="board">{t("flow.tabBoard")}</TabsTrigger>
+                <TabsTrigger value="search">{t("flow.tabSearch")}</TabsTrigger>
                 <TabsTrigger value="archive">{t("flow.tabArchive")}</TabsTrigger>
                 <TabsTrigger value="stats">{t("flow.tabStats")}</TabsTrigger>
               </TabsList>
@@ -516,6 +664,12 @@ export function Flow() {
               <TabsContent value="board" className="mt-4">
                 <Card className="p-6">
                   <BoardTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} onSelect={setSelectedJobId} t={t} />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="search" className="mt-4">
+                <Card className="p-6">
+                  <SearchTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} onSelect={setSelectedJobId} t={t} />
                 </Card>
               </TabsContent>
 

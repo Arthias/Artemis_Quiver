@@ -138,6 +138,7 @@ export interface FlowJobSummary {
   ingested_at: string;
   job_type: string;
   label: string;
+  archive_reason: string | null;
 }
 
 export interface FlowJobDetail extends FlowJobSummary {
@@ -216,6 +217,22 @@ async function flowPost<T>(baseUrl: string, path: string, action: string): Promi
   }
 }
 
+async function flowPut<T>(baseUrl: string, path: string, body: unknown, action: string): Promise<T> {
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`${action} failed: ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    logFlowError(err, baseUrl, action);
+    throw err;
+  }
+}
+
 async function flowPatch<T>(baseUrl: string, path: string, body: unknown, action: string): Promise<T> {
   try {
     const res = await fetch(`${baseUrl}${path}`, {
@@ -232,8 +249,9 @@ async function flowPatch<T>(baseUrl: string, path: string, body: unknown, action
   }
 }
 
-/** The ranked digest — best-scoring new jobs, per the decided "digest, not board" default presentation. */
-export function getFlowDigest(baseUrl: string, limit = 20): Promise<FlowJobListResponse> {
+/** The ranked digest — best-scoring new jobs, per the decided "digest, not board" default presentation.
+ * Capped to the top 10 by default — the point of a digest is to not be a wall of everything. */
+export function getFlowDigest(baseUrl: string, limit = 10): Promise<FlowJobListResponse> {
   return flowGet(
     baseUrl,
     `/api/jobs?status=new&sort_by=score&sort_dir=desc&show_archived=false&limit=${limit}`,
@@ -291,4 +309,63 @@ export function getJobsByStatus(baseUrl: string, status: string, limit = 100): P
 
 export function getArchivedJobs(baseUrl: string, limit = 100): Promise<FlowJobListResponse> {
   return flowGet(baseUrl, `/api/jobs?status=archived&show_archived=true&sort_by=ingested_at&sort_dir=desc&limit=${limit}`, "getArchivedJobs");
+}
+
+// --- Backlog cap settings --------------------------------------------------
+
+export interface FlowBacklogConfig {
+  soft_cap: number;
+  hard_cap: number;
+  archive_retention_days: number;
+  archive_score_threshold: number;
+}
+
+export function getBacklogConfig(baseUrl: string): Promise<FlowBacklogConfig> {
+  return flowGet(baseUrl, "/api/settings/backlog", "getBacklogConfig");
+}
+
+export function updateBacklogConfig(baseUrl: string, config: FlowBacklogConfig): Promise<FlowBacklogConfig> {
+  return flowPut(baseUrl, "/api/settings/backlog", config, "updateBacklogConfig");
+}
+
+export async function purgeArchivedJobs(baseUrl: string, retentionDays?: number): Promise<{ status: string; deleted: number }> {
+  try {
+    const res = await fetch(`${baseUrl}/api/settings/backlog/purge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ retention_days: retentionDays ?? null }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) throw new Error(`purgeArchivedJobs failed: ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    logFlowError(err, baseUrl, "purgeArchivedJobs");
+    throw err;
+  }
+}
+
+export interface FlowJobSearchParams {
+  search?: string;
+  status?: string;
+  scoreMin?: number;
+  sortBy?: "ingested_at" | "date_posted" | "score" | "salary_max" | "title";
+  sortDir?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+}
+
+/** Free-form search/filter/review over the full job set — powers the Search tab.
+ * Leaves show_archived off by default so archived jobs stay out unless the
+ * caller explicitly filters status=archived (mirrors getArchivedJobs' own call). */
+export function searchJobs(baseUrl: string, params: FlowJobSearchParams = {}): Promise<FlowJobListResponse> {
+  const qs = new URLSearchParams();
+  if (params.search) qs.set("search", params.search);
+  if (params.status) qs.set("status", params.status);
+  if (params.status === "archived") qs.set("show_archived", "true");
+  if (params.scoreMin != null) qs.set("score_min", String(params.scoreMin));
+  qs.set("sort_by", params.sortBy || "ingested_at");
+  qs.set("sort_dir", params.sortDir || "desc");
+  qs.set("limit", String(params.limit ?? 100));
+  qs.set("offset", String(params.offset ?? 0));
+  return flowGet(baseUrl, `/api/jobs?${qs.toString()}`, "searchJobs");
 }
