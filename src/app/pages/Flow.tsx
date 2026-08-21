@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Workflow, Play, Pause, RefreshCw, Loader2, Search as SearchIcon, X } from "lucide-react";
@@ -41,6 +41,8 @@ import {
   type FlowStrategyHistoryEntry,
 } from "../services/flowBridge";
 import { submitFlowFeedback } from "../services/flowChatService";
+
+const DIGEST_LAST_SEEN_KEY = "artemis:flowDigestLastSeen";
 
 function FlowHeader({
   t,
@@ -119,12 +121,16 @@ function JobCardList({
   error,
   emptyMessage,
   onSelect,
+  showSummary = false,
+  newIds,
 }: {
   jobs: FlowJobSummary[];
   loading: boolean;
   error: string | null;
   emptyMessage: string;
   onSelect: (id: string) => void;
+  showSummary?: boolean;
+  newIds?: Set<string>;
 }) {
   if (loading) {
     return (
@@ -138,7 +144,13 @@ function JobCardList({
   return (
     <div className="space-y-2">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} onClick={() => onSelect(job.id)} />
+        <JobCard
+          key={job.id}
+          job={job}
+          onClick={() => onSelect(job.id)}
+          showSummary={showSummary}
+          isNew={newIds?.has(job.id) ?? false}
+        />
       ))}
     </div>
   );
@@ -706,7 +718,27 @@ export function Flow() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [trackingRefreshKey, setTrackingRefreshKey] = useState(0);
   const [strategyRefreshKey, setStrategyRefreshKey] = useState(0);
+  const [digestLastSeenAt, setDigestLastSeenAt] = useState<number | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Capture the previous "last visited" marker once per mount (so "new since
+  // last visit" badges stay stable for the rest of this session), then push
+  // the marker forward to now — the next time the app is opened, this visit
+  // becomes the baseline.
+  useEffect(() => {
+    const stored = Number(localStorage.getItem(DIGEST_LAST_SEEN_KEY) || 0);
+    setDigestLastSeenAt(stored || null);
+    localStorage.setItem(DIGEST_LAST_SEEN_KEY, String(Date.now()));
+  }, []);
+
+  const digestNewIds = useMemo(() => {
+    if (digestLastSeenAt == null) return new Set<string>();
+    return new Set(
+      digest
+        .filter((j) => j.ingested_at && new Date(j.ingested_at).getTime() > digestLastSeenAt)
+        .map((j) => j.id)
+    );
+  }, [digest, digestLastSeenAt]);
 
   const connected = status?.connected ?? false;
 
@@ -891,12 +923,19 @@ export function Flow() {
                       <RefreshCw className="w-4 h-4" />
                     </Button>
                   </div>
+                  {digestNewIds.size > 0 && (
+                    <p className="text-xs text-teal-600 dark:text-teal-400 -mt-2">
+                      {t("flow.digestNewSince", { n: digestNewIds.size })}
+                    </p>
+                  )}
                   <JobCardList
                     jobs={digest}
                     loading={false}
                     error={digestError}
                     emptyMessage={t("flow.digestEmpty")}
                     onSelect={setSelectedJobId}
+                    showSummary
+                    newIds={digestNewIds}
                   />
                 </Card>
               </TabsContent>

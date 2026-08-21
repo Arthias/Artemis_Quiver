@@ -254,6 +254,8 @@
     "controlUnavailable": "Aún no disponible en esta instancia de Flow.",
     "digest": "Resumen",
     "digestEmpty": "Aún no hay coincidencias puntuadas.",
+    "digestNewSince": "{{n}} nuevos desde tu última visita",
+    "newBadge": "Nuevo",
     "remote": "Remoto",
     "chatApplied": "Estrategia actualizada.",
     "chatNoChange": "No se hicieron cambios.",

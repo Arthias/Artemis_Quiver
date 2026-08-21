@@ -254,6 +254,8 @@
     "controlUnavailable": "Not available on this Flow instance yet.",
     "digest": "Digest",
     "digestEmpty": "No scored matches yet.",
+    "digestNewSince": "{{n}} new since your last visit",
+    "newBadge": "New",
     "remote": "Remote",
     "chatApplied": "Strategy updated.",
     "chatNoChange": "No changes made.",

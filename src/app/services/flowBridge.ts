@@ -139,6 +139,8 @@ export interface FlowJobSummary {
   job_type: string;
   label: string;
   archive_reason: string | null;
+  /** LLM-generated 1-2 sentence "why this matched" blurb — only populated for jobs scoring > 70. */
+  summary: string | null;
 }
 
 export interface FlowJobDetail extends FlowJobSummary {
@@ -153,7 +155,6 @@ export interface FlowJobDetail extends FlowJobSummary {
   salary_rate: string;
   fit_reasoning: string | null;
   rejection_category: string;
-  summary: string | null;
   archived_at: string | null;
   alternate_sources: string | null;
 }
@@ -254,7 +255,9 @@ async function flowPatch<T>(baseUrl: string, path: string, body: unknown, action
 export function getFlowDigest(baseUrl: string, limit = 10): Promise<FlowJobListResponse> {
   return flowGet(
     baseUrl,
-    `/api/jobs?status=new&sort_by=score&sort_dir=desc&show_archived=false&limit=${limit}`,
+    // exclude_label=reviewed keeps jobs you've already looked at from permanently
+    // occupying a digest slot until their status is formally changed.
+    `/api/jobs?status=new&sort_by=score&sort_dir=desc&show_archived=false&exclude_label=reviewed&limit=${limit}`,
     "getFlowDigest"
   );
 }
