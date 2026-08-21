@@ -13,8 +13,6 @@ export interface CVTheme {
   contactIcon: React.CSSProperties;
   divider: React.CSSProperties;
   container: React.CSSProperties;
-  editInput: React.CSSProperties;
-  editOverlay: string;
 }
 
 function safe(c: string, fallback: string): string {
@@ -41,7 +39,5 @@ export function getCVTheme(config: ThemeConfig): CVTheme {
     contactIcon: { color: "#94a3b8" },
     divider: { borderTop: "2px solid #e2e8f0", margin: "1rem 0" },
     container: { background: "#f8fafc" },
-    editInput: {},
-    editOverlay: "bg-blue-50/30",
   };
 }

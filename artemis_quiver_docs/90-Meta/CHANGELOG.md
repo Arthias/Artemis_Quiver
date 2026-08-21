@@ -1,10 +1,66 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-08-18
+last_updated: 2026-08-21
 ---
 
 # Changelog
+
+## [Extension v3.9.3] - August 21, 2026
+
+**Side panel: badge entry, quick-analyze, and a deep-analysis result card that stays in the panel**
+
+- **Replaces the floating overlay badge with `chrome.sidePanel`:** the toolbar icon badges recognized job pages; clicking it opens a persistent panel instead of a page-injected badge (`chrome.action.setPopup` + `onClicked` + `sidePanel.open`). The overlay content script (`overlay.ts`) now runs headless — no DOM, no shadow root — kept alive only to relay live scores from "Always quick analyze this site" pages via `ARTEMIS_QUICK_SCORE_UPDATE`.
+- **Two extraction paths:** default "click to look" via `activeTab` + `executeScript` (no standing permission), or opt-in "Always quick analyze this site" (renamed overlay-enable toggle) for auto-scoring while browsing an aggregator. Auto-triggering is capped at the quick score, full stop — deep analysis and content generation are always explicit user actions.
+- **Deep analysis stays in the panel:** running it no longer jumps to the main tab. The panel shows the score, a one-line write-up, and salary range, with three actions below — **Build CV** and **Build Cover Letter** hand off `jobPosting` + recommendations/draft to the respective builder (new `ARTEMIS_LOAD_BUILDER_HANDOFF` message + `chrome.storage.session` stash, picked up by a `RootLayout` effect, mirroring the existing `pendingSessionId` pattern) and **Go to full analysis** loads the saved session on the Analysis Hub.
+
+### Follow-up fixes (same release)
+
+- **Quick score now tries on-device Nano first**, same as the old overlay, instead of always calling a remote LLM — `handleQuickAnalyze` was skipping Nano entirely and calling `callRemoteLLM` unconditionally, including in "basic" fallback mode where it silently defaulted to `localhost:11434` and could hang for its full 30s timeout with no feedback.
+- **Cache entries are now stamped with the fingerprint they were scored against** and only count as a hit if it still matches the current one — previously a regenerated fingerprint or a profile edit left old scores cached indefinitely with no way to tell they were stale.
+- **Scoring prompts now request `{"score", "reason"}` as JSON** (Nano, remote quick-analyze, and the overlay's live relay) instead of "reply with only the number" — gives the panel a one-line reason under the score, and closes off a failure mode where the old regex parser could pick up an unrelated number from a model's chain-of-thought preamble.
+- Added a loading spinner + elapsed-seconds indicator to the panel's quick-score state, and an **Analyze** button for the "no score yet" case — quick-analyze only auto-runs once per panel session, so every job page visited afterward previously had no way to trigger a score at all.
+- Verified: typecheck clean (pre-existing unrelated `overlay.ts` dead-code + `chrome.tabs.TabChangeInfo` type warnings untouched), `build` and `build:ext` succeed, 141/144 tests pass (3 pre-existing `providerMode` failures, unrelated). Not live-tested in a browser — no bridge from this environment.
+
+## [v3.8.0] - August 20, 2026
+
+**CV Builder: 4 templates as data presets, per-section style mixing, and a real theme abstraction**
+
+- **Root fix for template inconsistency:** "template" no longer means one bespoke component
+  reimplementing header/contact/section chrome from scratch (Classic rendered inline as the
+  fallback branch of `InteractiveCVPreview.tsx`, Executive a separate file that silently dropped
+  drag-reorder, collapse, and page-break, hardcoded English section labels, and mostly ignored
+  theme colors). Templates are now data presets (`src/components/cv/templates.ts`) consumed by
+  4 shell components sharing one props contract and one chrome component (`SectionFrame.tsx`)
+  for reorder/collapse/page-break — so every template gets those features by construction.
+- **2 new templates, grounded in real resume-design categories:** **Modern** (clean sans-serif,
+  accent-forward, single column) and **Minimal** (ultra-plain, no color, spacious — ATS-safe),
+  alongside the existing **Classic** and **Executive**.
+- **Per-section style mixing:** each of the 6 section types (summary, contact, skills,
+  experience, education, certifications) has 2-3 independent visual variants (e.g. skills as
+  tags/columns/inline, experience as classic/cards/timeline) selectable per-section regardless
+  of which template is active — new "Section styles" control in `ThemeConfigPanel`. New
+  `src/components/cv/sectionVariants/` registry.
+- **Theme colors now reach entry text, not just the header:** `ExperienceItemCard`/
+  `EducationItemCard`/`InlineTextarea` previously hardcoded gray Tailwind classes regardless of
+  `accentColor`/`textColor`; all section variants now consume the theme consistently.
+- **Fixed:** Cover Letter builder's template selector was a dead control — `InteractiveCLPreview`
+  had no `templateId` concept, so picking "Executive" changed nothing. Removed the selector for
+  CL entirely (`ThemeConfigPanel` gained a `showTemplateSelector` prop); color/font pickers,
+  which did work, are unchanged. See `30-Bugs-and-Fixes/_Index.md`.
+- **Theme choice now persists** per document type via `localStorage`
+  (`artemis:cvThemeConfig` / `artemis:clThemeConfig`) — previously lost on reload/navigation.
+- Collapsed the duplicated `ThemeConfig` type (`ThemeConfigPanel.tsx` had its own hand-written
+  copy) onto the canonical zod-derived type in `src/types/cv.ts`, removing `as any` casts at
+  both builder call sites.
+- Full i18n coverage (en/es) for the 2 new templates and the section-style controls.
+- `package.json` and the extension `manifest.json` bumped to 3.8.0.
+- Verified: typecheck clean; existing suite still at 141/144 (the 3 failures are the
+  pre-existing `providerMode` default mismatch noted in v3.7.0, untouched by this change).
+  Verified via a real React-DOM render (not mocks) across all 4 templates with sample CV
+  content: theme colors reach summary/experience text, independent section-variant selection
+  works, Executive's page-break toggle now actually mutates content, and localStorage
+  persistence round-trips. Dev server boots both builder routes with zero console errors.
 
 ## [v3.7.0] - August 18, 2026
 

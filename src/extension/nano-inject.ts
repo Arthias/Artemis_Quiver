@@ -151,7 +151,7 @@ function init() {
         const session = await lm.create({
           initialPrompts: [{
             role: "system",
-            content: "You are a job match scorer. Given a candidate profile and job posting, reply with only a number 0-100. No explanation.",
+            content: 'You are a job match scorer. Given a candidate profile and job posting, reply as JSON only: {"score": <0-100 number>, "reason": "<short reason, max 15 words>"}',
           }],
           monitor(m: any) {
             m.addEventListener("downloadprogress", (e: any) => {

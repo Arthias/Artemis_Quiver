@@ -541,9 +541,10 @@ async function handleLLMScore(
 ) {
   try {
     const config = await getConfig();
-    const prompt = `Score 0-100 how well this candidate matches this job. Reply with only the number.\n\nCandidate: ${payload.fingerprint}\n\nJob: ${payload.jobText.slice(0, 4000)}`;
-    const score = await callRemoteLLM(prompt, { ...config, fallbackMode: payload.fallbackMode });
-    sendResponse({ score });
+    const prompt = buildScorePrompt(payload.fingerprint, payload.jobText);
+    const raw = await callRemoteLLM(prompt, { ...config, fallbackMode: payload.fallbackMode });
+    const { score, reason } = parseScoreAndReason(raw);
+    sendResponse({ score, reason });
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
     console.error("[Artemis] llm_score:", appError);
@@ -566,14 +567,40 @@ export interface QuickScoreEntry {
   company: string;
   salary: string;
   score: number | null;
+  reason?: string;
+  // Fingerprint the score was computed against — a cache hit only counts if
+  // this still matches the current config.fingerprint, so regenerating the
+  // fingerprint (or editing the profile) doesn't leave stale scores stuck
+  // showing forever until someone manually re-analyzes each job.
+  fingerprint?: string;
   analyzedAt: string;
 }
 
-function parseScoreValue(raw: string): number | null {
-  const m = raw.match(/(\d+)/);
-  if (!m) return null;
+function buildScorePrompt(fingerprint: string, jobText: string): string {
+  return `Score 0-100 how well this candidate matches this job, and give one short reason (max 15 words).\nReply as JSON only, no markdown fences: {"score": <0-100 number>, "reason": "<short reason>"}\n\nCandidate: ${fingerprint}\n\nJob: ${jobText.slice(0, 8000)}`;
+}
+
+// Prefers strict JSON ({"score": N, "reason": "..."}) but falls back to
+// pulling the first number out of freeform text — some endpoints/models
+// ignore the "reply as JSON" instruction. The regex fallback is also why the
+// old plain "reply with only the number" prompt could pick up an unrelated
+// number from chain-of-thought preamble; the JSON instruction is the actual
+// fix, the regex is just a safety net for models that don't follow it.
+function parseScoreAndReason(raw: string): { score: number | null; reason: string } {
+  const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === "object" && "score" in parsed) {
+      const n = typeof parsed.score === "number" ? parsed.score : null;
+      return { score: n === null ? null : Math.max(0, Math.min(100, Math.round(n))), reason: String(parsed.reason || "").slice(0, 200) };
+    }
+  } catch {
+    // fall through to regex
+  }
+  const m = cleaned.match(/(\d+)/);
+  if (!m) return { score: null, reason: "" };
   const score = parseInt(m[1]!, 10);
-  return isNaN(score) ? null : Math.max(0, Math.min(100, score));
+  return { score: isNaN(score) ? null : Math.max(0, Math.min(100, score)), reason: "" };
 }
 
 function parseSalaryFromText(text: string): string {
@@ -599,10 +626,47 @@ async function setQuickCacheEntry(entry: QuickScoreEntry): Promise<void> {
   await chrome.storage.local.set({ [QUICK_CACHE_KEY]: cache });
 }
 
+// Runs entirely inside the job page's MAIN world via chrome.scripting so it
+// can see window.LanguageModel directly — no postMessage bridge needed since
+// (unlike overlay.ts) this is invoked from the background service worker via
+// executeScript, not from an isolated-world content script. Self-contained:
+// the function body is serialized and run standalone, so no closures over
+// outer variables. Only used when Nano reports availability === "available"
+// (already downloaded) — a fresh multi-minute model download would defeat
+// the point of a "quick" score, so background.ts doesn't trigger one here;
+// that download flow still lives in the overlay's ensureNano() for "Always
+// quick analyze this site" pages.
+async function nanoScoreInPage(fingerprint: string, jobText: string): Promise<string | null> {
+  try {
+    const lm = (window as any).LanguageModel;
+    if (!lm) return null;
+    const availability = await lm.availability();
+    if (availability !== "available") return null;
+    const session = await lm.create({
+      initialPrompts: [{
+        role: "system",
+        content: 'You are a job match scorer. Given a candidate profile and job posting, reply as JSON only: {"score": <0-100 number>, "reason": "<short reason, max 15 words>"}',
+      }],
+    });
+    try {
+      return await session.prompt(`Candidate: ${fingerprint}\n\nJob: ${jobText.slice(0, 8000)}`);
+    } finally {
+      session.destroy();
+    }
+  } catch {
+    return null;
+  }
+}
+
 // Runs a quick match score for the given (or active) tab — extraction via
 // activeTab + executeScript, same mechanism as ARTEMIS_EXTRACT_AND_IMPORT, so
-// no standing host permission is required. Results are cached per-URL; pass
-// force:true to bypass the cache (the panel's manual "Re-analyze" action).
+// no standing host permission is required. Tries on-device Nano first (fast,
+// free, matches the old overlay's default), falling back to a remote LLM
+// call only when the configured fallback mode allows it — "basic" mode means
+// Nano-or-nothing, same as the overlay, rather than silently hitting whatever
+// endpoint resolveEndpoint() defaults to. Results are cached per-URL *and*
+// per-fingerprint; pass force:true to bypass the cache (the panel's manual
+// "Re-analyze" action).
 async function handleQuickAnalyze(
   payload: { tabId?: number; force?: boolean } | undefined,
   sendResponse: (resp: any) => void
@@ -623,19 +687,19 @@ async function handleQuickAnalyze(
     }
     const url = tab.url;
 
-    if (!payload?.force) {
-      const cache = await getQuickCache();
-      const hit = cache[url];
-      if (hit) {
-        sendResponse({ ok: true, data: { ...hit, cached: true } });
-        return;
-      }
-    }
-
     const config = await getConfig();
     if (!config.fingerprint) {
       sendResponse({ error: t("background.noFingerprint") });
       return;
+    }
+
+    if (!payload?.force) {
+      const cache = await getQuickCache();
+      const hit = cache[url];
+      if (hit && hit.fingerprint === config.fingerprint) {
+        sendResponse({ ok: true, data: { ...hit, cached: true } });
+        return;
+      }
     }
 
     const [result] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageContent });
@@ -645,11 +709,24 @@ async function handleQuickAnalyze(
       return;
     }
 
-    const scoreRaw = await callRemoteLLM(
-      `Score 0-100 how well this candidate matches this job. Reply with only the number.\n\nCandidate: ${config.fingerprint}\n\nJob: ${data.text.slice(0, 4000)}`,
-      config
-    );
-    const score = parseScoreValue(scoreRaw);
+    let score: number | null = null;
+    let reason = "";
+    const [nanoResult] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: nanoScoreInPage,
+      args: [config.fingerprint, data.text],
+    });
+    const nanoRaw = nanoResult?.result;
+    if (nanoRaw) {
+      ({ score, reason } = parseScoreAndReason(nanoRaw));
+    } else if (config.fallbackMode !== "basic") {
+      const raw = await callRemoteLLM(buildScorePrompt(config.fingerprint, data.text), config);
+      ({ score, reason } = parseScoreAndReason(raw));
+    } else {
+      sendResponse({ error: t("background.nanoUnavailableBasic") });
+      return;
+    }
 
     const entry: QuickScoreEntry = {
       url,
@@ -657,6 +734,8 @@ async function handleQuickAnalyze(
       company: data.company,
       salary: parseSalaryFromText(data.text),
       score,
+      reason,
+      fingerprint: config.fingerprint,
       analyzedAt: new Date().toISOString(),
     };
     await setQuickCacheEntry(entry);
@@ -673,11 +752,17 @@ async function handleQuickAnalyze(
 // panel shows it without a redundant call) and rebroadcasts it for any open
 // side panel to pick up live via ARTEMIS_QUICK_SCORE_PUSH.
 async function handleQuickScoreUpdate(payload: {
-  url: string; title: string; company: string; salary: string; score: number | null;
+  url: string; title: string; company: string; salary: string; score: number | null; reason?: string;
 }) {
   try {
     if (payload.score == null) return; // don't cache a failed/pending score
-    const entry: QuickScoreEntry = { ...payload, score: payload.score, analyzedAt: new Date().toISOString() };
+    const config = await getConfig();
+    const entry: QuickScoreEntry = {
+      ...payload,
+      score: payload.score,
+      fingerprint: config.fingerprint,
+      analyzedAt: new Date().toISOString(),
+    };
     await setQuickCacheEntry(entry);
     chrome.runtime.sendMessage({ type: "ARTEMIS_QUICK_SCORE_PUSH", payload: entry }).catch(() => {});
   } catch (err) {

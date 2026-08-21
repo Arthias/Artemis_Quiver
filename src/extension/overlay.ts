@@ -230,6 +230,7 @@ let overlayEl: HTMLDivElement | null = null;
 let isExpanded = false;
 let hasFingerprint = false;
 let matchScore: number | null = null;
+let matchReason = "";
 let scoringFailed = false;
 let isImporting = false;
 let isImported = false;
@@ -580,6 +581,7 @@ async function computeMatch(pageText: string, config: OverlayConfig) {
   console.log("[Artemis] computeMatch start, hasFingerprint:", !!config.fingerprint, "fallbackMode:", config.fallbackMode, "text.length:", pageText.length);
   scoringFailed = false;
   matchScore = null;
+  matchReason = "";
   nanoTestResult = null;
   render();
 
@@ -601,13 +603,13 @@ async function computeMatch(pageText: string, config: OverlayConfig) {
       console.log("[Artemis] computeMatch: calling nano-score...");
       const result = String(await postMessageToNano("nano-score", { text: pageText, fp: config.fingerprint! }));
       console.log("[Artemis] computeMatch: nano-score raw result:", JSON.stringify(result));
-      matchScore = parseScore(result);
+      ({ score: matchScore, reason: matchReason } = parseScore(result));
       console.log("[Artemis] computeMatch: parsed score:", matchScore);
     } else if (config.fallbackMode !== "basic") {
       console.log("[Artemis] computeMatch: Nano unavailable, trying remoteMatch with fallback:", config.fallbackMode);
       const result = await remoteMatch(pageText, config.fingerprint!, config);
       console.log("[Artemis] computeMatch: remoteMatch raw result:", JSON.stringify(result));
-      matchScore = parseScore(result);
+      ({ score: matchScore, reason: matchReason } = parseScore(result));
       console.log("[Artemis] computeMatch: parsed score:", matchScore);
     } else {
       console.log("[Artemis] computeMatch: Nano unavailable, fallbackMode is basic — no scoring");
@@ -640,6 +642,7 @@ async function computeMatch(pageText: string, config: OverlayConfig) {
           company: extracted.company,
           salary: extracted.salary,
           score: matchScore,
+          reason: matchReason,
         },
       }).catch(() => {});
     } catch {}
@@ -751,6 +754,10 @@ async function testNano() {
   render();
 }
 
+// background.ts's handleLLMScore already parses the LLM's JSON reply into
+// {score, reason} — returned as a JSON string here so the caller can run it
+// through the same parseScore() path as the Nano branch instead of having
+// two separate result shapes to juggle.
 async function remoteMatch(text: string, fp: string, config: OverlayConfig): Promise<string> {
   console.log("[Artemis] remoteMatch: fallback:", config.fallbackMode, "text.length:", text.length);
   const resp = await chrome.runtime.sendMessage({
@@ -758,14 +765,24 @@ async function remoteMatch(text: string, fp: string, config: OverlayConfig): Pro
     payload: { fingerprint: fp, jobText: text.slice(0, 8000), fallbackMode: config.fallbackMode },
   });
   console.log("[Artemis] Remote match response:", resp);
-  return (resp as any)?.score ?? "";
+  return JSON.stringify({ score: (resp as any)?.score ?? null, reason: (resp as any)?.reason ?? "" });
 }
 
-function parseScore(raw: string): number | null {
-  const m = raw.match(/(\d+)/);
-  if (!m) return null;
+function parseScore(raw: string): { score: number | null; reason: string } {
+  const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === "object" && "score" in parsed) {
+      const n = typeof parsed.score === "number" ? parsed.score : null;
+      return { score: n === null ? null : Math.max(0, Math.min(100, Math.round(n))), reason: String(parsed.reason || "").slice(0, 200) };
+    }
+  } catch {
+    // fall through to regex — some endpoints/models ignore the JSON instruction
+  }
+  const m = cleaned.match(/(\d+)/);
+  if (!m) return { score: null, reason: "" };
   const score = parseInt(m[1]!, 10);
-  return isNaN(score) ? null : Math.max(0, Math.min(100, score));
+  return { score: isNaN(score) ? null : Math.max(0, Math.min(100, score)), reason: "" };
 }
 
 async function init() {

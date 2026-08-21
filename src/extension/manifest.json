@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Artemis Quiver",
-  "version": "3.9.0",
+  "version": "3.9.3",
   "description": "Import job postings into Artemis Quiver and get AI-powered match scoring",
   "permissions": ["scripting", "storage", "activeTab", "sidePanel"],
   "host_permissions": [

@@ -1,0 +1,13 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 760, "h": 840, "title": "Direction A — Amber Precision" },
+    { "file": "DirectionB.dc.html", "x": 840, "y": 0, "w": 760, "h": 840, "title": "Direction B — Quiver Dark" },
+    { "file": "DirectionC.dc.html", "x": 1680, "y": 0, "w": 760, "h": 840, "title": "Direction C — Cobalt Focus" }
+  ],
+  "annotations": [
+    { "id": "note-a", "x": 0, "y": 860, "w": 760, "text": "Motivation: instrument-panel precision — matches \"sharp, confident\" without feeling corporate.\nTradeoff: amber + warm neutrals can read slightly vintage/industrial rather than modern-app." },
+    { "id": "note-b", "x": 840, "y": 860, "w": 760, "text": "Motivation: dark mode stands apart from typical productivity tools; serif adds gravitas and trust.\nTradeoff: dark-only default may feel heavy for long CV-editing sessions; serif needs care at small sizes." },
+    { "id": "note-c", "x": 1680, "y": 860, "w": 760, "text": "Motivation: familiar, fast-to-build \"modern SaaS\" cobalt-on-white — instantly legible and trustworthy.\nTradeoff: closest to generic — leans on the arrow motif and condensed type to avoid looking like every other blue app." }
+  ],
+  "launch": { "view": "canvas" }
+}

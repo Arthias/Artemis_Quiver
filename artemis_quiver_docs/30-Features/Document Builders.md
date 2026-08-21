@@ -1,7 +1,7 @@
 ---
 tags: [feature, cv-builder, cl-builder, document-builder]
 status: maintained
-last_updated: 2026-07-21
+last_updated: 2026-08-20
 ---
 
 # Document Builders (CV & Cover Letter)
@@ -47,23 +47,20 @@ Analysis Hub (Route: /)
 CVBuilder (page)
   Header (border-b, print:hidden)
     Title / subtitle
-    ThemeConfigPanel (color picker + template dropdown)
+    ThemeConfigPanel (template picker, color pickers, font selects, section-style controls)
     Export buttons (PDF / MD legacy)
   Main content (flex row)
     Left panel (preview area, flex-1)
       Pre-generation form (job description + recommendations + generate button)
       OR Post-generation:
-        Page breaks toggle
-        InteractiveCVPreview
-          cv-preview-card (themed container)
-            Header row (name, title, contact inline edits)
-            Body sections (SectionBlock[])
-              Summary (InlineTextarea)
-              Experience (ExperienceItemCard[])
-              Skills (SkillsView)
-              Education (EducationItemCard[])
-              Certifications (InlineInput[])
-            Page break indicators (optional, absolute-positioned divs)
+        InteractiveCVPreview (thin dispatcher — owns content-mutation callbacks only)
+          TEMPLATE_COMPONENTS[templateId] (Classic | Modern | Executive | Minimal)
+            CVHeader (name, title, contact — contact variant from sectionVariants registry)
+            Body sections, each wrapped in SectionFrame (shared chrome: drag, move
+            up/down, collapse, page-break, label) — Executive additionally groups
+            skills/education/certifications into a fixed bottom 2-col grid
+              renderSectionContent() dispatches each section's body to the variant
+              registry (sectionVariants/registry.ts) based on ThemeConfig.sectionVariants
     Right panel (print:hidden)
       BuilderAssistantPanel (quick suggestions + chat refinement)
   Hidden <style> tag (print CSS: @page, page-keep, cv-preview-card overrides)
@@ -88,6 +85,10 @@ Profile (IndexedDB) + Job Description + Recommendations
 - Sub-components (`ExperienceItemCard`, `SkillsView`, `EducationItemCard`) manage their own editing UI state locally (e.g., `editing` boolean, `draft` form state)
 - Drag-to-reorder mutates `content.sections` array directly via `onContentChange`
 - Section collapse state (`collapsed: Set<string>`) is local to `InteractiveCVPreview` (not persisted)
+- `themeConfig: ThemeConfig` state in `CVBuilder`/`CLBuilder` is seeded from
+  `localStorage` (`artemis:cvThemeConfig` / `artemis:clThemeConfig` via
+  `src/app/utils/themeConfigStorage.ts`) and written back on every change — a template/color/
+  font/section-variant choice survives reload and navigation, per document type independently
 
 ### Data Model (Zod Schema)
 
@@ -115,7 +116,11 @@ Key design decisions:
 - `experience` items support both `bullets[]` (modern) and `description` (legacy) fields
 - `skills` supports flat `skills[]` and grouped `categories[]` — mutually exclusive fields
 - All fields are mutable by the user through inline editing
-- `ThemeConfig` uses `primaryColor` (hex) + `templateId` ("modern" | "classic" | "minimal")
+- `ThemeConfig` (`src/types/cv.ts`) = `{ templateId, primaryColor, accentColor, textColor,
+  headingFont, bodyFont, sectionVariants }`. `templateId` is one of the 4 `TEMPLATE_IDS`
+  (`"classic" | "modern" | "executive" | "minimal"`). `sectionVariants` is a loose
+  `Record<SectionType, string>` overriding the active template's default rendering style for
+  any of the 6 section types — see **Theme System** below.
 
 ### LLM Generation Pipeline
 
@@ -150,53 +155,79 @@ The preview and print output use the **same React component tree** — this is t
 - No iframe, no separate HTML generation — the React DOM is the source of truth
 
 **Previous approach (replaced):**
-- `renderCVToHTML()` in `renderingEngine.ts` generated standalone HTML
-- Hidden iframe loaded this HTML, then called `win.print()`
-- Two separate render paths always diverged (preview never matched PDF)
-- `renderingEngine.ts` still exists for the Cover Letter builder and as a fallback
+- The old `renderCVToHTML()` / `renderingEngine.ts` iframe approach (standalone HTML generation
+  + hidden iframe + `win.print()`) has been fully removed — no `renderingEngine.ts` file exists
+  in the codebase anymore. `window.print()` against the live React DOM is the only path, for
+  both CV and Cover Letter.
 
 ### Interactive Features
 
 **Inline editing (every field):**
 - Name, title: `InlineInput` (click to edit, blur to save)
 - Contact (email, phone, LinkedIn, location): `InlineInput` per field
-- Summary: `InlineTextarea` (click, edit, save/cancel)
+- Summary: `InlineTextarea` (click, edit, save/cancel) — or a `callout`-styled variant, see Theme System
 - Experience role/company/period/location: `ExperienceItemCard` has a modal editing mode with form inputs + bullet point editor
 - Skills: `SkillsView` has an editing mode with drag-to-reorder, category toggle, add/remove
 - Education: `EducationItemCard` modal editing mode
 - Certifications: inline `InlineInput` per item
 
-**Drag-to-reorder sections (Phase 2):**
+**Drag-to-reorder, collapse/expand, and page-break, all via shared `SectionFrame`:**
 - Body sections (summary, experience, skills, education, certifications) are rendered from `bodySections` array (filtered from `content.sections`, excluding "contact")
-- Each `SectionBlock` has a `GripVertical` drag handle + up/down arrow buttons
+- `src/components/cv/SectionFrame.tsx` is the one chrome component all 4 templates wrap every
+  body section in — `GripVertical` drag handle, up/down arrow buttons, collapse toggle
+  (chevron), and a page-break toggle, plus the `SECTION_LABELS` title. Previously this chrome
+  only existed inline in the Classic render path, so the Executive template silently lacked
+  reorder/collapse/page-break; extracting it into one component means every current and future
+  template gets all three by construction.
 - Drag events use native HTML5 drag API (`onDragStart`, `onDragOver`, `onDragEnd`)
-- `moveSection()` maps visual index → actual `sections[]` array index, handling index shift after splice
+- `moveSection()` (in `InteractiveCVPreview.tsx`) maps visual index → actual `sections[]` array index, handling index shift after splice
 - Contact section stays fixed in the header area (not in the body section list)
-
-**Collapse/expand (Phase 2):**
-- Each `SectionBlock` has a collapse toggle (chevron icon, right-aligned)
-- State tracked in `collapsed: Set<string>` by section type
-- Collapsed sections show a dashed border with "Collapsed" placeholder
-- Useful for focusing on specific sections during editing
-- Not persisted (collapsed state resets on re-render)
-
-**Pagebreak preview (Phase 2):**
-- Toggle button: "Show page breaks" / "Hide page breaks"
-- When enabled, `useLayoutEffect` measures `previewRef.current.scrollHeight`
-- Calculates page boundaries at `PAGE_HEIGHT_PX` (1050px ≈ A4 at preview scale)
-- Renders absolutely-positioned dashed rose lines with "Page N" labels
-- Hidden during print via `print:hidden`
-- Approximate indicator (equal intervals, not exact text-flow pagination)
+- Collapse state (`collapsed: Set<string>`) and drag state live in `InteractiveCVPreview` (not persisted — resets on re-render)
+- Page-break is a `pageBreakBefore` flag stored directly on the section object (persisted with the rest of `CVContent`)
+- On the **Executive** template specifically, skills/education/certifications are always grouped
+  into a fixed bottom 2-column grid (its distinguishing structural feature) — each is still
+  individually wrapped in `SectionFrame`, so reorder/collapse/page-break work on them, but
+  reordering them relative to summary/experience has no visible effect since their grid
+  position is fixed by design, not by array order.
 
 ### Theme System
 
-The `ThemeConfigPanel` (shared with the Builder sidebar) exposes:
-- **Color picker**: Hex input for `primaryColor` — controls section title color, tag backgrounds, title text, link colors
-- **Template selector**: Radio/tab toggle for `templateId` — modern, classic, minimal
+Theme is three independent, freely-combinable layers, all driven by one `ThemeConfig`
+(`src/types/cv.ts`) and rendered through `ThemeConfigPanel`:
 
-Theme application is split across two systems:
-1. **Screen preview** (`cvThemes.ts`): Returns `CVTheme` object with `React.CSSProperties` — applied as inline `style` props on React elements
-2. **Print** (CSS in CVBuilder's `<style>` tag): `getCvThemeStyles()` in `renderingEngine.ts` generates CSS strings — currently unused for CV print but available
+1. **Template** (`templateId`) — one of 4 curated presets in `src/components/cv/templates.ts`
+   (`TEMPLATE_PRESETS`), each grounded in a real resume-design category: **Classic** (single
+   column, serif heading, neutral — safest all-purpose), **Modern** (single column, sans-serif,
+   accent-forward), **Executive** (bottom 2-column grid, compact, for dense senior profiles),
+   **Minimal** (single column, no color, spacious — ATS-safe). A preset seeds default colors,
+   fonts, spacing, and default section variants; picking a template in the UI applies its full
+   preset (`applyTemplatePreset()`).
+2. **Colors/fonts** (`primaryColor`, `accentColor`, `textColor`, `headingFont`, `bodyFont`) —
+   3 hex color pickers + 2 font selects in `ThemeConfigPanel`, converted to a `CVTheme` object
+   of `React.CSSProperties` by `getCVTheme()` in `cvThemes.ts`. Every section variant component
+   consumes `theme` for all of its text (name/title/body/muted colors) — this was previously
+   inconsistent: `ExperienceItemCard`/`EducationItemCard`/`InlineTextarea` hardcoded gray
+   Tailwind classes regardless of the chosen colors, so customization only ever reached the
+   header. That gap is closed: every variant in `sectionVariants/` is theme-aware.
+3. **Section variants** (`sectionVariants: Record<SectionType, string>`) — each of the 6 section
+   types has 2-3 independent rendering styles, resolved per-section via `resolveVariant()` and
+   looked up in `src/components/cv/sectionVariants/registry.ts`: summary (`paragraph`/
+   `callout`), contact (`stacked`/`badges`), skills (`tags`/`columns`/`inline`), experience
+   (`classic`/`cards`/`timeline`), education (`classic`/`cards`), certifications (`list`/
+   `tags`). A section's variant defaults to whatever the active template preset specifies, but
+   is independently overridable in `ThemeConfigPanel`'s "Section styles" control — e.g. skills
+   can render in the `columns` style while experience stays `classic`, regardless of template.
+   Only the read-only render differs per variant; the edit-mode form (`ExperienceItemCard`/
+   `EducationItemCard`) is shared across all variants of a section type, since it's editing tool
+   chrome rather than document style.
+
+Theme choice (including section variants) persists to `localStorage` per document type
+(`artemis:cvThemeConfig`, `artemis:clThemeConfig`) via `src/app/utils/themeConfigStorage.ts`.
+
+**Cover Letter builder:** `ThemeConfigPanel` accepts `showTemplateSelector={false}` there —
+`InteractiveCLPreview` has no template/section concept (a letter has no discrete sections to
+vary), so the template picker and section-style controls are hidden entirely. Color and font
+pickers are unchanged and still apply via `getCVTheme(themeConfig)`.
 
 ### Export Pipeline
 
@@ -254,6 +285,9 @@ After generation, the page splits:
 - **Left Panel (Document View)**: Renders the cover letter.
 - **Right Panel (AI Refinement Assistant)**:
   - Provides text inputs to customize and request style/content changes dynamically via `editCoverLetter` chats.
+- **Styling**: `ThemeConfigPanel` with `showTemplateSelector={false}` — color and font pickers
+  only, no template or section-style controls (letters have no template/section concept). See
+  **Theme System** above.
 
 ### Exports
 
@@ -269,17 +303,23 @@ After generation, the page splits:
 | `src/app/pages/CLBuilder.tsx` | Cover letter builder page |
 | `src/app/services/cvBuilderService.ts` | LLM integration: prompt building, JSON normalization, retry with corrective feedback |
 | `src/app/services/clBuilderService.ts` | Cover letter LLM integration |
-| `src/components/cv/InteractiveCVPreview.tsx` | React interactive preview — all section rendering, inline editing, drag-to-reorder, collapse/expand, pagebreak indicators |
-| `src/components/cv/InteractiveCLPreview.tsx` | Cover letter interactive preview |
-| `src/components/cv/renderingEngine.ts` | JSON → themed HTML converter (3 themes, print CSS) — legacy for CL, fallback for CV |
-| `src/components/cv/cvThemes.ts` | Theme definitions: CVTheme interface + getCVTheme() for 3 templates |
+| `src/components/cv/InteractiveCVPreview.tsx` | Thin dispatcher — owns content-mutation callbacks + drag/collapse state, renders the selected template shell |
+| `src/components/cv/InteractiveCLPreview.tsx` | Cover letter interactive preview (single fixed layout, no template concept) |
+| `src/components/cv/templates.ts` | `TEMPLATE_PRESETS` (4 templates as data), `applyTemplatePreset()`, `resolveVariant()`, `spacingScale()` |
+| `src/components/cv/templates/` | The 4 template shell components (`ClassicTemplate`, `ModernTemplate`, `ExecutiveTemplate`, `MinimalTemplate`), `SingleColumnBase.tsx` (shared shell for the 3 single-column ones), `CVHeader.tsx` (shared name/title/contact) |
+| `src/components/cv/SectionFrame.tsx` | Shared chrome (drag, move up/down, collapse, page-break, label) every template wraps each body section in |
+| `src/components/cv/sectionVariants/` | Per-section-type style variants (`summary.tsx`, `contact.tsx`, `skills.tsx`, `experience.tsx`, `education.tsx`, `certifications.tsx`) + `registry.ts` lookup |
+| `src/components/cv/renderSectionContent.tsx` | Dispatches a `CVSection` to its resolved variant + wires up edit callbacks (Add/Update/Remove) |
+| `src/components/cv/cvThemes.ts` | Theme definitions: `CVTheme` interface + `getCVTheme()` — colors/fonts only; template structure and section variants live elsewhere |
+| `src/components/cv/EditComponents.tsx` | `ExperienceItemCard`/`EducationItemCard` (shared edit form + variant-aware view dispatch), `SkillsView`, `SECTION_LABELS` |
 | `src/components/cv/InlineEdit.tsx` | InlineInput + InlineTextarea shared edit components |
-| `src/types/cv.ts` | Zod schema + TypeScript types: CVContent, CVSection (discriminated union), ThemeConfig |
+| `src/types/cv.ts` | Zod schema + TypeScript types: CVContent, CVSection (discriminated union), ThemeConfig, TEMPLATE_IDS, SECTION_VARIANTS_BY_TYPE |
 | `src/app/types/cv.ts` | Barrel re-export for app-level imports |
 | `src/app/services/prompts.ts` | Prompt templates with v3 schema — system prompts for generation + edit modes |
 | `src/app/components/builder/BuilderAssistantPanel.tsx` | Shared AI Assistant sidebar (both builders) |
 | `src/app/components/builder/BuilderErrorDisplay.tsx` | Shared error display with retry button |
-| `src/app/components/builder/ThemeConfigPanel.tsx` | Shared theme selector + color picker |
+| `src/app/components/builder/ThemeConfigPanel.tsx` | Template picker, color/font pickers, per-section style controls — `showTemplateSelector` prop hides the template/section controls for CL |
+| `src/app/utils/themeConfigStorage.ts` | localStorage get/set for `ThemeConfig`, used by both builders to persist theme choice |
 | `src/app/utils/jsonParse.ts` | Markdown fence stripping for LLM JSON responses |
 | `src/app/utils/errors.ts` | `AppError` class + `ErrorCode` enum for categorized error handling |
 | `src/app/context/BuilderHandoffContext.tsx` | Cross-route data transfer from Analysis Hub to builders |

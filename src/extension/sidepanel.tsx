@@ -1,12 +1,14 @@
 /// <reference types="chrome" />
 import { createRoot } from "react-dom/client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import { parseSiteEntry, siteToOriginPatterns } from "./job-sites";
 import { loadTranslations, t } from "./i18n";
 import { extractPageContent } from "./pageExtract";
 import { getActiveProfileId, getProfile, saveSession } from "../app/db";
 import { analyzeJobPosting } from "../app/services/jobAnalysisService";
 import { getActiveEndpoint } from "../app/services/llmService";
+import type { AnalysisResult } from "../app/types/analysis";
+import type { BuilderHandoff } from "../app/types/workspace";
 
 function logErrorToApp(message: string, stack?: string, code?: string) {
   try {
@@ -34,6 +36,8 @@ interface QuickScoreEntry {
   company: string;
   salary: string;
   score: number | null;
+  reason?: string;
+  fingerprint?: string;
   analyzedAt: string;
   cached?: boolean;
 }
@@ -60,6 +64,7 @@ function Panel() {
   const [permError, setPermError] = useState<string | null>(null);
   const [deepState, setDeepState] = useState<"idle" | "running" | "done" | "error">("idle");
   const [deepError, setDeepError] = useState("");
+  const [deepResult, setDeepResult] = useState<{ sessionId: string; jobPosting: string; result: AnalysisResult } | null>(null);
   // Auto-analyze fires exactly once, for whatever tab was active when the
   // panel was opened (that click is what grants activeTab access). Switching
   // tabs or navigating afterward does NOT re-fire it — the whole point of
@@ -69,6 +74,19 @@ function Panel() {
   // (a per-site opt-in, not a panel-wide default) is for.
   const hasAutoRun = useRef(false);
   const [cacheChecked, setCacheChecked] = useState(false);
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
+
+  // A remote quick score can take several seconds (worst case the LLM call's
+  // own 30s timeout) — surface elapsed time so the panel doesn't look stuck.
+  useEffect(() => {
+    if (!loading) {
+      setLoadingSeconds(0);
+      return;
+    }
+    const start = Date.now();
+    const iv = setInterval(() => setLoadingSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [loading]);
 
   useEffect(() => {
     loadTranslations(navigator.language.split("-")[0] || "en")
@@ -114,6 +132,7 @@ function Panel() {
       setEntry(null);
       setError(null);
       setDeepState("idle");
+      setDeepResult(null);
       void refreshTabInfo();
     };
     const onUpdated = (_id: number, changeInfo: chrome.tabs.TabChangeInfo) => {
@@ -121,6 +140,7 @@ function Panel() {
         setEntry(null);
         setError(null);
         setDeepState("idle");
+        setDeepResult(null);
         void refreshTabInfo();
       }
     };
@@ -155,10 +175,14 @@ function Panel() {
     setError(null);
     setDeepState("idle");
     setCacheChecked(false);
-    chrome.storage.local.get(QUICK_CACHE_KEY).then((res) => {
+    chrome.storage.local.get([QUICK_CACHE_KEY, OVERLAY_CONFIG_KEY]).then((res) => {
       const cache = (res as any)[QUICK_CACHE_KEY] || {};
+      const cfg = (res as any)[OVERLAY_CONFIG_KEY] || {};
       const hit = cache[currentUrl] as QuickScoreEntry | undefined;
-      if (hit) setEntry({ ...hit, cached: true });
+      // Only trust a cached score if it was computed against the fingerprint
+      // that's current right now — otherwise a regenerated fingerprint or a
+      // profile edit would leave a stale score stuck showing indefinitely.
+      if (hit && hit.fingerprint === cfg.fingerprint) setEntry({ ...hit, cached: true });
       setCacheChecked(true);
     });
   }, [currentUrl]);
@@ -264,15 +288,11 @@ function Panel() {
         followUpMessages: [],
       });
 
-      const appUrl = chrome.runtime.getURL("index.html");
-      const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
-      if (existingTabs.length > 0 && existingTabs[0]?.id) {
-        await chrome.tabs.sendMessage(existingTabs[0].id, { type: "ARTEMIS_LOAD_SESSION", payload: { sessionId } });
-        await chrome.tabs.update(existingTabs[0].id, { active: true });
-      } else {
-        await chrome.storage.session.set({ "artemis:pendingSessionId": sessionId });
-        await chrome.tabs.create({ url: appUrl });
-      }
+      // Stay in the panel and show the result here (score + write-up + salary
+      // + handoff buttons) instead of jumping to the main tab immediately —
+      // the main tab is now only opened when the user picks one of those
+      // three actions below.
+      setDeepResult({ sessionId, jobPosting: data.text, result: analysis });
       setDeepState("done");
     } catch (err) {
       setDeepState("error");
@@ -284,6 +304,60 @@ function Panel() {
   const openApp = useCallback(() => {
     chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
   }, []);
+
+  // Shared by the three result-card actions below: message an already-open
+  // app tab live, or stash the payload for a freshly-opened one to pick up
+  // on mount — same dual mechanism AnalysisContext already uses for
+  // pendingSessionId (see RootLayout.tsx for the builder-handoff side).
+  const handoffToApp = useCallback(async (liveMessage: any, stashKey: string, stashValue: any) => {
+    const appUrl = chrome.runtime.getURL("index.html");
+    const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
+    if (existingTabs.length > 0 && existingTabs[0]?.id) {
+      await chrome.tabs.sendMessage(existingTabs[0].id, liveMessage);
+      await chrome.tabs.update(existingTabs[0].id, { active: true });
+    } else {
+      await chrome.storage.session.set({ [stashKey]: stashValue });
+      await chrome.tabs.create({ url: appUrl });
+    }
+  }, []);
+
+  const goToFullAnalysis = useCallback(() => {
+    if (!deepResult) return;
+    void handoffToApp(
+      { type: "ARTEMIS_LOAD_SESSION", payload: { sessionId: deepResult.sessionId } },
+      "artemis:pendingSessionId",
+      deepResult.sessionId
+    );
+  }, [deepResult, handoffToApp]);
+
+  const buildCV = useCallback(() => {
+    if (!deepResult) return;
+    const handoff: BuilderHandoff = {
+      jobPosting: deepResult.jobPosting,
+      cvRecommendations: deepResult.result.cvRecommendations,
+      sourceSessionId: deepResult.sessionId,
+      autoGenerate: true,
+    };
+    void handoffToApp(
+      { type: "ARTEMIS_LOAD_BUILDER_HANDOFF", payload: { target: "cv-builder", handoff } },
+      "artemis:pendingBuilderHandoff",
+      { target: "cv-builder", handoff }
+    );
+  }, [deepResult, handoffToApp]);
+
+  const buildCoverLetter = useCallback(() => {
+    if (!deepResult) return;
+    const handoff: BuilderHandoff = {
+      jobPosting: deepResult.jobPosting,
+      coverLetterDraft: deepResult.result.coverLetterDraft,
+      sourceSessionId: deepResult.sessionId,
+    };
+    void handoffToApp(
+      { type: "ARTEMIS_LOAD_BUILDER_HANDOFF", payload: { target: "cl-builder", handoff } },
+      "artemis:pendingBuilderHandoff",
+      { target: "cl-builder", handoff }
+    );
+  }, [deepResult, handoffToApp]);
 
   if (!translationsReady) {
     return <div style={{ padding: 16, color: "#64748b", fontSize: 14 }}>{"..."}</div>;
@@ -328,7 +402,15 @@ function Panel() {
 
             {loading ? (
               <div style={{ fontSize: "13px", color: "#94a3b8", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span>{t("sidepanel.analyzing")}</span>
+                <style>{"@keyframes artemis-spin { to { transform: rotate(360deg) } }"}</style>
+                <span
+                  style={{
+                    width: "14px", height: "14px", borderRadius: "50%",
+                    border: "2px solid rgba(148,163,184,0.25)", borderTopColor: "#94a3b8",
+                    display: "inline-block", animation: "artemis-spin 0.8s linear infinite", flexShrink: 0,
+                  }}
+                />
+                <span>{t("sidepanel.analyzing")}{loadingSeconds > 0 ? ` (${loadingSeconds}s)` : ""}</span>
               </div>
             ) : error ? (
               <div>
@@ -376,6 +458,9 @@ function Panel() {
                     {entry.salary && <div style={{ fontSize: "12px", color: "#94a3b8" }}>{entry.salary}</div>}
                   </div>
                 </div>
+                {entry.reason && (
+                  <div style={{ fontSize: "12px", color: "#cbd5e1", marginTop: "10px", lineHeight: 1.4 }}>{entry.reason}</div>
+                )}
                 <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
                   <button
                     onClick={() => runQuickAnalyze(true)}
@@ -392,7 +477,18 @@ function Panel() {
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: "13px", color: "#64748b" }}>{t("sidepanel.noScoreYet")}</div>
+              <div>
+                <div style={{ fontSize: "13px", color: "#64748b", marginBottom: "8px" }}>{t("sidepanel.noScoreYet")}</div>
+                <button
+                  onClick={() => runQuickAnalyze(true)}
+                  style={{
+                    width: "100%", padding: "7px 10px", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px",
+                    background: "#1e293b", color: "#e2e8f0", fontSize: "12px", cursor: "pointer",
+                  }}
+                >
+                  {t("sidepanel.analyzeNow")}
+                </button>
+              </div>
             )}
           </div>
 
@@ -420,23 +516,49 @@ function Panel() {
           </div>
 
           <div>
-            <button
-              onClick={runDeepAnalysis}
-              disabled={deepState === "running"}
-              style={{
-                width: "100%", padding: "10px 14px", border: "none", borderRadius: "8px",
-                background: deepState === "running" ? "#2563eb" : "#3b82f6",
-                color: "#fff", fontSize: "13px", fontWeight: "600",
-                cursor: deepState === "running" ? "default" : "pointer",
-              }}
-            >
-              {deepState === "running" ? t("sidepanel.deepAnalysisRunning") : t("sidepanel.deepAnalysis")}
-            </button>
-            {deepState === "done" && (
-              <div style={{ marginTop: "6px", fontSize: "11px", color: "#22c55e" }}>{t("sidepanel.deepAnalysisDone")}</div>
+            {deepState !== "done" && (
+              <button
+                onClick={runDeepAnalysis}
+                disabled={deepState === "running"}
+                style={{
+                  width: "100%", padding: "10px 14px", border: "none", borderRadius: "8px",
+                  background: deepState === "running" ? "#2563eb" : "#3b82f6",
+                  color: "#fff", fontSize: "13px", fontWeight: "600",
+                  cursor: deepState === "running" ? "default" : "pointer",
+                }}
+              >
+                {deepState === "running" ? t("sidepanel.deepAnalysisRunning") : t("sidepanel.deepAnalysis")}
+              </button>
             )}
             {deepState === "error" && (
               <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>{deepError}</div>
+            )}
+            {deepState === "done" && deepResult && (
+              <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "14px", background: "rgba(255,255,255,0.02)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div
+                    style={{
+                      width: "52px", height: "52px", borderRadius: "50%",
+                      border: `3px solid ${scoreColor(deepResult.result.score)}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "15px", fontWeight: "700", color: scoreColor(deepResult.result.score), flexShrink: 0,
+                    }}
+                  >
+                    {deepResult.result.score}%
+                  </div>
+                  {deepResult.result.salaryRange && (
+                    <div style={{ fontSize: "13px", color: "#94a3b8" }}>{deepResult.result.salaryRange}</div>
+                  )}
+                </div>
+                {deepResult.result.summary && (
+                  <div style={{ fontSize: "13px", color: "#cbd5e1", marginTop: "10px", lineHeight: 1.5 }}>{deepResult.result.summary}</div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "12px" }}>
+                  <button onClick={buildCV} style={secBtnStyle}>{t("sidepanel.buildCV")}</button>
+                  <button onClick={buildCoverLetter} style={secBtnStyle}>{t("sidepanel.buildCoverLetter")}</button>
+                  <button onClick={goToFullAnalysis} style={secBtnStyle}>{t("sidepanel.goToFullAnalysis")}</button>
+                </div>
+              </div>
             )}
           </div>
         </>
@@ -444,5 +566,10 @@ function Panel() {
     </div>
   );
 }
+
+const secBtnStyle: CSSProperties = {
+  padding: "8px 10px", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px",
+  background: "#1e293b", color: "#e2e8f0", fontSize: "12px", fontWeight: 500, cursor: "pointer",
+};
 
 createRoot(document.getElementById("root")!).render(<Panel />);

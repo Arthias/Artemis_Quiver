@@ -9,11 +9,11 @@ import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCv, editCv } from "../services/cvBuilderService";
 import { getActiveEndpoint } from "../services/llmService";
-import type { CVContent } from "../types/cv";
-import type { ThemeConfig } from "../components/builder/ThemeConfigPanel";
+import type { CVContent, SectionType, ThemeConfig } from "../types/cv";
 import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
 import { toast } from "sonner";
 import { getCVTheme } from "../../components/cv/cvThemes";
+import { applyTemplatePreset } from "../../components/cv/templates";
 import { extractJsonObject } from "../utils/jsonParse";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
@@ -21,6 +21,9 @@ import { useTranslation } from "react-i18next";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
+import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
+
+const CV_THEME_STORAGE_KEY = "artemis:cvThemeConfig";
 
 export function CVBuilder() {
   const { t } = useTranslation();
@@ -38,14 +41,9 @@ export function CVBuilder() {
   const [jobDescription, setJobDescription] = useState("");
   const [jobDescExpanded, setJobDescExpanded] = useState(true);
   const [cvContent, setCvContent] = useState<CVContent | null>(null);
-  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({
-    templateId: "classic",
-    primaryColor: "#1e293b",
-    accentColor: "#2563eb",
-    textColor: "#475569",
-    headingFont: "'Inter', -apple-system, sans-serif",
-    bodyFont: "'Inter', -apple-system, sans-serif",
-  });
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>(
+    () => loadThemeConfig(CV_THEME_STORAGE_KEY) ?? applyTemplatePreset("classic")
+  );
   const [recs, setRecs] = useState<{ text: string; enabled: boolean; comment: string }[]>([]);
   const [isGenerated, setIsGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -53,6 +51,12 @@ export function CVBuilder() {
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryableError, setRetryableError] = useState<AppError | null>(null);
+
+  useEffect(() => {
+    saveThemeConfig(CV_THEME_STORAGE_KEY, themeConfig);
+  }, [themeConfig]);
+
+  const presentSections: SectionType[] = cvContent?.sections.map(s => s.type) ?? [];
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -169,7 +173,7 @@ export function CVBuilder() {
           </div>
 
           {isGenerated && cvContent && (
-            <ThemeConfigPanel config={themeConfig} onChange={(c) => setThemeConfig(c as any)} />
+            <ThemeConfigPanel config={themeConfig} onChange={setThemeConfig} presentSections={presentSections} />
           )}
         </div>
       </div>
@@ -300,7 +304,7 @@ export function CVBuilder() {
                       content={cvContent}
                       onContentChange={setCvContent}
                       theme={getCVTheme(themeConfig)}
-                      templateId={themeConfig.templateId}
+                      config={themeConfig}
                     />
                   )}
                 </div>

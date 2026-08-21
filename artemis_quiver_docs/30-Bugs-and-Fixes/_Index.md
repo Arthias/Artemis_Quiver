@@ -1,7 +1,7 @@
 ---
 tags: [index, bugfixes, issues, resolved]
 status: completed
-last_updated: 2026-06-10
+last_updated: 2026-08-20
 ---
 
 # 🐛 Bugs & Fixes — Resolution Log
@@ -10,6 +10,28 @@ All bugs discovered and fixed in Artemis Quiver.
 
 > [!TIP] Usage
 > Always check this page **before** implementing fixes to avoid duplicate work or missing context.
+
+## 2026-08-20: CV/CL Builder template consistency pass (v3.8.0)
+
+### Issue: Cover Letter builder's "Template" selector did nothing
+
+**Symptom:** `CLBuilder.tsx` rendered the same `ThemeConfigPanel` used by the CV builder,
+including its Classic/Executive template picker. Clicking "Executive" highlighted the button
+but the rendered cover letter never changed.
+
+**Root Cause:** `InteractiveCLPreview.tsx` never had a `templateId` prop or any per-template
+rendering logic — cover letters only ever had one fixed layout. `CLBuilder.tsx` read
+`themeConfig.templateId` nowhere except to satisfy the shared `ThemeConfig` type. The control
+was visually present but structurally unwired.
+
+**Fix Applied:** Removed the template (and section-style) controls for the Cover Letter builder
+specifically, rather than inventing a no-op template concept for letters. `ThemeConfigPanel`
+gained a `showTemplateSelector` prop (default `true`); `CLBuilder.tsx` passes `false`. Color and
+font pickers, which did have a real effect via `getCVTheme(themeConfig)`, are unchanged.
+
+**Location:** `src/app/components/builder/ThemeConfigPanel.tsx`, `src/app/pages/CLBuilder.tsx`
+
+---
 
 ## 2026-05-28: trim() Safety Issues (Commit: 2c97a87)
 

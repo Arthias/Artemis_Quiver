@@ -60,8 +60,29 @@ const CVContentSchema = z.object({
   sections: z.array(CVSectionSchema).min(1).describe("CV section array")
 });
 
-export const TEMPLATE_IDS = ["classic", "executive"] as const;
+export const TEMPLATE_IDS = ["classic", "modern", "executive", "minimal"] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
+
+export const SECTION_TYPES = [
+  "summary", "contact", "skills", "experience", "education", "certifications",
+] as const;
+export type SectionType = (typeof SECTION_TYPES)[number];
+
+export const SUMMARY_VARIANTS = ["paragraph", "callout"] as const;
+export const CONTACT_VARIANTS = ["stacked", "badges"] as const;
+export const SKILLS_VARIANTS = ["tags", "columns", "inline"] as const;
+export const EXPERIENCE_VARIANTS = ["classic", "cards", "timeline"] as const;
+export const EDUCATION_VARIANTS = ["classic", "cards"] as const;
+export const CERTIFICATIONS_VARIANTS = ["list", "tags"] as const;
+
+export const SECTION_VARIANTS_BY_TYPE: Record<SectionType, readonly string[]> = {
+  summary: SUMMARY_VARIANTS,
+  contact: CONTACT_VARIANTS,
+  skills: SKILLS_VARIANTS,
+  experience: EXPERIENCE_VARIANTS,
+  education: EDUCATION_VARIANTS,
+  certifications: CERTIFICATIONS_VARIANTS,
+};
 
 const ThemeConfigSchema = z.object({
   templateId: z.enum(TEMPLATE_IDS).default("classic"),
@@ -70,6 +91,7 @@ const ThemeConfigSchema = z.object({
   textColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   headingFont: z.string().min(1),
   bodyFont: z.string().min(1),
+  sectionVariants: z.record(z.string(), z.string()).default({}),
 });
 
 export type CVSection = z.infer<typeof CVSectionSchema>;

@@ -545,7 +545,8 @@
     "scorePrompt": "Score 0-100 how well this candidate matches this job. Reply with only the number.",
     "quickAnalyzeNoTab": "No active tab to analyze.",
     "quickAnalyzeNoContent": "No job content found on this page.",
-    "noFingerprint": "No profile fingerprint yet. Open the Artemis Quiver popup and generate one to get quick scores."
+    "noFingerprint": "No profile fingerprint yet. Open the Artemis Quiver popup and generate one to get quick scores.",
+    "nanoUnavailableBasic": "Gemini Nano is unavailable and fallback mode is set to Basic. Switch the fallback mode in the extension popup to enable remote scoring."
   },
   "sidepanel": {
     "title": "Artemis Quiver",
@@ -557,6 +558,7 @@
     "reanalyze": "Re-analyze",
     "cachedResult": "Cached result",
     "noScoreYet": "No score yet.",
+    "analyzeNow": "Analyze",
     "alwaysOn": "Always quick analyze this site",
     "alwaysOnDesc": "Auto-score every posting as you browse this site — quick score only, never deep analysis.",
     "on": "On",
@@ -564,7 +566,9 @@
     "permissionDenied": "Permission to access this site was not granted.",
     "deepAnalysis": "Deep analysis",
     "deepAnalysisRunning": "Running deep analysis…",
-    "deepAnalysisDone": "Done — opening in Artemis Quiver",
+    "buildCV": "Build CV",
+    "buildCoverLetter": "Build Cover Letter",
+    "goToFullAnalysis": "Go to full analysis",
     "noContent": "No job content found on this page.",
     "noProfile": "No active profile found. Open Artemis Quiver and create a profile first."
   },

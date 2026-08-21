@@ -39,8 +39,8 @@ export function InlineInput({ value, onSave, className, placeholder, style }: {
   );
 }
 
-export function InlineTextarea({ value, onSave, className }: {
-  value: string; onSave: (v: string) => void; className?: string;
+export function InlineTextarea({ value, onSave, className, style }: {
+  value: string; onSave: (v: string) => void; className?: string; style?: React.CSSProperties;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -82,7 +82,7 @@ export function InlineTextarea({ value, onSave, className }: {
       onClick={() => setEditing(true)}
       className="cursor-pointer group relative rounded-md p-2 -m-2 hover:bg-gray-50 transition-colors"
     >
-      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{value}</p>
+      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap" style={style}>{value}</p>
       <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400">
         <Pencil className="w-3.5 h-3.5" />
       </span>

@@ -13,6 +13,8 @@ import type { CLContent } from "../../types/cl";
 import { CLContentSchema } from "../../types/cl";
 import { InteractiveCLPreview } from "../../components/cv/InteractiveCLPreview";
 import { getCVTheme } from "../../components/cv/cvThemes";
+import { applyTemplatePreset } from "../../components/cv/templates";
+import type { ThemeConfig } from "../../types/cv";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 import { toast } from "sonner";
@@ -21,6 +23,9 @@ import { useTranslation } from "react-i18next";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
+import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
+
+const CL_THEME_STORAGE_KEY = "artemis:clThemeConfig";
 
 export function CLBuilder() {
   const { t } = useTranslation();
@@ -49,14 +54,13 @@ export function CLBuilder() {
   const [retryableError, setRetryableError] = useState<AppError | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [themeConfig, setThemeConfig] = useState({
-    templateId: "classic" as const,
-    primaryColor: "#1e293b",
-    accentColor: "#2563eb",
-    textColor: "#475569",
-    headingFont: "'Inter', -apple-system, sans-serif",
-    bodyFont: "'Inter', -apple-system, sans-serif",
-  });
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>(
+    () => loadThemeConfig(CL_THEME_STORAGE_KEY) ?? applyTemplatePreset("classic")
+  );
+
+  useEffect(() => {
+    saveThemeConfig(CL_THEME_STORAGE_KEY, themeConfig);
+  }, [themeConfig]);
 
   useEffect(() => {
     const handoff = consumeHandoff();
@@ -197,7 +201,7 @@ export function CLBuilder() {
 
           {isGenerated && clContent && (
             <div className="cl-ui-theme">
-              <ThemeConfigPanel config={themeConfig} onChange={(c) => setThemeConfig(c as any)} />
+              <ThemeConfigPanel config={themeConfig} onChange={setThemeConfig} showTemplateSelector={false} />
             </div>
           )}
         </div>

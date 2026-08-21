@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Pencil, X, Check, Plus } from "lucide-react";
 import type { CVSection } from "../../types/cv";
 import type { CVTheme } from "./cvThemes";
+import { EXPERIENCE_COMPONENTS, EDUCATION_COMPONENTS, SKILLS_COMPONENTS, pick } from "./sectionVariants/registry";
+import type { ExperienceItem, EducationItem } from "./sectionVariants/types";
 
 export const SECTION_LABELS: Record<string, string> = {
   summary: "Professional Summary",
@@ -11,9 +13,10 @@ export const SECTION_LABELS: Record<string, string> = {
   certifications: "Certifications",
 };
 
-export function ExperienceItemCard({ item, onUpdate, onRemove }: {
-  item: { role: string; company: string; period: string; location?: string; bullets?: string[]; description?: string };
+export function ExperienceItemCard({ item, onUpdate, onRemove, variant = "classic", theme }: {
+  item: ExperienceItem;
   onUpdate: (item: any) => void; onRemove: () => void;
+  variant?: string; theme?: CVTheme;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...item });
@@ -68,34 +71,14 @@ export function ExperienceItemCard({ item, onUpdate, onRemove }: {
     );
   }
 
-  const bullets = item.bullets ?? [];
+  const View = theme ? pick(EXPERIENCE_COMPONENTS, variant, "classic") : null;
+
   return (
     <div
       className="page-keep group relative cursor-pointer rounded-lg p-3 -mx-3 hover:bg-gray-50 transition-colors"
       onClick={() => setEditing(true)}
     >
-      <div className="flex justify-between items-start mb-1">
-        <div>
-          <h3 className="font-semibold text-gray-900 text-sm">{item.role || "Untitled Role"}</h3>
-          <p className="text-sm text-gray-600">
-            {item.company && <span className="font-medium text-gray-700">{item.company}</span>}
-            {item.location && <span className="text-gray-400"> &mdash; {item.location}</span>}
-          </p>
-        </div>
-        {item.period && (
-          <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{item.period}</span>
-        )}
-      </div>
-      {bullets.length > 0 && (
-        <ul className="mt-1.5 space-y-1">
-          {bullets.map((b: string, i: number) => (
-            <li key={i} className="text-sm text-gray-700 leading-relaxed pl-4 relative before:content-['•'] before:absolute before:left-1 before:text-gray-400">{b}</li>
-          ))}
-        </ul>
-      )}
-      {item.description && !bullets.length && (
-        <p className="text-sm text-gray-700 mt-1 leading-relaxed">{item.description}</p>
-      )}
+      {View && theme ? <View item={item} theme={theme} /> : <FallbackExperienceView item={item} />}
       <button
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600"
         onClick={(e) => { e.stopPropagation(); setEditing(true); }}
@@ -107,9 +90,32 @@ export function ExperienceItemCard({ item, onUpdate, onRemove }: {
   );
 }
 
-export function EducationItemCard({ item, onUpdate, onRemove }: {
-  item: { degree: string; institution: string; period: string; location?: string };
+function FallbackExperienceView({ item }: { item: ExperienceItem }) {
+  const bullets = item.bullets ?? [];
+  return (
+    <div className="flex justify-between items-start mb-1">
+      <div>
+        <h3 className="font-semibold text-gray-900 text-sm">{item.role || "Untitled Role"}</h3>
+        <p className="text-sm text-gray-600">
+          {item.company && <span className="font-medium text-gray-700">{item.company}</span>}
+          {item.location && <span className="text-gray-400"> &mdash; {item.location}</span>}
+        </p>
+        {bullets.length > 0 && (
+          <ul className="mt-1.5 space-y-1">
+            {bullets.map((b, i) => <li key={i} className="text-sm text-gray-700 leading-relaxed pl-4 relative before:content-['•'] before:absolute before:left-1 before:text-gray-400">{b}</li>)}
+          </ul>
+        )}
+        {item.description && !bullets.length && <p className="text-sm text-gray-700 mt-1 leading-relaxed">{item.description}</p>}
+      </div>
+      {item.period && <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{item.period}</span>}
+    </div>
+  );
+}
+
+export function EducationItemCard({ item, onUpdate, onRemove, variant = "classic", theme }: {
+  item: EducationItem;
   onUpdate: (item: any) => void; onRemove: () => void;
+  variant?: string; theme?: CVTheme;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...item });
@@ -150,24 +156,31 @@ export function EducationItemCard({ item, onUpdate, onRemove }: {
     );
   }
 
+  const View = theme ? pick(EDUCATION_COMPONENTS, variant, "classic") : null;
+
   return (
     <div
       className="page-keep group relative cursor-pointer flex justify-between items-start rounded-lg p-2 -mx-2 hover:bg-gray-50 transition-colors"
       onClick={() => setEditing(true)}
     >
-      <div>
-        <p className="font-semibold text-gray-900 text-sm">{item.degree}</p>
-        <p className="text-sm text-gray-600">{item.institution}{item.location ? `, ${item.location}` : ""}</p>
-      </div>
-      {item.period && <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{item.period}</span>}
+      {View && theme ? (
+        <div className="flex-1"><View item={item} theme={theme} /></div>
+      ) : (
+        <div>
+          <p className="font-semibold text-gray-900 text-sm">{item.degree}</p>
+          <p className="text-sm text-gray-600">{item.institution}{item.location ? `, ${item.location}` : ""}</p>
+          {item.period && <span className="text-xs text-gray-500 whitespace-nowrap ml-2">{item.period}</span>}
+        </div>
+      )}
     </div>
   );
 }
 
-export function SkillsView({ skills, onUpdateSkillsSection, theme }: {
+export function SkillsView({ skills, onUpdateSkillsSection, theme, variant = "tags" }: {
   skills: Extract<CVSection, { type: "skills" }>;
   onUpdateSkillsSection: (section: Extract<CVSection, { type: "skills" }>) => void;
   theme?: CVTheme;
+  variant?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [items, setItems] = useState<Array<{ name: string; isCategory: boolean }>>([]);
@@ -320,37 +333,13 @@ export function SkillsView({ skills, onUpdateSkillsSection, theme }: {
     );
   }
 
-  const cats = skills.categories;
-  if (cats && cats.length > 0) {
-    return (
-      <div className="group relative">
-        <div className="grid grid-cols-1 md:grid-cols-2 print-grid-2 gap-4 text-sm">
-          {cats.map((cat, i) => (
-            <div key={i}>
-              <h3 className="font-semibold text-xs uppercase tracking-wide mb-1.5" style={{ color: theme?.sectionTitle.color }}>{cat.name}</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {cat.items.map((item, j) => (
-                  <span key={j} className="inline-block px-2 py-0.5 rounded text-xs" style={{ background: theme?.tag.background, color: theme?.tag.color }}>{item}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <button onClick={startEditing} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600">
-          <Pencil className="w-3 h-3" />
-        </button>
-      </div>
-    );
-  }
+  const hasContent = (skills.categories && skills.categories.length > 0) || (skills.skills && skills.skills.length > 0);
+  const View = pick(SKILLS_COMPONENTS, variant, "tags");
 
-  if (skills.skills && skills.skills.length > 0) {
+  if (hasContent) {
     return (
       <div className="group relative">
-        <div className="flex flex-wrap gap-2">
-          {skills.skills.map((s, i) => (
-            <span key={i} className="inline-block text-sm px-2.5 py-1 rounded" style={{ background: theme?.tag.background, color: theme?.tag.color }}>{s}</span>
-          ))}
-        </div>
+        {theme ? <View skills={skills} theme={theme} /> : null}
         <button onClick={startEditing} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-400 hover:text-blue-600">
           <Pencil className="w-3 h-3" />
         </button>
