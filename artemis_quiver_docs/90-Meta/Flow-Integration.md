@@ -221,3 +221,4 @@ The original iframe / shared-component-library / "Quiver becomes the shell" opti
 - `F:\Dev\BrainVault\+\2026-08-17-Quiver-Flow-Integration-Strategy.md` — full joint-decisions record.
 - `F:\Dev\Artemis_Flow\artemis_flow_docs\60-Roadmap\Search-Scoring-Independence-and-Backlog-Management.md` — Flow's own scoring/backlog/dedup design.
 - `F:\Dev\Artemis_Flow\artemis_flow_docs\90-Meta\INTEGRATION_STRATEGY.md` — Flow-side correction note.
+- `60-Roadmap/UI-Restructure-Proposals.md` — **open discussion, not decided (2026-08-21)**: a proposal to give Flow its own top-level page (`/flow.html`) instead of being a route inside Quiver's app, which would revise the "Flow Panel (Config Page)" framing above if adopted. Also covers a separate, unrelated proposal to replace the job-page overlay with a browser side panel. Neither is scoped — read before assuming this doc's "Flow Panel" section is still the final shape.

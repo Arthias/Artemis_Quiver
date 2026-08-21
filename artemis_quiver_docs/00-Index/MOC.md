@@ -41,6 +41,7 @@ last_updated: 2026-07-06
 ## Project Roadmap & Backlog
 - [[../60-Roadmap/Plan|Development Plan & Backlog]]
 - [[../60-Roadmap/Public Beta Release|Public Beta Release]] — store-readiness checklist (R1–R5 blockers, CI flow)
+- [[../60-Roadmap/UI-Restructure-Proposals|UI Restructure Proposals]] — open discussion: Flow as its own page, overlay → sidebar (not decided, not scoped)
 
 ## Project Metadata
 - [[../90-Meta/CHANGELOG|CHANGELOG]]
