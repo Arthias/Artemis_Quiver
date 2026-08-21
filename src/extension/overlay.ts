@@ -437,74 +437,50 @@ function injectNanoBridge() {
   script.addEventListener("load", () => script.remove());
 }
 
+// Headless now — the side panel replaced the floating badge as the on-page
+// surface (2026-08-21), so this no longer creates any visible DOM. It still
+// runs the full extraction + scoring pipeline on "Always quick analyze this
+// site" pages so a fresh score reaches the panel automatically via the
+// ARTEMIS_QUICK_SCORE_UPDATE relay at the end of computeMatch() — that relay,
+// and the settle-detection in initUrlWatch that triggers this function, are
+// the only reasons this file still runs as a content script at all. render()
+// calls inside computeMatch() are harmless no-ops (see the `if (!el) return`
+// guard) since overlayEl is never assigned anymore.
+let isProcessing = false;
+
 async function injectOverlay(config: OverlayConfig) {
-  if (document.getElementById("artemis-overlay")) return;
+  if (isProcessing) return;
+  isProcessing = true;
+  try {
+    injectNanoBridge();
 
-  injectNanoBridge();
+    hasFingerprint = !!config.fingerprint;
+    currentFallbackMode = config.fallbackMode;
+    matchScore = null;
+    scoringFailed = false;
 
-  // Host div lives in the page's light DOM (it's the only overlay node a
-  // host page's CSS can ever select into), so its own layout-critical styles
-  // are set directly via the DOM API rather than the injected stylesheet.
-  const host = document.createElement("div");
-  host.id = "artemis-overlay";
-  host.style.cssText = "all: initial; position: fixed; z-index: 2147483647; top: 0; left: 0;";
-  document.body.appendChild(host);
-  hostEl = host;
+    const pageText = document.body.innerText;
+    const cleaned = await cleanPageText();
+    extracted = {
+      title: cleaned.title || extractJobData(pageText).title,
+      company: extractJobData(pageText).company,
+      salary: extractJobData(pageText).salary,
+    };
 
-  // Everything else — markup and styling — lives inside a shadow tree, which
-  // host page CSS (even with !important) cannot reach into. The stylesheet is
-  // applied via the Constructable Stylesheets API (adoptedStyleSheets), which
-  // is programmatic CSSOM, not a page-authored <style>/<link>, so it is not
-  // subject to the page's style-src CSP the way an injected <style> tag is.
-  const shadow = host.attachShadow({ mode: "open" });
-  overlayShadowRoot = shadow;
-
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(STYLES);
-  shadow.adoptedStyleSheets = [sheet];
-
-  const el = document.createElement("div");
-  el.id = "artemis-overlay";
-  shadow.appendChild(el);
-  overlayEl = el;
-
-  loadPosition().then((pos) => {
-    host.style.bottom = "auto";
-    host.style.right = "auto";
-    host.style.left = pos.x + "px";
-    host.style.top = pos.y + "px";
-  });
-
-  isExpanded = false;
-  hasFingerprint = !!config.fingerprint;
-  currentFallbackMode = config.fallbackMode;
-  matchScore = null;
-  scoringFailed = false;
-  isImporting = false;
-  isImported = false;
-  nanoTestResult = null;
-  nanoTesting = false;
-
-  const pageText = document.body.innerText;
-  const cleaned = await cleanPageText();
-  extracted = {
-    title: cleaned.title || extractJobData(pageText).title,
-    company: extractJobData(pageText).company,
-    salary: extractJobData(pageText).salary,
-  };
-
-  render();
-  setupOverlayEvents(el, host);
-
-  if (hasFingerprint) {
-    void computeMatch(cleaned.text, config);
+    if (hasFingerprint) {
+      await computeMatch(cleaned.text, config);
+    }
+  } finally {
+    isProcessing = false;
   }
 
-  // React to config changes (e.g. fingerprint generated in popup)
+  // React to config changes (e.g. fingerprint generated in popup) — no
+  // overlayEl/overlayShadowRoot guard anymore since neither is ever created;
+  // this is what keeps the panel's live relay current after the fingerprint
+  // changes, not just on the initial navigation.
   if (!storageInit) {
     storageInit = true;
     chrome.storage.onChanged.addListener((changes) => {
-      if (!overlayEl || !overlayShadowRoot) return;
       const change = changes[STORAGE_KEY];
       if (!change) return;
       const newConfig = (change.newValue || change.oldValue) as OverlayConfig | undefined;
@@ -512,18 +488,11 @@ async function injectOverlay(config: OverlayConfig) {
       const hadFingerprint = hasFingerprint;
       hasFingerprint = !!newConfig.fingerprint;
       currentFallbackMode = newConfig.fallbackMode;
-      console.log("[Artemis] storage changed: hadFingerprint:", hadFingerprint, "hasFingerprint:", hasFingerprint, "matchScore:", matchScore);
-      if (hasFingerprint && !hadFingerprint && matchScore === null) {
-        console.log("[Artemis] storage changed: re-triggering computeMatch");
+      // Fingerprint just appeared (didn't have one, now does) — recompute so
+      // the panel gets a real score instead of staying on "no fingerprint."
+      if (hasFingerprint && !hadFingerprint) {
+        scoringFailed = false;
         void cleanPageText().then((c) => computeMatch(c.text, newConfig));
-      } else if (hasFingerprint !== hadFingerprint) {
-        if (hasFingerprint) {
-          scoringFailed = false;
-          console.log("[Artemis] storage changed: fingerprint appeared, re-triggering computeMatch");
-          void cleanPageText().then((c) => computeMatch(c.text, newConfig));
-        } else {
-          render();
-        }
       }
     });
   }
