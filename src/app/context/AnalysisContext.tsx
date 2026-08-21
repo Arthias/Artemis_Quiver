@@ -64,6 +64,49 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setDraftJobPosting(profileData.draftJobPosting);
     load();
   }, [activeProfileId]);
+
+  // Pick up a session handed off from the side panel's "Deep analysis"
+  // button (sidepanel.tsx) — it saves the session to IndexedDB itself, then
+  // either messages an already-open app tab or stashes the id in
+  // chrome.storage.session before opening one. This mirrors the existing
+  // pendingImport handoff in ExtensionBridgeContext, just for a session id
+  // instead of raw job text — loadSession() already does everything needed
+  // to switch the view to it, no new route required.
+  useEffect(() => {
+    const isExtension = typeof chrome !== "undefined" && chrome.runtime?.id;
+    if (!isExtension) return;
+
+    async function consumePendingSession(id: string) {
+      // The session may have been written after this tab's last `sessions`
+      // load — re-fetch directly rather than trusting stale state.
+      const fresh = await getSessions(activeProfileId);
+      setSessions(fresh);
+      const session = fresh.find((s) => s.id === id);
+      if (!session) return;
+      setDraftJobPosting(session.jobPosting);
+      setCurrentResult(session.result);
+      setCurrentMarkdown(session.markdown);
+      setActiveSessionId(id);
+      setError(null);
+      setFollowUpMessages(session.followUpMessages ?? []);
+    }
+
+    chrome.storage.session.get("artemis:pendingSessionId").then((stored) => {
+      const id = (stored as any)["artemis:pendingSessionId"] as string | undefined;
+      if (id) {
+        chrome.storage.session.remove("artemis:pendingSessionId");
+        void consumePendingSession(id);
+      }
+    });
+
+    const handler = (msg: any) => {
+      if (msg?.type === "ARTEMIS_LOAD_SESSION" && msg.payload?.sessionId) {
+        void consumePendingSession(msg.payload.sessionId);
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+    return () => chrome.runtime.onMessage.removeListener(handler);
+  }, [activeProfileId]);
   // Reset analysis view on profile switch (separate effect avoids
   // reset when loadSession syncs draftJobPosting to profileData)
   useEffect(() => {

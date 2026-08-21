@@ -42,6 +42,11 @@ function extensionAssets() {
       const dstPopup = path.resolve(out, "popup.html");
       try { cpSync(srcPopup, dstPopup, { force: true }); } catch { /* popup may be at root already */ }
 
+      // Copy sidepanel.html to dist root (same reason as popup.html above)
+      const srcSidepanel = path.resolve(out, "src/extension/sidepanel.html");
+      const dstSidepanel = path.resolve(out, "sidepanel.html");
+      try { cpSync(srcSidepanel, dstSidepanel, { force: true }); } catch { /* sidepanel may be at root already */ }
+
       // Copy i18n locale files for extension use
       const localesDir = path.resolve(__dirname, "src/app/i18n/locales");
       const outLocales = path.join(out, "locales");
@@ -89,6 +94,7 @@ export default defineConfig({
         overlay: path.resolve(__dirname, "src/extension/overlay.ts"),
         "nano-inject": path.resolve(__dirname, "src/extension/nano-inject.ts"),
         popup: path.resolve(__dirname, "src/extension/popup.html"),
+        sidepanel: path.resolve(__dirname, "src/extension/sidepanel.html"),
         "webllm-sw": path.resolve(__dirname, "src/app/services/provider/webllm-sw.ts"),
       },
       output: {

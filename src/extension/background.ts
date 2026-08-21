@@ -1,6 +1,7 @@
 import { loadTranslations, t } from "./i18n";
 import { AppError, ErrorCodes } from "../app/utils/errors";
-import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry, matchJobSite } from "./job-sites";
+import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry, matchJobSite, DEFAULT_JOB_SITES } from "./job-sites";
+import { extractPageContent } from "./pageExtract";
 import { readActiveProfile } from "./idbProfile";
 import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatibleAdapter";
 import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
@@ -175,6 +176,72 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (!changes[STORAGE_KEY]) return;
   void syncSiteContentScripts();
+  void refreshActiveTabAction();
+});
+
+// ── Side panel badge/entry point ──
+// Every recognized job site (the same "allSites" set Config.tsx's
+// ExtensionSettingsCard shows: DEFAULT_JOB_SITES minus excluded, plus custom
+// entries) gets a badge on the toolbar icon, regardless of whether the site
+// has been granted the standing host permission — clicking the badge opens
+// the side panel, and the panel's own "Analyze" button works via activeTab
+// (see handleQuickAnalyze), no standing permission required. The permission
+// only matters for the opt-in "Always quick analyze this site" mode, which
+// reuses the overlay's own per-site content-script registration.
+function computeAllSites(config: any): string[] {
+  const excluded: string[] = Array.isArray(config.excludedSites) ? config.excludedSites : [];
+  const custom: string[] = Array.isArray(config.jobSites) ? config.jobSites : [];
+  return [...DEFAULT_JOB_SITES.filter((s) => !excluded.includes(s)), ...custom];
+}
+
+async function updateActionForTab(tabId: number, url: string | undefined): Promise<void> {
+  if (!url || !/^https?:/.test(url)) {
+    await clearJobSiteAction(tabId);
+    return;
+  }
+  try {
+    const config = await getConfig();
+    const isJobSite = matchJobSite(url, computeAllSites(config));
+    if (isJobSite) {
+      await chrome.action.setBadgeText({ tabId, text: "●" });
+      await chrome.action.setBadgeBackgroundColor({ tabId, color: "#3b82f6" });
+      // Clears the manifest's default_popup for this tab only (resets when the
+      // tab closes) so chrome.action.onClicked fires here instead — every
+      // other tab keeps opening the regular config popup untouched.
+      await chrome.action.setPopup({ tabId, popup: "" });
+    } else {
+      await clearJobSiteAction(tabId);
+    }
+  } catch (err) {
+    console.warn("[Artemis] updateActionForTab failed for", tabId, err);
+  }
+}
+
+async function clearJobSiteAction(tabId: number): Promise<void> {
+  try {
+    await chrome.action.setBadgeText({ tabId, text: "" });
+    await chrome.action.setPopup({ tabId, popup: "popup.html" });
+  } catch {
+    // Tab may already be gone — nothing to clean up.
+  }
+}
+
+async function refreshActiveTabAction(): Promise<void> {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id != null) void updateActionForTab(tab.id, tab.url);
+  } catch {
+    // No active window (e.g. background-only context) — nothing to refresh.
+  }
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url || changeInfo.status === "complete") {
+    void updateActionForTab(tabId, tab.url);
+  }
+});
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  chrome.tabs.get(tabId).then((tab) => void updateActionForTab(tabId, tab.url)).catch(() => {});
 });
 
 // Inject overlay.js into already-open tabs whose URL matches the given match
@@ -243,34 +310,18 @@ async function ensureHostPermission(baseUrl: string): Promise<void> {
   }
 }
 
-// ── Action click: overlay handles this now via content script ──
+// ── Action click ──
+// This only fires on tabs where updateActionForTab() cleared the default
+// popup (i.e. recognized job-site tabs, see the badge logic above) — every
+// other tab keeps opening popup.html directly and never reaches this
+// listener. On a job-site tab, the click's job is just to open the panel;
+// the panel handles extraction/scoring itself once it's open.
 chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab.id || !tab.url) return;
-
+  if (!tab.id) return;
   try {
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: extractPageContent,
-    });
-
-    const data = result?.result;
-    if (!data?.text) return;
-
-    const appUrl = chrome.runtime.getURL("index.html");
-    const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
-
-    if (existingTabs.length > 0 && existingTabs[0]?.id) {
-      await chrome.tabs.update(existingTabs[0].id, { active: true });
-      await chrome.tabs.sendMessage(existingTabs[0].id, {
-        type: "ARTEMIS_IMPORT",
-        payload: data,
-      });
-    } else {
-      await chrome.storage.session.set({ "artemis:pendingImport": data });
-      await chrome.tabs.create({ url: appUrl });
-    }
+    await chrome.sidePanel.open({ tabId: tab.id });
   } catch (err) {
-    console.error("[Artemis] Failed to import:", err);
+    console.warn("[Artemis] Failed to open side panel:", err);
   }
 });
 
@@ -304,6 +355,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     case "ARTEMIS_GET_OVERLAY_DIAGNOSTICS":
       void getOverlayDiagnostics().then(sendResponse);
       return true; // keep channel open for async response
+
+    case "ARTEMIS_QUICK_ANALYZE":
+      void handleQuickAnalyze(msg.payload, sendResponse);
+      return true; // keep channel open for async response
+
+    case "ARTEMIS_QUICK_SCORE_UPDATE":
+      // Fire-and-forget relay from the overlay content script (only sent on
+      // "Always quick analyze this site" sites) — caches the score and
+      // rebroadcasts it for any open side panel to pick up live.
+      void handleQuickScoreUpdate(msg.payload);
+      break;
 
     case "ARTEMIS_EXTRACT_AND_IMPORT": {
       // Messages from the popup have no _sender.tab, so the popup passes its
@@ -490,6 +552,139 @@ async function handleLLMScore(
 }
 
 
+// ── Quick analyze (side panel) ──
+// Auto-triggering is capped at this quick score, full stop — deep analysis
+// and content generation stay explicit, user-initiated actions from the
+// panel (see sidepanel.tsx). "Never auto deep score, as that would
+// potentially shoot costs to the moon." (Bruno, 2026-08-21)
+const QUICK_CACHE_KEY = "artemis:quickScoreCache";
+const QUICK_CACHE_MAX = 200;
+
+export interface QuickScoreEntry {
+  url: string;
+  title: string;
+  company: string;
+  salary: string;
+  score: number | null;
+  analyzedAt: string;
+}
+
+function parseScoreValue(raw: string): number | null {
+  const m = raw.match(/(\d+)/);
+  if (!m) return null;
+  const score = parseInt(m[1]!, 10);
+  return isNaN(score) ? null : Math.max(0, Math.min(100, score));
+}
+
+function parseSalaryFromText(text: string): string {
+  const m = text.match(/(\$\d[\d,]*\s*(?:-\s*\$?\d[\d,]*)?\s*(?:\/yr|\/year|per year|k)?)/i);
+  return m ? m[1]!.trim() : "";
+}
+
+async function getQuickCache(): Promise<Record<string, QuickScoreEntry>> {
+  const result = await chrome.storage.local.get(QUICK_CACHE_KEY);
+  return (result as any)[QUICK_CACHE_KEY] || {};
+}
+
+async function setQuickCacheEntry(entry: QuickScoreEntry): Promise<void> {
+  const cache = await getQuickCache();
+  cache[entry.url] = entry;
+  const keys = Object.keys(cache);
+  if (keys.length > QUICK_CACHE_MAX) {
+    const sorted = keys.sort(
+      (a, b) => new Date(cache[a]!.analyzedAt).getTime() - new Date(cache[b]!.analyzedAt).getTime()
+    );
+    for (const k of sorted.slice(0, keys.length - QUICK_CACHE_MAX)) delete cache[k];
+  }
+  await chrome.storage.local.set({ [QUICK_CACHE_KEY]: cache });
+}
+
+// Runs a quick match score for the given (or active) tab — extraction via
+// activeTab + executeScript, same mechanism as ARTEMIS_EXTRACT_AND_IMPORT, so
+// no standing host permission is required. Results are cached per-URL; pass
+// force:true to bypass the cache (the panel's manual "Re-analyze" action).
+async function handleQuickAnalyze(
+  payload: { tabId?: number; force?: boolean } | undefined,
+  sendResponse: (resp: any) => void
+) {
+  try {
+    let tabId = payload?.tabId;
+    let tab: chrome.tabs.Tab | undefined;
+    if (tabId != null) {
+      tab = await chrome.tabs.get(tabId);
+    } else {
+      const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+      tab = active;
+      tabId = tab?.id;
+    }
+    if (!tabId || !tab?.url) {
+      sendResponse({ error: t("background.quickAnalyzeNoTab") });
+      return;
+    }
+    const url = tab.url;
+
+    if (!payload?.force) {
+      const cache = await getQuickCache();
+      const hit = cache[url];
+      if (hit) {
+        sendResponse({ ok: true, data: { ...hit, cached: true } });
+        return;
+      }
+    }
+
+    const config = await getConfig();
+    if (!config.fingerprint) {
+      sendResponse({ error: t("background.noFingerprint") });
+      return;
+    }
+
+    const [result] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageContent });
+    const data = result?.result as { title: string; company: string; text: string; url: string } | undefined;
+    if (!data?.text) {
+      sendResponse({ error: t("background.quickAnalyzeNoContent") });
+      return;
+    }
+
+    const scoreRaw = await callRemoteLLM(
+      `Score 0-100 how well this candidate matches this job. Reply with only the number.\n\nCandidate: ${config.fingerprint}\n\nJob: ${data.text.slice(0, 4000)}`,
+      config
+    );
+    const score = parseScoreValue(scoreRaw);
+
+    const entry: QuickScoreEntry = {
+      url,
+      title: data.title,
+      company: data.company,
+      salary: parseSalaryFromText(data.text),
+      score,
+      analyzedAt: new Date().toISOString(),
+    };
+    await setQuickCacheEntry(entry);
+    sendResponse({ ok: true, data: { ...entry, cached: false } });
+  } catch (err) {
+    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
+    console.error("[Artemis] quick_analyze:", appError);
+    sendResponse({ error: appError.message });
+  }
+}
+
+// Relayed from the overlay content script on "Always quick analyze this
+// site" sites, once per completed computeMatch() — caches the score (so the
+// panel shows it without a redundant call) and rebroadcasts it for any open
+// side panel to pick up live via ARTEMIS_QUICK_SCORE_PUSH.
+async function handleQuickScoreUpdate(payload: {
+  url: string; title: string; company: string; salary: string; score: number | null;
+}) {
+  try {
+    if (payload.score == null) return; // don't cache a failed/pending score
+    const entry: QuickScoreEntry = { ...payload, score: payload.score, analyzedAt: new Date().toISOString() };
+    await setQuickCacheEntry(entry);
+    chrome.runtime.sendMessage({ type: "ARTEMIS_QUICK_SCORE_PUSH", payload: entry }).catch(() => {});
+  } catch (err) {
+    console.warn("[Artemis] quick_score_update failed:", err);
+  }
+}
+
 // ── Extract page content and import (relayed from popup / toolbar) ──
 async function handleExtractAndImport(tabId: number, sendResponse?: (resp: any) => void) {
   try {
@@ -497,7 +692,7 @@ async function handleExtractAndImport(tabId: number, sendResponse?: (resp: any) 
       target: { tabId },
       func: extractPageContent,
     });
-    const data = result?.result as { title: string; text: string; url: string } | undefined;
+    const data = result?.result as { title: string; company: string; text: string; url: string } | undefined;
     if (!data?.text) {
       sendResponse?.({ error: "No job content found on this page" });
       return;
@@ -525,7 +720,7 @@ async function handleExtractAndImport(tabId: number, sendResponse?: (resp: any) 
 
 
 // ── Import job (relayed from overlay content script) ──
-async function handleImportJob(payload: { title: string; text: string; url: string }) {
+async function handleImportJob(payload: { title: string; company?: string; text: string; url: string }) {
   try {
     const appUrl = chrome.runtime.getURL("index.html");
     const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
@@ -571,80 +766,4 @@ async function relayErrorToApp(payload: any) {
       chrome.tabs.sendMessage(tab.id, { type: "ARTEMIS_LOG_ERROR", payload }).catch(() => {});
     }
   }
-}
-
-// ── Page content extraction ──
-async function extractPageContent() {
-  const isLinkedIn = location.hostname.includes("linkedin.com");
-
-  function waitForStable(timeout: number): Promise<void> {
-    return new Promise((resolve) => {
-      let timer: ReturnType<typeof setTimeout>;
-      const observer = new MutationObserver(() => {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-          observer.disconnect();
-          resolve();
-        }, 800);
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      setTimeout(() => {
-        observer.disconnect();
-        resolve();
-      }, timeout);
-    });
-  }
-
-  if (isLinkedIn) {
-    await waitForStable(8000);
-    await new Promise((r) => setTimeout(r, 2000));
-
-    let text = document.body.innerText;
-
-    const startMarkers = [
-      "about the job", "about this role", "job description",
-    ];
-    const endMarkers = [
-      "job search faster with premium", "about the company",
-      "show more", "people also viewed",
-    ];
-
-    const lines = text.split("\n").map((l) => l.trim());
-    let startIdx = 0;
-    let endIdx = lines.length;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      const lower = line.toLowerCase();
-      if (startMarkers.some((m) => lower.startsWith(m))) {
-        startIdx = i;
-        break;
-      }
-    }
-
-    for (let i = startIdx + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      const lower = line.toLowerCase();
-      if (endMarkers.some((m) => lower.startsWith(m))) {
-        endIdx = i;
-        break;
-      }
-    }
-
-    const bodyLines = lines.slice(startIdx, endIdx);
-    text = bodyLines.join("\n").trim();
-
-    const titleEl = document.querySelector<HTMLElement>(".jobs-unified-top-card__title, h1");
-    const title = titleEl?.innerText?.trim() || document.title;
-
-    return { title, text: `${title}\n\n${text}`, url: location.href };
-  }
-
-  return {
-    title: document.title,
-    text: document.body.innerText,
-    url: location.href,
-  };
 }

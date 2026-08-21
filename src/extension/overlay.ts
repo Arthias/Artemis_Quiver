@@ -655,6 +655,26 @@ async function computeMatch(pageText: string, config: OverlayConfig) {
   nanoTestResult = null;
   render();
   console.log("[Artemis] computeMatch: done, matchScore:", matchScore, "scoringFailed:", scoringFailed);
+
+  // Relay the freshly computed score to the background so it's cached and any
+  // open side panel gets a live update — this is the "Always quick analyze
+  // this site" path: the panel never has to poll or re-extract, it just rides
+  // the same settle-detection (initUrlWatch) that already drives this overlay.
+  // Auto-triggering never goes beyond this quick score (see background.ts).
+  if (matchScore !== null) {
+    try {
+      chrome.runtime.sendMessage({
+        type: "ARTEMIS_QUICK_SCORE_UPDATE",
+        payload: {
+          url: location.href,
+          title: extracted.title,
+          company: extracted.company,
+          salary: extracted.salary,
+          score: matchScore,
+        },
+      }).catch(() => {});
+    } catch {}
+  }
 }
 
 async function ensureNano(): Promise<boolean> {
