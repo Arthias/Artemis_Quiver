@@ -1,12 +1,12 @@
 ---
 tags: [roadmap, discussion, ui, extension, flow, sidebar]
-status: discussion — not scoped for implementation, no decisions made yet
+status: Idea 2 decided and in implementation (2026-08-21); Idea 1 still open discussion
 last_updated: 2026-08-21
 ---
 
-# UI Restructure Proposals (Open Discussion)
+# UI Restructure Proposals
 
-> Two separate ideas Bruno raised in the same conversation (2026-08-21), about Quiver's UI feeling cluttered and Flow/Quiver being disjointed to use together. **Neither is decided or scoped for implementation.** This doc exists so a future session — or Bruno revisiting this later — has the context without re-deriving it. Do not start building against this without an explicit go-ahead; that's the whole point of parking it here instead of turning it into a Phase-plan doc.
+> Two separate ideas Bruno raised in the same conversation (2026-08-21), about Quiver's UI feeling cluttered and Flow/Quiver being disjointed to use together. Idea 1 (Flow as its own page) is **still open discussion — not decided, not scoped.** Idea 2 (overlay → side panel) was worked through to a concrete design across several follow-up messages the same day and is **decided and being implemented** — see the Decisions Log under Idea 2 below for exactly what was settled and why.
 >
 > The two ideas are independent of each other and can be adopted separately, together, or not at all.
 
@@ -35,16 +35,34 @@ last_updated: 2026-08-21
 
 **Feasibility.** Manifest is already MV3 (`manifest.json`, permissions: `scripting`, `storage`, `activeTab`, no `sidePanel` yet). Chrome's `chrome.sidePanel` API is the natural fit — it persists per-browser-window independent of which tab is focused, unlike a tab you have to switch back to, and it lives outside the host page's DOM entirely, which removes the whole category of defensive shadow-DOM/z-index engineering the current overlay carries. Adding it is: one new manifest permission (`"sidePanel"`), one new build entry (same pattern as `popup`), and a `side_panel.default_path` in the manifest. The overlay's *config* (which sites, fallback mode, fingerprint) already lives in `chrome.storage.local`, which — unlike Dexie/IndexedDB — is uniformly accessible from every extension surface including a future side panel with no extra plumbing. Full profile/session data would come from the same shared IndexedDB as Idea 1 describes.
 
-**Constraints worth knowing going in:**
-- Side panels open on a user gesture per tab (e.g. a toolbar click), not silently on page load — the "quick score" moment still needs a trigger the first time per tab, same as any side-panel extension today.
-- Side panels are per-browser-window, not global — a second window needs its own panel opened.
+**Constraints, verified against Chrome's current docs (2026-08-21), not assumed:**
+- `chrome.sidePanel.open()` requires a genuine user gesture — an action-icon click, keyboard shortcut, context menu action, or a click inside an extension page/content script. It **cannot** be triggered automatically by a tab navigating to a matching URL. So the overlay's current behavior (badge appears the instant you land on a job page, no click needed) has no direct equivalent — this is a real, intentional trade, not an oversight. See the Decisions Log below for how this gets mitigated.
+- `chrome.sidePanel.setOptions()` **can** be called without a gesture (e.g. from a `chrome.tabs.onUpdated` listener), so the extension can silently pre-configure what the panel would show for a tab before it's ever opened.
+- Side panels are per-browser-window, not global — a second window needs its own panel opened. Once opened, though, it persists across tab switches and in-window navigation without closing, which is the property that actually matters for "stays open while I review jobs."
 - Panel width is narrow (roughly 300–400px, user-resizable) — fine for score + summary + buttons, too tight for the full CV theme editor or a five-column board. "Light preview and edit, full work happens in the main tab" (Bruno's own framing) is the right scope, not an accidental limitation.
 
-**Open questions:**
-- Does this fully replace the overlay, or coexist with it for sites/cases where a side panel isn't appropriate?
-- `30-Features/Extension Overlay.md` would need a substantial rewrite, not a patch, if this is adopted — it currently documents the shadow-DOM/registerContentScripts approach as the architecture.
-- How does the sidebar know which job page is active as you tab between listings — a `chrome.tabs.onActivated` listener updating the panel's content, most likely, but not designed here.
-- This would also reshape Sprint 10 (Application Kanban) in `60-Roadmap/Plan.md` — if day-to-day triage happens in the sidebar, the kanban's role shifts from "where you manage everything" to something narrower. Worth revisiting Sprint 10's scope alongside this, not before it.
+## Idea 2 — Decisions Log (2026-08-21)
+
+Reached across several follow-up messages the same day. Recorded here in full so implementation doesn't have to be re-derived from chat history.
+
+**Opening mechanism — the badge/icon, not an always-visible overlay.** The toolbar icon signals "this is a recognized job page" (badge text/color change, the same pattern password managers and ad blockers already use) and clicking it opens the side panel. Verified mechanism: `chrome.action.setPopup({tabId, popup: ""})` clears the manifest's `default_popup` for that one tab only ("Automatically resets when the tab is closed," per Chrome's docs) so `chrome.action.onClicked` fires there and can call `chrome.sidePanel.open({tabId})` — every other tab keeps opening the existing popup untouched. This was checked directly against Chrome's `chrome.action` reference, not assumed.
+
+**Two extraction paths, chosen per site, not globally.**
+- **Default (no permission needed): click-to-look.** Opening the panel or pressing "Analyze" pulls the current tab's content on demand via `chrome.scripting.executeScript` — the same mechanism the popup's existing "extract and import" flow already uses, gated only by `activeTab`. No standing host permission, no per-site grant prompt. This is the default for every site, including single-posting career pages where you're only checking a handful of roles by hand.
+- **Opt-in per site: "Always quick analyze this site."** This **reuses and renames the existing overlay-enable toggle** — same per-site list, same `chrome.permissions.request()` host-permission flow already built for the overlay (Config.tsx's `ExtensionSettingsCard` / the popup's site list). Turning it on for a site keeps a standing, lightweight watcher active there so a fresh quick score appears automatically as you click between listings on an aggregator, without pressing anything per job. Label changes from "Show overlay on job pages" to **"Always quick analyze this site."**
+- The trigger for "automatically as you click between listings" is the same settle-detection the overlay already has (`initUrlWatch` in `overlay.ts`: patches `pushState`/`replaceState`, waits for `document.body.innerText` to stabilize before treating it as a real navigation) — reused as the signal that fires a fresh quick score, not re-invented.
+
+**Cost control — auto-triggering is capped at quick score, full stop.** "Always quick analyze this site" **never** auto-fires deep analysis or CV/CL generation, regardless of how many job listings you click through — only the cheap quick-score call. Deep analysis and content generation stay explicit, per-job, user-initiated actions in every mode. Direct quote: "Never auto deep score, as that would potentially shoot costs to the moon." This is a hard rule, not a default that can drift.
+
+**Caching, with an explicit re-run always available.** Quick scores are cached per job (by URL/content identity) so re-visiting or scrolling back to an already-scored listing doesn't re-fire the LLM. The cached result is what's shown — but a manual "Re-analyze" action stays visible and available even when a cached score exists, in case the user wants a fresh read (e.g. after editing their profile).
+
+**Deep analysis handoff reuses existing plumbing.** A "Deep analysis" button in the panel runs the real analysis (via the same service the full Analysis Hub uses) and writes a genuine `analysisSessions` record — not a lighter, panel-specific format. Handoff to the main Quiver tab reuses the existing pending-storage pattern already built for job imports (`chrome.storage.session` stash + message-on-focus, or open a new tab if none exists), extended to carry a session id instead of raw job data — this is a small extension of proven code, not new infrastructure.
+
+**Explicitly deferred, not forgotten:**
+- The floating overlay badge's own rendering (`overlay.ts`'s shadow-DOM UI) is not being torn out in this pass. The per-site permission/content-script mechanism it already uses is being reused to drive the panel; whether the floating badge itself should be retired once the panel covers its role is a follow-up call, not decided here.
+- CV/CL "light preview and edit" inside the panel (per the original framing) is scoped down for now to what the deep-analysis handoff supports; the actual in-panel text-editing surface is a separate, later pass — it needs its own design pass on exactly what "light edit" means given the panel's width, not something to improvise mid-implementation.
+- `30-Features/Extension Overlay.md` needs a real rewrite once the panel exists and the floating-badge question above is resolved — not touched yet.
+- This will reshape Sprint 10 (Application Kanban) in `60-Roadmap/Plan.md` — worth revisiting its scope once the panel is real, not before.
 
 ## How these two relate
 
