@@ -11,18 +11,6 @@ const manifestVersion = JSON.parse(
 ).version as string;
 const ZIP_PATH = path.resolve(__dirname, "release", `${OUT_DIR}-v${manifestVersion}.zip`);
 
-function figmaAssetResolver() {
-  return {
-    name: "figma-asset-resolver",
-    resolveId(id: string) {
-      if (id.startsWith("figma:asset/")) {
-        const filename = id.replace("figma:asset/", "");
-        return path.resolve(__dirname, "src/assets", filename);
-      }
-    },
-  };
-}
-
 function extensionAssets() {
   return {
     name: "extension-assets",
@@ -75,7 +63,7 @@ function extensionAssets() {
 }
 
 export default defineConfig({
-  plugins: [figmaAssetResolver(), react(), tailwindcss(), extensionAssets()],
+  plugins: [react(), tailwindcss(), extensionAssets()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

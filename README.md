@@ -29,7 +29,7 @@ Paste or import a job posting → compare to your **master profile** (Markdown) 
 
 ## Development
 
-Clone this repo (private). Node + npm required.
+Clone this repo. Node + npm required.
 
 ```bash
 npm install
@@ -49,7 +49,7 @@ npm install
 
 ### Releasing the extension (zip-based)
 
-Repo stays private; distributable zips go to the public release repo.
+Distributable zips can go to the public release repo.
 
 ```bash
 npm run release:ext

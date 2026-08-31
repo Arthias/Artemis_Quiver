@@ -1,6 +1,4 @@
 param(
-  [string]$RepoUrl = "https://github.com/Arthias/Artemis-Quiver-Releases.git",
-  [string]$ReleaseRepo = "Arthias/Artemis-Quiver-Releases",
   [switch]$SkipBuild,
   [switch]$SkipPublish
 )
@@ -45,24 +43,10 @@ if (-not $SkipBuild) {
   }
 }
 
-# --- Ensure nested release repo is initialized ---
-Write-Host "`n[2/4] Preparing release repo..."
-if (-not (Test-Path -LiteralPath (Join-Path $releaseDir ".git"))) {
-  Push-Location $releaseDir
-  try {
-    Invoke-Checked "git init" { git init -b main }
-    Invoke-Checked "git remote add origin" { git remote add origin $RepoUrl }
-  } finally { Pop-Location }
-}
-
 # --- Commit + tag ---
-Write-Host "`n[3/4] Committing and tagging v$version..."
-Push-Location $releaseDir
+Write-Host "`n[2/4] Committing and tagging v$version in main repo..."
+Push-Location $root
 try {
-  git add $zipName README.md ".gitignore" 2>$null
-  Invoke-Checked "git add" { git add -A }
-  Invoke-Checked "git commit" { git commit -m "release: v$version" }
-
   $existing = git tag -l "v$version"
   if ([string]::IsNullOrWhiteSpace($existing)) {
     Invoke-Checked "git tag" { git tag -a "v$version" -m "Artemis Quiver v$version" }
@@ -76,11 +60,11 @@ try {
 
 # --- Publish GitHub Release ---
 if ($SkipPublish) {
-  Write-Host "`n[4/4] Skipped publish (-SkipPublish). Push + tag done."
+  Write-Host "`n[3/4] Skipped publish (-SkipPublish). Push + tag done."
   exit 0
 }
 
-Write-Host "`n[4/4] Publishing GitHub Release v$version..."
+Write-Host "`n[3/4] Publishing GitHub Release v$version..."
 $notes = @"
 Artemis Quiver v$version — see the main CHANGELOG for details.
 
@@ -88,9 +72,9 @@ Artemis Quiver v$version — see the main CHANGELOG for details.
 "@
 $notes = $notes.Trim()
 
-Push-Location $releaseDir
+Push-Location $root
 try {
-  Invoke-Checked "gh release create" { gh release create "v$version" $zipName --title "Artemis Quiver v$version" --notes $notes --repo $ReleaseRepo }
+  Invoke-Checked "gh release create" { gh release create "v$version" $zipPath --title "Artemis Quiver v$version" --notes $notes }
 } finally { Pop-Location }
 
-Write-Host "`nDone. Release published: https://github.com/$ReleaseRepo/releases/tag/v$version"
+Write-Host "`nDone. Release published."
