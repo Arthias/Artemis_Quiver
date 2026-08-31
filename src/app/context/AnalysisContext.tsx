@@ -12,6 +12,7 @@ import { analyzeJobPosting, followUpChat } from "../services/jobAnalysisService"
 import { getActiveEndpoint } from "../services/llmService";
 import type { AnalysisResult, AnalysisSession } from "../types/analysis";
 import type { ChatMessage } from "../types/llm";
+import type { CVContent, ThemeConfig } from "../types/cv";
 import { useConfig } from "./ConfigContext";
 import { useProfile } from "./ProfileContext";
 import { useWorkspace } from "./WorkspaceProfileContext";
@@ -35,6 +36,8 @@ interface AnalysisContextValue {
   followUpMessages: ChatMessage[];
   followUpLoading: boolean;
   sendFollowUpMessage: (text: string) => Promise<void>;
+  saveGeneratedCv: (sessionId: string, content: CVContent, themeConfig: ThemeConfig) => void;
+  clearGeneratedCv: (sessionId: string) => void;
 }
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
@@ -211,6 +214,52 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     [activeSessionId, activeProfileId]
   );
 
+  const saveGeneratedCv = useCallback(
+    (sessionId: string, content: CVContent, themeConfig: ThemeConfig) => {
+      setSessions((prev) => {
+        const target = prev.find((s) => s.id === sessionId);
+        if (!target) return prev;
+        const updated: AnalysisSession = {
+          ...target,
+          generatedCv: { content, themeConfig, updatedAt: new Date().toISOString() },
+        };
+        saveSession({
+          id: updated.id,
+          profileId: activeProfileId,
+          createdAt: updated.createdAt,
+          jobPosting: updated.jobPosting,
+          result: updated.result,
+          markdown: updated.markdown,
+          followUpMessages: updated.followUpMessages,
+          generatedCv: updated.generatedCv,
+        });
+        return prev.map((s) => (s.id === sessionId ? updated : s));
+      });
+    },
+    [activeProfileId]
+  );
+
+  const clearGeneratedCv = useCallback(
+    (sessionId: string) => {
+      setSessions((prev) => {
+        const target = prev.find((s) => s.id === sessionId);
+        if (!target) return prev;
+        const { generatedCv, ...updated } = target;
+        saveSession({
+          id: updated.id,
+          profileId: activeProfileId,
+          createdAt: updated.createdAt,
+          jobPosting: updated.jobPosting,
+          result: updated.result,
+          markdown: updated.markdown,
+          followUpMessages: updated.followUpMessages,
+        });
+        return prev.map((s) => (s.id === sessionId ? updated : s));
+      });
+    },
+    [activeProfileId]
+  );
+
   const sendFollowUpMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || followUpLoading || !draftJobPosting) return;
@@ -285,6 +334,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       followUpMessages,
       followUpLoading,
       sendFollowUpMessage,
+      saveGeneratedCv,
+      clearGeneratedCv,
     }),
     [
       draftJobPosting,
@@ -302,6 +353,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       followUpMessages,
       followUpLoading,
       sendFollowUpMessage,
+      saveGeneratedCv,
+      clearGeneratedCv,
     ]
   );
 

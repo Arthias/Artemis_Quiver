@@ -1,4 +1,5 @@
 import type { ChatMessage } from "./llm";
+import type { CVContent, ThemeConfig } from "./cv";
 
 export interface AnalysisResult {
   score: number;
@@ -10,6 +11,12 @@ export interface AnalysisResult {
   title?: string;
 }
 
+export interface GeneratedCv {
+  content: CVContent;
+  themeConfig: ThemeConfig;
+  updatedAt: string;
+}
+
 export interface AnalysisSession {
   id: string;
   createdAt: string;
@@ -17,4 +24,5 @@ export interface AnalysisSession {
   result: AnalysisResult;
   markdown: string;
   followUpMessages?: ChatMessage[];
+  generatedCv?: GeneratedCv;
 }

@@ -23,6 +23,7 @@ export interface AnalysisSessionRecord {
   result: AnalysisSession["result"];
   markdown: string;
   followUpMessages?: ChatMessage[];
+  generatedCv?: AnalysisSession["generatedCv"];
 }
 
 interface AppMetadataRecord {

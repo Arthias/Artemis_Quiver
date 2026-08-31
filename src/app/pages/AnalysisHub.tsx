@@ -43,6 +43,7 @@ export function AnalysisHub() {
     clearCurrent,
     exportCurrentAnalysis,
     activeSessionId,
+    sessions,
     followUpMessages,
     followUpLoading,
     sendFollowUpMessage,
@@ -60,6 +61,9 @@ export function AnalysisHub() {
     }
     if (!result) prevResultRef.current = false;
   }, [result, clearOpenPending]);
+  const hasSavedCv = Boolean(
+    activeSessionId && sessions.find((s) => s.id === activeSessionId)?.generatedCv
+  );
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [followUpInput, setFollowUpInput] = useState("");
 
@@ -294,7 +298,7 @@ export function AnalysisHub() {
                       }}
                     >
                       <FileText className="w-4 h-4" />
-                      {t("analysis.generateCV")}
+                      {hasSavedCv ? t("analysis.openCV") : t("analysis.generateCV")}
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   </div>

@@ -24,6 +24,7 @@ import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPan
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
+import { buildPdfFilename } from "../utils/pdfFilename";
 
 const CL_THEME_STORAGE_KEY = "artemis:clThemeConfig";
 
@@ -151,9 +152,19 @@ export function CLBuilder() {
   }, [clContent]);
 
   const printPDF = useCallback(() => {
+    const originalTitle = document.title;
+    const restoreTitle = () => {
+      document.title = originalTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+    window.addEventListener("afterprint", restoreTitle);
+    document.title = buildPdfFilename(
+      ["Cover Letter", companyName || clContent?.companyName, position],
+      originalTitle
+    );
     window.print();
     toast.success("PDF sent to printer");
-  }, []);
+  }, [companyName, position, clContent]);
 
   return (
     <div className="h-full flex flex-col">

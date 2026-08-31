@@ -2,11 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
-import { FileText, Wand2, ChevronDown, ChevronRight } from "lucide-react";
+import { FileText, Wand2, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
+import { useAnalysis } from "../context/AnalysisContext";
 import { generateCv, editCv } from "../services/cvBuilderService";
 import { getActiveEndpoint } from "../services/llmService";
 import type { CVContent, SectionType, ThemeConfig } from "../types/cv";
@@ -22,6 +23,7 @@ import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPan
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
+import { buildPdfFilename } from "../utils/pdfFilename";
 
 const CV_THEME_STORAGE_KEY = "artemis:cvThemeConfig";
 
@@ -30,6 +32,7 @@ export function CVBuilder() {
   const { config } = useConfig();
   const { profile } = useProfile();
   const { consumeHandoff } = useBuilderHandoff();
+  const { sessions, saveGeneratedCv, clearGeneratedCv } = useAnalysis();
 
   const CV_SUGGESTIONS = [
     { title: t("cv.suggestionMetrics"), hint: t("cv.suggestionMetricsHint"), prompt: "Add more quantifiable metrics and measurable achievements throughout the CV." },
@@ -46,6 +49,7 @@ export function CVBuilder() {
   );
   const [recs, setRecs] = useState<{ text: string; enabled: boolean; comment: string }[]>([]);
   const [isGenerated, setIsGenerated] = useState(false);
+  const [sourceSessionId, setSourceSessionId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -68,7 +72,17 @@ export function CVBuilder() {
     if (handoff.cvRecommendations?.length) {
       setRecs(handoff.cvRecommendations.map((t) => ({ text: t, enabled: true, comment: "" })));
     }
-  }, [consumeHandoff]);
+    if (handoff.sourceSessionId) {
+      setSourceSessionId(handoff.sourceSessionId);
+      const saved = sessions.find((s) => s.id === handoff.sourceSessionId)?.generatedCv;
+      if (saved) {
+        setCvContent(saved.content);
+        setThemeConfig(saved.themeConfig);
+        setIsGenerated(true);
+        toast.success(t("cv.loadedSaved"));
+      }
+    }
+  }, [consumeHandoff, sessions, t]);
 
   const generateCV = async () => {
     setGenerating(true);
@@ -126,10 +140,37 @@ export function CVBuilder() {
     }
   };
 
+  useEffect(() => {
+    if (!sourceSessionId || !cvContent) return;
+    saveGeneratedCv(sourceSessionId, cvContent, themeConfig);
+  }, [cvContent, themeConfig, sourceSessionId, saveGeneratedCv]);
+
+  const regenerateCV = useCallback(() => {
+    if (!window.confirm(t("cv.regenerateConfirm"))) return;
+    setCvContent(null);
+    setIsGenerated(false);
+    setError(null);
+    setRetryableError(null);
+    if (sourceSessionId) {
+      clearGeneratedCv(sourceSessionId);
+    }
+  }, [sourceSessionId, clearGeneratedCv, t]);
+
+  const jobLabel = sourceSessionId
+    ? sessions.find((s) => s.id === sourceSessionId)?.result.title ?? cvContent?.title
+    : cvContent?.title;
+
   const printPDF = useCallback(() => {
+    const originalTitle = document.title;
+    const restoreTitle = () => {
+      document.title = originalTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+    window.addEventListener("afterprint", restoreTitle);
+    document.title = buildPdfFilename(["CV", cvContent?.name, jobLabel], originalTitle);
     window.print();
     toast.success("PDF sent to printer");
-  }, []);
+  }, [cvContent, jobLabel]);
 
   return (
     <div className="h-full flex flex-col">
@@ -162,7 +203,11 @@ export function CVBuilder() {
               </div>
             </div>
             {isGenerated && cvContent && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 print:hidden">
+                <Button variant="outline" onClick={regenerateCV} className="gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  {t("cv.regenerate")}
+                </Button>
                 <Button onClick={printPDF} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">                  <polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
                   {t("cv.exportPdf")}
