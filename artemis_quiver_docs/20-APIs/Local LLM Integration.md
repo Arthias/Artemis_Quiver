@@ -82,7 +82,7 @@ In [vite.config.ts](file:///F:/Dev/Artemis_Quiver/vite.config.ts), proxy setting
 server: {
   proxy: {
     "/api/lmstudio": {
-      target: "http://192.168.8.171:1234",
+      target: "http://<your-lm-studio-host>:1234",
       changeOrigin: true,
       rewrite: (path) => path.replace(/^\/api\/lmstudio/, ""),
     },

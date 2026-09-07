@@ -50,7 +50,7 @@ Flags: `-SkipBuild` (use existing zip), `-SkipPublish` (commit/tag/push only).
 
 ### C2 — Remove hardcoded LAN host permissions ✅ (implemented)
 - **File:** `src/extension/manifest.json`, `src/extension/background.ts`.
-- **Problem:** `host_permissions` + background `VITE_PROXY_MAP` logged a dev-layer IP (`http://192.168.8.171:1234`); it won't exist for beta testers and forced an over-broad static permission.
+- **Problem:** `host_permissions` + background `VITE_PROXY_MAP` logged a dev-layer IP (`http://<your-lm-studio-host>:1234`); it won't exist for beta testers and forced an over-broad static permission.
 - **Fix:** Removed the LAN IP. `host_permissions` now only `http://localhost/*` + `http://127.0.0.1/*`. Added `optional_host_permissions: ["http://*/*", "https://*/*"]`; `background.ts` calls `ensureHostPermission()` before fetching a non-local endpoint, requesting the origin at runtime via `chrome.permissions.request`.
 
 ### C3 — Overlay only runs on user-added sites (runtime registration) ✅ (implemented)

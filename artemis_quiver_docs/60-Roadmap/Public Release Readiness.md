@@ -111,7 +111,7 @@ Not product bugs. Commit `853d9c6` deliberately changed `DEFAULT_LLM_CONFIG.prov
 - [ ] `description`, `author`, `repository`, `keywords`, `homepage`, `bugs`
 - [ ] **`"license": "MIT"`** — a `LICENSE` file exists but the field does not, so tooling cannot detect it
 - [ ] `index.html` `<title>` still reads **"Job Hunting Automation Engine"** — the original Figma Make name, shown in every browser tab
-- [ ] **Decision needed:** `LICENSE` reads `Copyright (c) 2026 Arthias`. If the repo is portfolio evidence under Bruno's own name, a recruiter finds a copyright notice for someone else. Either `Bruno Manfredi`, or `Bruno Manfredi (Arthias)`. Decide deliberately — this is the only item in P0 that is a judgement call rather than a fix
+- [x] **Decided 2026-09-07:** `LICENSE` now reads `Copyright (c) 2026 Bruno Manfredi - Arthias`
 
 ---
 
@@ -434,9 +434,9 @@ Licences are clean: 388 packages inspected, all permissive (330 MIT, 21 Apache-2
 
 ### P3.4 — Housekeeping · 1 h
 
-- [ ] Delete `Temp_Design-analysis/` — 5 tracked files, of which `artemis-quiver-directions.html` is **2.2 MB** of base64-embedded fonts, the largest file in the repo by 6×. The directory name says "Temp"
-- [ ] Add `test-results/` to `.gitignore` and untrack `test-results/.last-run.json`, a Playwright run artifact
-- [ ] Replace the homelab address `192.168.8.171:1234` with `<your-lm-studio-host>:1234` in `AGENTS.md:48`, `CLAUDE.md:69`, `30-Bugs-and-Fixes/_Index.md:387`, `20-APIs/Local LLM Integration.md:85`, `60-Roadmap/Public Beta Release.md:53`
+- [x] Delete `Temp_Design-analysis/` — 5 tracked files, of which `artemis-quiver-directions.html` is **2.2 MB** of base64-embedded fonts, the largest file in the repo by 6×. The directory name says "Temp"
+- [x] Add `test-results/` to `.gitignore` and untrack `test-results/.last-run.json`, a Playwright run artifact
+- [x] Replace the homelab address `192.168.8.171:1234` with `<your-lm-studio-host>:1234` in `AGENTS.md:48`, `CLAUDE.md:69`, `30-Bugs-and-Fixes/_Index.md:387`, `20-APIs/Local LLM Integration.md:85`, `60-Roadmap/Public Beta Release.md:53`
 - [ ] Docs pass before the vault ships publicly:
   - [ ] Convert ~300 `file:///F:/Dev/Artemis_Quiver/...` Obsidian absolute links to repo-relative — broken for every reader
   - [ ] Remove `F:\Dev\Artemis_Flow\...` and `F:\Dev\BrainVault\...` references from `90-Meta/Flow-Integration.md` — they name private sibling work by path

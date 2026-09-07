@@ -45,7 +45,7 @@ src/
 - **Import aliases**: `@/` → `./src`
 - **Virtual module**: `figma:asset/<file>` → `src/assets/<file>`
 - **Tailwind v4** via `@tailwindcss/vite` plugin
-- **Vite proxy**: `/api/lmstudio` → `http://192.168.8.171:1234`, `/api/ollama` → `http://localhost:11434`
+- **Vite proxy**: `/api/lmstudio` → `http://<your-lm-studio-host>:1234`, `/api/ollama` → `http://localhost:11434`
 - **TypeScript strict** with `noUncheckedIndexedAccess`
 - **React 18** listed as optional peer dep (Figma Make compatibility)
 

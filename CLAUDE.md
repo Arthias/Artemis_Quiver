@@ -66,7 +66,7 @@ src/
 - **Import aliases**: `@/` → `./src`; `types` → `./src/app/types`.
 - **Virtual module**: `figma:asset/<file>` → `src/assets/<file>` (Figma Make origin compatibility).
 - **Tailwind v4** via `@tailwindcss/vite` plugin (no `tailwind.config.js`).
-- **Vite dev proxy** (dev-only, doesn't exist in the built extension): `/api/lmstudio` → `http://192.168.8.171:1234`, `/api/ollama` → `http://localhost:11434`. In the extension, real LLM URLs must be configured directly.
+- **Vite dev proxy** (dev-only, doesn't exist in the built extension): `/api/lmstudio` → `http://<your-lm-studio-host>:1234`, `/api/ollama` → `http://localhost:11434`. In the extension, real LLM URLs must be configured directly.
 - **TypeScript strict**, including `noUncheckedIndexedAccess`.
 - **React 18** is an optional peer dependency (kept for Figma Make compatibility).
 

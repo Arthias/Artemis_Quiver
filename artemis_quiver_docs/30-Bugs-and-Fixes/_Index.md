@@ -384,7 +384,7 @@ Expanded view shows guidance: "No profile fingerprint. Open the Artemis Quiver p
 
 **Symptom:** When LM Studio returns 403, error says `LLM request failed: 403` with no indication of which URL was attempted.
 
-**Fix Applied:** Error now includes the full URL: `LLM request failed: 403 for http://192.168.8.171:1234/v1/chat/completions`
+**Fix Applied:** Error now includes the full URL: `LLM request failed: 403 for http://<your-lm-studio-host>:1234/v1/chat/completions`
 
 **Location:** `src/extension/background.ts:160`
 

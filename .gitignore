@@ -52,6 +52,7 @@ qa-reports/
 
 # Test & coverage
 coverage/
+test-results/
 
 # Optional caches
 .cache/
@@ -64,6 +65,7 @@ snapshot.txt
 # Temp files
 tmp/
 temp/
+Temp_Design-analysis/
 .fseventsd/
 .Spotlight-V100/
 .Trashes/

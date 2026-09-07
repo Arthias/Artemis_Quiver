@@ -126,4 +126,4 @@ PRs welcome.
 
 ## Licence
 
-[MIT](LICENSE) © 2026 Arthias
+[MIT](LICENSE) © 2026 Bruno Manfredi - Arthias
