@@ -135,7 +135,7 @@ function Panel() {
       setDeepResult(null);
       void refreshTabInfo();
     };
-    const onUpdated = (_id: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+    const onUpdated = (_id: number, changeInfo: chrome.tabs.OnUpdatedInfo) => {
       if (changeInfo.url) {
         setEntry(null);
         setError(null);

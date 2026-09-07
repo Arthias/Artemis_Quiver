@@ -79,7 +79,7 @@ describe("Database Repository & Init Tests", () => {
 
       const loaded = await getProfile(profileId);
       expect(loaded).not.toBeNull();
-      expect(loaded!.settings.providerMode).toBe("local");
+      expect(loaded!.settings.providerMode).toBe("cloud");
     });
   });
 
@@ -123,7 +123,7 @@ describe("Database Repository & Init Tests", () => {
       const profiles = await getProfiles();
       expect(profiles.length).toBe(1);
       expect(profiles[0]?.name).toBe("Default");
-      expect(profiles[0]?.settings.providerMode).toBe("local");
+      expect(profiles[0]?.settings.providerMode).toBe("cloud");
 
       const activeId = await getActiveProfileId();
       expect(activeId).toBe(profiles[0]?.id);
@@ -224,19 +224,21 @@ describe("Database Repository & Init Tests", () => {
           profileChat: [],
         });
 
-        // Verify it starts with "local" from DEFAULT_LLM_CONFIG
+        // Verify it starts with "cloud" from DEFAULT_LLM_CONFIG
         let profile = await getProfile(id);
-        expect(profile!.settings.providerMode).toBe("local");
+        expect(profile!.settings.providerMode).toBe("cloud");
 
-        // Change to "cloud" to simulate user having toggled it
-        profile!.settings.providerMode = "cloud";
+        // Toggle to the non-default value to simulate a deliberate user choice.
+        // This must differ from the default, otherwise the assertion below
+        // would pass even if the migration did overwrite the field.
+        profile!.settings.providerMode = "local";
         await saveProfile(profile!);
 
-        // Run migration — should NOT reset to "local"
+        // Run migration — must preserve the user's choice, not reset to default
         await ensureDbInitialized();
 
         profile = await getProfile(id);
-        expect(profile!.settings.providerMode).toBe("cloud");
+        expect(profile!.settings.providerMode).toBe("local");
       });
 
       it("should backfill ALL providerMode-missing profiles, not just the first", async () => {

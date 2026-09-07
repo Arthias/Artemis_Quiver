@@ -1,7 +1,33 @@
 {
   "name": "artemis-quiver",
   "version": "3.8.0",
+  "description": "Job hunting automation engine: analyze job postings against your professional profile, then refine CVs and cover letters — powered by your choice of local or cloud LLM.",
+  "author": "Arthias",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arthias/Artemis_Quiver.git"
+  },
+  "homepage": "https://github.com/Arthias/Artemis_Quiver#readme",
+  "bugs": {
+    "url": "https://github.com/Arthias/Artemis_Quiver/issues"
+  },
+  "keywords": [
+    "job-search",
+    "cv",
+    "resume",
+    "cover-letter",
+    "chrome-extension",
+    "llm",
+    "webllm",
+    "local-first",
+    "react",
+    "typescript"
+  ],
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite",
@@ -22,6 +48,7 @@
     "qa:headless": "powershell -File scripts/qa.ps1 -Suite all -Headless"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.84",
     "@radix-ui/react-dialog": "1.1.6",
     "@radix-ui/react-label": "2.1.2",
     "@radix-ui/react-scroll-area": "1.2.3",
@@ -36,6 +63,8 @@
     "i18next": "^26.3.1",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "0.487.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-error-boundary": "^6.1.2",
     "react-i18next": "^17.0.8",
     "react-markdown": "^10.1.0",
@@ -47,7 +76,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@mlc-ai/web-llm": "^0.2.84",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "4.1.12",
     "@types/chrome": "^0.1.42",

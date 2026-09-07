@@ -37,7 +37,6 @@ const _ot: Record<string, string> = {
 function ot(key: string): string { return _ot[key] || key; }
 
 const STORAGE_KEY = "artemis:overlayConfig";
-const POSITION_KEY = "artemis:overlayPosition";
 
 function parseSiteEntry(entry: string): { domain: string; pathPattern?: string } {
   let cleaned = entry.trim().toLowerCase();
@@ -96,11 +95,6 @@ interface OverlayConfig {
   lastFingerprintUpdate?: string;
 }
 
-interface OverlayPosition {
-  x: number;
-  y: number;
-}
-
 async function loadConfig(): Promise<OverlayConfig> {
   try {
     const result = await chrome.storage.local.get(STORAGE_KEY);
@@ -112,92 +106,6 @@ async function loadConfig(): Promise<OverlayConfig> {
     return { enabled: true, jobSites: [], fallbackMode: "basic" };
   }
 }
-
-async function loadPosition(): Promise<OverlayPosition> {
-  try {
-    const result = await chrome.storage.local.get(POSITION_KEY);
-    return (result[POSITION_KEY] as OverlayPosition) || { x: 20, y: 20 };
-  } catch (e) {
-    console.error("[Artemis] Failed to load position:", e);
-    return { x: 20, y: 20 };
-  }
-}
-
-async function savePosition(pos: OverlayPosition): Promise<void> {
-  await chrome.storage.local.set({ [POSITION_KEY]: pos });
-}
-
-const STYLES = `
-  #artemis-overlay {
-    all: initial;
-    display: block;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    cursor: grab; user-select: none;
-    border-radius: 12px; background: #1e293b; color: #f1f5f9;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    font-size: 14px; line-height: 1.4;
-    min-width: 160px; max-width: 360px;
-    transition: box-shadow 0.2s;
-  }
-  #artemis-overlay:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
-  #artemis-overlay * { box-sizing: border-box; margin: 0; padding: 0; }
-  #artemis-overlay .ao-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 12px; cursor: grab;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-  #artemis-overlay .ao-header:active { cursor: grabbing; }
-  #artemis-overlay .ao-header-info { flex: 1; min-width: 0; }
-  #artemis-overlay .ao-header-info .ao-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  #artemis-overlay .ao-header-info .ao-value { font-weight: 600; font-size: 14px; }
-  #artemis-overlay .ao-close {
-    width: 24px; height: 24px; border: none; background: rgba(255,255,255,0.1);
-    border-radius: 6px; color: #94a3b8; cursor: pointer; font-size: 14px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
-  #artemis-overlay .ao-close:hover { background: rgba(255,255,255,0.2); color: #fff; }
-  #artemis-overlay .ao-body { padding: 0 12px 12px; display: none; }
-  #artemis-overlay.ao-expanded .ao-body { display: block; }
-  #artemis-overlay.ao-expanded { min-width: 320px; }
-  #artemis-overlay .ao-body-section { margin-top: 10px; }
-  #artemis-overlay .ao-body-section h4 { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-  #artemis-overlay .ao-breakdown-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; }
-  #artemis-overlay .ao-breakdown-row .ao-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
-  #artemis-overlay .ao-breakdown-row .ao-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
-  #artemis-overlay .ao-import-btn {
-    display: block; width: 100%; margin-top: 10px;
-    padding: 8px 16px; border: none; border-radius: 8px;
-    background: #3b82f6; color: #fff; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s;
-  }
-  #artemis-overlay .ao-import-btn:hover { background: #2563eb; }
-  #artemis-overlay .ao-extract-item { font-size: 13px; margin-top: 2px; color: #e2e8f0; }
-  #artemis-overlay .ao-extract-item strong { color: #94a3b8; font-weight: 500; }
-  #artemis-overlay .ao-summary-text { font-size: 13px; color: #cbd5e1; margin-top: 4px; line-height: 1.5; }
-  #artemis-overlay .ao-action-row { display: flex; gap: 6px; margin-top: 10px; }
-  #artemis-overlay .ao-sec-btn {
-    flex: 1; padding: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
-    background: transparent; color: #e2e8f0; font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: all 0.2s; text-align: center;
-  }
-  #artemis-overlay .ao-sec-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); }
-  #artemis-overlay .ao-info-box {
-    padding: 10px; border-radius: 8px;
-    border: 1px solid rgba(148,163,184,0.2);
-    background: rgba(148,163,184,0.08);
-    font-size: 13px; color: #94a3b8; line-height: 1.5;
-  }
-  #artemis-overlay .ao-expand-hint { color: #64748b; font-size: 10px; flex-shrink: 0; }
-  #artemis-overlay.ao-expanded .ao-expand-hint { display: none; }
-  /* Circular ring indicator */
-  #artemis-overlay .ao-ring-wrap { width:44px;height:44px;flex-shrink:0;position:relative;display:flex;align-items:center;justify-content:center }
-  #artemis-overlay .ao-ring-wrap svg { display:block }
-  #artemis-overlay .ao-spinner { animation:ao-spin 1s linear infinite }
-  @keyframes ao-spin { to { transform:rotate(360deg) } }
-  #artemis-overlay .ao-bullseye { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none }
-  #artemis-overlay .ao-bullseye::after { content:'';display:block;width:44px;height:44px;border-radius:50%;background:rgba(234,179,8,0.3);animation:ao-pulse 1s ease-out infinite;transform-origin:center }
-  @keyframes ao-pulse { 0% { transform:scale(0.15);opacity:.6 } 100% { transform:scale(1);opacity:0 } }
-`;
 
 // Uncaught error relay
 function logErrorToApp(message: string, stack?: string, code?: string, metadata?: string) {
@@ -220,12 +128,11 @@ console.error = (...args: any[]) => {
 // Module state
 // hostEl is the light-DOM anchor appended to document.body — the only overlay
 // node a host page's own CSS can ever touch, so it is positioned purely via
-// inline styles set through the DOM API (see injectOverlay). overlayShadowRoot
-// is its shadow tree, and overlayEl is the actual overlay UI root that lives
-// inside that shadow tree (styled via adoptedStyleSheets, fully isolated from
-// the host page's CSS and unaffected by the page's style-src CSP).
+// inline styles set through the DOM API (see injectOverlay). overlayEl is the
+// actual overlay UI root that lives inside its shadow tree (styled via
+// adoptedStyleSheets, fully isolated from the host page's CSS and unaffected
+// by the page's style-src CSP).
 let hostEl: HTMLDivElement | null = null;
-let overlayShadowRoot: ShadowRoot | null = null;
 let overlayEl: HTMLDivElement | null = null;
 let isExpanded = false;
 let hasFingerprint = false;
@@ -361,74 +268,6 @@ function render() {
   `;
 }
 
-function setupOverlayEvents(el: HTMLElement, host: HTMLElement) {
-  let justDragged = false;
-
-  // Drag: mousedown on [data-drag] header
-  // Positioning lives on `host` (the light-DOM anchor, position:fixed via
-  // inline styles) rather than `el` (the shadow-root content, which is a
-  // normal in-flow box inside the host) — see injectOverlay.
-  el.addEventListener("mousedown", (e) => {
-    const header = (e.target as HTMLElement).closest("[data-drag]");
-    if (!header) return;
-    if ((e.target as HTMLElement).closest("button")) return;
-
-    let wasDragged = false;
-    const startX = e.clientX, startY = e.clientY;
-    const origX = parseInt(host.style.left) || 0;
-    const origY = parseInt(host.style.top) || 0;
-
-    const onMove = (me: MouseEvent) => {
-      const dx = me.clientX - startX, dy = me.clientY - startY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) wasDragged = true;
-      host.style.left = (origX + dx) + "px";
-      host.style.top = (origY + dy) + "px";
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      if (wasDragged) {
-        justDragged = true;
-        void savePosition({ x: parseInt(host.style.left) || 0, y: parseInt(host.style.top) || 0 });
-      }
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  });
-
-  // Click delegation: data-action buttons + toggle expand
-  el.addEventListener("click", (e) => {
-    const wasDrag = justDragged;
-    justDragged = false;
-
-    const btn = (e.target as HTMLElement).closest("[data-action]");
-    if (btn) {
-      const action = (btn as HTMLElement).dataset.action;
-      if (action === "close") {
-        host.remove();
-        hostEl = null;
-        overlayShadowRoot = null;
-        overlayEl = null;
-        return;
-      }
-      if (action === "import") { void handleImport(); return; }
-      if (action === "open-app") { void openApp(); return; }
-      if (action === "retry") {
-        scoringFailed = false;
-        matchScore = null;
-        render();
-        void loadConfig().then(async (cfg) => computeMatch((await cleanPageText()).text, cfg));
-        return;
-      }
-      if (action === "test-nano") { void testNano(); return; }
-      return;
-    }
-    if (wasDrag) return;
-    isExpanded = !isExpanded;
-    render();
-  });
-}
-
 function injectNanoBridge() {
   if (document.getElementById("artemis-nano-bridge")) return;
   const script = document.createElement("script");
@@ -476,7 +315,7 @@ async function injectOverlay(config: OverlayConfig) {
   }
 
   // React to config changes (e.g. fingerprint generated in popup) — no
-  // overlayEl/overlayShadowRoot guard anymore since neither is ever created;
+  // overlayEl guard anymore since it is never created;
   // this is what keeps the panel's live relay current after the fingerprint
   // changes, not just on the initial navigation.
   if (!storageInit) {
@@ -553,28 +392,6 @@ async function cleanPageText(): Promise<{ title: string; text: string; url: stri
   }
 
   return { title: document.title, text: document.body.innerText, url: location.href };
-}
-
-async function handleImport() {
-  if (isImporting) return;
-  isImporting = true;
-  render();
-
-  try {
-    const data = await cleanPageText();
-    chrome.runtime.sendMessage({ type: "ARTEMIS_IMPORT_JOB", payload: data }).catch(() => {});
-    isImported = true;
-    isImporting = false;
-    render();
-  } catch (err) {
-    console.error("[Artemis] Import failed:", err);
-    isImporting = false;
-    render();
-  }
-}
-
-async function openApp() {
-  chrome.runtime.sendMessage({ type: "ARTEMIS_OPEN_APP" }).catch(() => {});
 }
 
 async function computeMatch(pageText: string, config: OverlayConfig) {
@@ -714,46 +531,6 @@ function postMessageToNano(method: string, args?: any, onProgress?: (msg: string
   });
 }
 
-async function testNano() {
-  nanoTesting = true;
-  nanoTestResult = null;
-  render();
-
-  // First check if the bridge is alive
-  try {
-    await postMessageToNano("nano-ping", undefined, undefined, 3000);
-  } catch {
-    // Bridge not loaded, try re-injecting
-    console.log("[Artemis] Nano bridge not responding, re-injecting...");
-    injectNanoBridge();
-    // Wait for it to initialize
-    await new Promise((r) => setTimeout(r, 500));
-    try {
-      await postMessageToNano("nano-ping", undefined, undefined, 3000);
-    } catch {
-      nanoTestResult = ot("overlay.bridgeNotLoaded");
-      nanoTesting = false;
-      render();
-      return;
-    }
-  }
-
-  try {
-    const raw = await postMessageToNano("nano-test", undefined, (progress) => {
-      nanoTestResult = progress;
-      render();
-    }, 120000);
-    const r = typeof raw === "string" ? JSON.parse(raw) : raw;
-    nanoTestResult = r.ok
-      ? ot("overlay.nanoAvailable")
-      : "✗ " + (r.error || "unavailable");
-  } catch {
-    nanoTestResult = ot("overlay.nanoErrorTimedOut");
-  }
-  nanoTesting = false;
-  render();
-}
-
 // background.ts's handleLLMScore already parses the LLM's JSON reply into
 // {score, reason} — returned as a JSON string here so the caller can run it
 // through the same parseScore() path as the Nano branch instead of having
@@ -792,7 +569,6 @@ async function init() {
     console.log("[Artemis] init: removing stale overlay");
     hostEl.remove();
     hostEl = null;
-    overlayShadowRoot = null;
     overlayEl = null;
   }
 

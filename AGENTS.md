@@ -90,7 +90,7 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 - **IndexedDB wipe**: Clearing browser data destroys profiles. Re-created from defaults on next load
 - **Extension**: Always hash routing. Reload at `chrome://extensions` after rebuild
 - **LLM timeout**: 120s generation, 30s test connection. Override via `timeoutMs`
-- **Pre-existing TS errors**: `clParser.ts` (undefined checks), `migrations.ts` (`ThemeMode` assertion), `WorkspaceProfileContext.tsx` (possibly undefined vars) — known
+- **TS errors**: none tolerated. `npm run typecheck` must be clean; treat any output as a regression. (The old "pre-existing errors" list — `clParser.ts`, `migrations.ts`, `WorkspaceProfileContext.tsx` — was resolved and removed.)
 
 ## Extension Overlay
 

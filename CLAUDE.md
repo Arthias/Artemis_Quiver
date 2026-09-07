@@ -113,7 +113,7 @@ vitest + jsdom + `fake-indexeddb`. Test files are colocated as `src/**/*.test.{t
 - Services are stateless; prompt assembly and LLM fetch calls live in `src/app/services/`.
 - Strict TypeScript — avoid `any`; define interfaces for data transfer models.
 - Style with Tailwind + shadcn/ui, using CSS variables so components support light/dark themes.
-- Known pre-existing TS issues (not regressions to "fix" incidentally): `clParser.ts` (undefined checks), `migrations.ts` (`ThemeMode` assertion), `WorkspaceProfileContext.tsx` (possibly-undefined vars).
+- `npm run typecheck` is expected to be **clean**. There is no known-good list of tolerated TS errors — the previously documented ones (`clParser.ts`, `migrations.ts`, `WorkspaceProfileContext.tsx`) were resolved, and the list is no longer maintained. Treat any `tsc --noEmit` output as a regression.
 
 ## Docs
 
