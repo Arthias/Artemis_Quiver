@@ -32,7 +32,7 @@ Override model: `npm run qa:hub -- --Model ollama/qwen2.5-coder:1.5b`
 
 1. `scripts/qa.ps1` starts Vite + Playwright MCP (SSE port 3099)
 2. Feeds prompt from `qa_prompts/<suite>.md` to `opencode run --agent qa`
-3. QA agent (`.opencode/agents/qa.md`) uses `ollama/qwen2.5-coder:7b`
+3. QA agent (`.opencode/agents/qa.md`) uses `ollama/gemma4:latest` (only model confirmed to reliably drive tool calls for this agent — `qwen2.5-coder:7b` produces garbled output and LM Studio's `gemma-4-e2b`/`gemma-4-12b-qat` fabricate or stall)
 4. Agent calls Playwright MCP browser tools: navigate, snapshot, click, eval
 5. Results written to `qa-reports/qa-report-<timestamp>.md`
 

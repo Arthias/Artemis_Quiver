@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp",
+        "--user-data-dir",
+        "F:\\Dev\\Artemis_Quiver\\.qa-browser-profile-cc"
+      ]
+    }
+  }
+}

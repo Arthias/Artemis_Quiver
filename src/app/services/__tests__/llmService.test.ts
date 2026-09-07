@@ -2,6 +2,14 @@ import { describe, it, expect, vi } from "vitest";
 import { chatCompletion, getActiveEndpoint, chatCompletionWithFallback } from "../llmService";
 import type { ModelEndpoint, LlmConfig } from "../../types/llm";
 
+// llmService fire-and-forgets an error-log write via a dynamic import of
+// errorLogRepo (Dexie/IndexedDB) whenever a chat completion fails. This
+// suite doesn't polyfill IndexedDB, so leaving it unmocked produces an
+// unhandled rejection from that untracked promise on every error-path test.
+vi.mock("../../db/errorLogRepo", () => ({
+  addErrorLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockEndpoint: ModelEndpoint = {
   label: "Test",
   provider: "openai-compatible",

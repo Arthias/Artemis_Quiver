@@ -24,10 +24,63 @@ const SECTION_NORMALIZERS: Record<string, (val: unknown) => Record<string, unkno
   certifications: (val) => ({ type: "certifications", certifications: Array.isArray(val) ? val : [] }),
 };
 
+// Weaker models tend to fill optional fields they can't answer (e.g. a
+// missing location) with a literal placeholder instead of omitting them,
+// which then renders verbatim in the exported document. Strip those so the
+// existing `{item.location && ...}`-style guards in the CV renderers hide
+// the field as if it were never provided.
+const PLACEHOLDER_VALUES = new Set([
+  "n/a", "na", "none", "unknown", "tbd", "-", "--", "not specified", "not provided",
+]);
+
+function isPlaceholder(value: unknown): boolean {
+  return typeof value === "string" && PLACEHOLDER_VALUES.has(value.trim().toLowerCase());
+}
+
+function stripPlaceholderFields(obj: Record<string, unknown>, fields: string[]): Record<string, unknown> {
+  let result = obj;
+  for (const field of fields) {
+    if (isPlaceholder(result[field])) {
+      if (result === obj) result = { ...obj };
+      delete result[field];
+    }
+  }
+  return result;
+}
+
+function sanitizeSectionPlaceholders(section: Record<string, unknown>): Record<string, unknown> {
+  switch (section.type) {
+    case "contact":
+      return stripPlaceholderFields(section, ["email", "phone", "linkedin", "website", "location"]);
+    case "experience":
+      if (!Array.isArray(section.experience)) return section;
+      return {
+        ...section,
+        experience: section.experience.map((item) =>
+          typeof item === "object" && item !== null
+            ? stripPlaceholderFields(item as Record<string, unknown>, ["location"])
+            : item
+        ),
+      };
+    case "education":
+      if (!Array.isArray(section.education)) return section;
+      return {
+        ...section,
+        education: section.education.map((item) =>
+          typeof item === "object" && item !== null
+            ? stripPlaceholderFields(item as Record<string, unknown>, ["location"])
+            : item
+        ),
+      };
+    default:
+      return section;
+  }
+}
+
 function normalizeSection(section: Record<string, unknown>): Record<string, unknown> {
-  if (section.type && typeof section.type === "string") return section;
+  if (section.type && typeof section.type === "string") return sanitizeSectionPlaceholders(section);
   for (const [key, normalizer] of Object.entries(SECTION_NORMALIZERS)) {
-    if (key in section) return normalizer(section[key]);
+    if (key in section) return sanitizeSectionPlaceholders(normalizer(section[key]));
   }
   return section;
 }

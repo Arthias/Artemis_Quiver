@@ -224,11 +224,15 @@ export function Profile() {
                     onChange={(e) => setProfile(e.target.value)}
                     className="min-h-[600px] font-mono text-sm resize-none bg-input-background border-border"
                   />
-                ) : (
+                ) : profile.trim() ? (
                   <div className="prose prose-sm max-w-none dark:prose-invert bg-muted/30 rounded-lg p-6">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {profile}
                     </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="bg-muted/30 rounded-lg p-6 text-sm text-muted-foreground">
+                    {t("profile.previewEmpty")}
                   </div>
                 )}
               </Card>

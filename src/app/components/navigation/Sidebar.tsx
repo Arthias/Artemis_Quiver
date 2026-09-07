@@ -157,7 +157,7 @@ export function Sidebar() {
               {t("app.recentAnalyses")}
             </h3>
           </div>
-          <ScrollArea className="flex-1 px-3">
+          <ScrollArea className="flex-1 min-h-0 px-3">
             <div className="space-y-1 pb-4">
               {sessions.length === 0 ? (
                 <p className="text-xs text-muted-foreground px-3 py-2">{t("app.noAnalysesYet")}</p>

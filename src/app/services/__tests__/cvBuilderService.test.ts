@@ -106,6 +106,32 @@ describe("generateCv", () => {
     expect(parsed.sections[1].skills).toEqual(["Go", "Kubernetes"]);
   });
 
+  it("should strip placeholder values like 'N/A' from optional location fields", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+      name: "Test User",
+      title: "Engineer",
+      sections: [
+        { type: "contact", email: "test@example.com", phone: "N/A", location: "Remote" },
+        {
+          type: "experience",
+          experience: [{ role: "Dev", company: "Co", period: "2020-2023", location: "n/a", bullets: [] }],
+        },
+        {
+          type: "education",
+          education: [{ degree: "BSc", institution: "MIT", period: "2016-2020", location: "TBD" }],
+        },
+      ],
+    }));
+
+    const result = await generateCv("# Profile", "Job", [], mockEndpoint);
+    const parsed = JSON.parse(result);
+    const [contact, experience, education] = parsed.sections;
+    expect(contact.phone).toBeUndefined();
+    expect(contact.location).toBe("Remote");
+    expect(experience.experience[0].location).toBeUndefined();
+    expect(education.education[0].location).toBeUndefined();
+  });
+
   it("should include recommendations in the prompt", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
 

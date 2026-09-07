@@ -46,6 +46,9 @@ Thumbs.db
 
 # QA reports (don't commit)
 qa-reports/
+.qa-browser-profile/
+.qa-browser-profile-cc/
+.playwright-mcp/
 
 # Test & coverage
 coverage/

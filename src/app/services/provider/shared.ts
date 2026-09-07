@@ -1,7 +1,10 @@
 import { AppError, ErrorCodes } from "../../utils/errors";
 
 export function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
+  // Adapters append their own "/v1/..." (or "/v1beta/...") suffix, so a
+  // user-supplied base URL that already ends in "/v1" (the documented format
+  // for OpenRouter, OpenAI, etc.) would otherwise double up into "/v1/v1/...".
+  return url.replace(/\/+$/, "").replace(/\/v1$/i, "");
 }
 
 export function createAbortSignal(timeoutMs: number): { signal: AbortSignal; clear: () => void } {

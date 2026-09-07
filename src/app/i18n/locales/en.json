@@ -70,12 +70,13 @@
     "lastSaved": "Last saved",
     "unsavedChanges": "unsaved changes",
     "newProfile": "New profile.",
-    "newProfileHint": "Paste your CV or resume below, or use Import file to load an existing .md or .txt document into the editor.",
+    "newProfileHint": "Paste your CV or resume below, or use Import file to load an existing .md or .txt document into the editor.",
     "cancel": "Cancel",
     "profileEditor": "Profile Editor",
     "aiAssistant": "AI Assistant",
     "masterProfile": "Master Profile",
     "editHint": "Edit your professional profile in Markdown format",
+    "previewEmpty": "Your profile is empty. Click Edit to add your professional background in Markdown.",
     "preview": "Preview",
     "edit": "Edit",
     "assistantHint": "Ask the assistant to improve sections, add metrics, or reorganize your profile. When it suggests an update, use Apply to editor.",
@@ -84,7 +85,7 @@
     "chatPlaceholder": "Ask to improve your profile...",
     "send": "Send",
     "fileTypeError": "Only .md and .txt files are supported.",
-    "fileTooLarge": "File is too large (max 500KB). Consider splitting the content.",
+    "fileTooLarge": "File is too large (max 500KB). Consider splitting the content.",
     "chatFailed": "Chat failed.",
     "readFailed": "Could not read that file.",
     "onlyMdTxt": "Only .md and .txt files are supported."

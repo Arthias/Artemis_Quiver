@@ -1,7 +1,7 @@
 ---
 tags: [index, bugfixes, issues, resolved]
 status: completed
-last_updated: 2026-08-20
+last_updated: 2026-09-07
 ---
 
 # 🐛 Bugs & Fixes — Resolution Log
@@ -463,6 +463,54 @@ Expanded view shows guidance: "No profile fingerprint. Open the Artemis Quiver p
 **Fix Applied:** `handleExtractAndImport` now pushes into `artemis:pendingImports` (same as the overlay's `ARTEMIS_IMPORT_JOB` path) and creates the app tab when none is open.
 
 **Location:** `src/extension/background.ts`
+
+---
+
+## 2026-09-07: Default LLM config broken out of the box + QA session findings
+
+### Issue #30: Default cloud LLM config 404s on every request
+
+**Symptom:** A fresh install using the default Cloud/OpenRouter config gets `LLM request failed (404)` on every CV generation, Job Analysis, and Cover Letter request — even with a valid API key. Error message ("Check Settings > Test connection") reads as user misconfiguration.
+
+**Root Cause:** `DEFAULT_LLM_CONFIG` (`src/app/config/defaults.ts`) ships `baseUrl: "https://openrouter.ai/api/v1"` — the officially documented OpenRouter base URL, which already ends in `/v1`. But `OpenAICompatibleAdapter.ts` unconditionally appended its own `/v1/chat/completions`, producing `https://openrouter.ai/api/v1/v1/chat/completions`. Any base URL entered in the documented `.../v1` format (OpenRouter, OpenAI itself) hit this; only URLs without the suffix (e.g. `http://localhost:11434`) worked by accident.
+
+**Fix Applied:** `normalizeBaseUrl()` (`src/app/services/provider/shared.ts`) now strips a trailing `/v1` (case-insensitive) before adapters append their own suffix, so both `.../api/v1` and `.../api` style URLs converge to the same request. Verified Gemini's `/v1beta` suffix is unaffected (exact-match `/v1$` only). Added `src/app/services/provider/__tests__/shared.test.ts`.
+
+**Location:** `src/app/services/provider/shared.ts`, `src/app/services/provider/OpenAICompatibleAdapter.ts`
+
+---
+
+### Issue #31: Weak-model CV generation leaks literal "N/A" into exported documents
+
+**Symptom:** With a smaller local model (e.g. `gemma-4-e2b`), generated CVs show literal placeholder text like "2021 - Present | N/A" or "University of Technology, N/A" for optional fields (location) the model couldn't fill from the profile.
+
+**Root Cause:** The CV generation prompt (`prompts.ts`) correctly marks `location` as optional, and the section-variant renderers (`sectionVariants/experience.tsx`, `education.tsx`) already guard with `{item.location && ...}` — but a weak model fills the optional field with a literal `"N/A"` string instead of omitting it, which is truthy and passes the guard unchanged.
+
+**Fix Applied (safeguard):** `cvBuilderService.ts`'s `normalizeCvJson` pipeline now strips a fixed set of placeholder-like values (`"n/a"`, `"none"`, `"tbd"`, `"unknown"`, `"-"`, `"not specified"`, etc., case-insensitive) from `contact.{email,phone,linkedin,website,location}` and `experience[].location` / `education[].location` after generation, regardless of whether the model returned already-typed sections or the legacy key-based shape. Covered by a new test in `cvBuilderService.test.ts`.
+
+**Location:** `src/app/services/cvBuilderService.ts`
+
+---
+
+### Issue #32: Profile empty state shows a blank box with no message
+
+**Symptom:** If the master profile markdown is empty (cleared content, or a from-scratch profile that never got the onboarding sample text), the Profile Editor's preview pane renders nothing — just an empty muted box, no guidance.
+
+**Fix Applied (safeguard):** `Profile.tsx` now renders a placeholder message (`profile.previewEmpty`, added to `en.json`/`es.json`) when `profile.trim()` is empty, instead of an empty `ReactMarkdown` container. Distinct from the existing `showOnboarding` banner, which only fires once on a specific "new profile" navigation, not on generic empty content.
+
+**Location:** `src/app/pages/Profile.tsx`, `src/app/i18n/locales/{en,es}.json`
+
+---
+
+### Issue #33: Sidebar "Recent Analyses" list cannot scroll past the visible area
+
+**Symptom:** Once enough sessions accumulate to overflow the sidebar's allotted height, older sessions become permanently inaccessible — the list neither scrolls nor shows a scrollbar thumb with any range.
+
+**Root Cause:** The `ScrollArea` wrapping the session list (`Sidebar.tsx`) had `className="flex-1 px-3"` with no `overflow`/`min-h-0`. Per the CSS flexbox spec, a flex item's automatic minimum size stays content-based unless the item itself has non-`visible` overflow — so the `ScrollArea`'s own box grew to fit *all* sessions instead of clamping to the space `flex-1` allotted it, and the parent's `overflow-hidden` silently clipped the excess rather than the intended internal scroll ever activating.
+
+**Fix Applied:** Added `min-h-0` to the `ScrollArea` className. Verified live by injecting 25 synthetic sessions directly into IndexedDB and confirming `scrollHeight > clientHeight` plus that scrolling reveals previously-inaccessible entries.
+
+**Location:** `src/app/components/navigation/Sidebar.tsx`
 
 ---
 
