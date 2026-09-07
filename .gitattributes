@@ -1,0 +1,27 @@
+# Normalise line endings across platforms.
+# Without this, a repo authored on Windows shows thousands of phantom
+# modified lines the first time it is touched on macOS or Linux.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF to run under PowerShell.
+*.ps1 text eol=crlf
+
+# Binary assets — never normalise, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+
+# Obsidian canvas files are JSON; keep them LF like the rest of the docs.
+*.canvas text eol=lf
+
+# Lockfile: text, LF, but suppress it from diff output by default.
+package-lock.json text eol=lf linguist-generated=true
