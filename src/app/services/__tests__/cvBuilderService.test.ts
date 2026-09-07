@@ -136,7 +136,7 @@ describe("generateCv", () => {
     vi.mocked(chatCompletion).mockResolvedValue("Concise summary text");
 
     const result = await generateCv("# Profile", undefined, undefined, mockEndpoint, {
-      mode: "summary-rewrite",
+      mode: "audit",
       targetRole: "Designer",
     });
 
@@ -182,26 +182,22 @@ describe("optimizeCv", () => {
   });
 
   it("should pass context fields to the prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Transition feedback");
+    vi.mocked(chatCompletion).mockResolvedValue("Hiring manager feedback");
 
-    await optimizeCv("# Profile", "career-transition", mockEndpoint, {
-      previousField: "Marketing",
-      newField: "Product",
+    await optimizeCv("# Profile", "hiring-manager", mockEndpoint, {
+      targetRole: "Product Manager",
+      industry: "SaaS",
       jobDescription: "Looking for a PM",
     });
 
     const calls = vi.mocked(chatCompletion).mock.calls;
     const systemContent = calls[0]?.[0]?.find(m => m.role === "system")?.content ?? "";
-    expect(systemContent).toContain("Marketing");
-    expect(systemContent).toContain("Product");
+    expect(systemContent).toContain("Product Manager");
+    expect(systemContent).toContain("SaaS");
   });
 
   it("should handle all optimization modes without error", async () => {
-    const modes = [
-      "summary-rewrite", "bullet-optimize", "ats-optimize",
-      "career-transition", "audit", "work-history-align",
-      "skills-section", "headline", "hiring-manager",
-    ] as const;
+    const modes = ["ats-optimize", "audit", "hiring-manager"] as const;
 
     for (const mode of modes) {
       vi.mocked(chatCompletion).mockResolvedValue(`Result for ${mode}`);

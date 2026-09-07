@@ -12,7 +12,7 @@ import {
 } from "./prompts";
 import i18n from "../i18n";
 
-const JSON_MODES: OptimizationMode[] = ["standard", "ats-optimize", "career-transition"];
+const JSON_MODES: OptimizationMode[] = ["standard", "ats-optimize"];
 const MAX_RETRIES = 3;
 
 const SECTION_NORMALIZERS: Record<string, (val: unknown) => Record<string, unknown>> = {
@@ -56,8 +56,6 @@ export interface GenerateCvOptions {
   mode?: OptimizationMode;
   targetRole?: string;
   industry?: string;
-  previousField?: string;
-  newField?: string;
 }
 
 function buildMessages(
@@ -72,8 +70,6 @@ function buildMessages(
     industry: options?.industry,
     jobDescription,
     recommendations: cvRecommendations,
-    previousField: options?.previousField,
-    newField: options?.newField,
     locale: i18n.language,
   };
 
@@ -190,8 +186,6 @@ export async function optimizeCv(
     industry: context?.industry,
     jobDescription: context?.jobDescription,
     recommendations: context?.recommendations,
-    previousField: context?.previousField,
-    newField: context?.newField,
     locale: i18n.language,
   };
 
@@ -200,8 +194,6 @@ export async function optimizeCv(
   const contextParts = [];
   if (ctx.targetRole) contextParts.push(`\nTarget role: ${ctx.targetRole}`);
   if (ctx.industry) contextParts.push(`Industry: ${ctx.industry}`);
-  if (ctx.previousField) contextParts.push(`Previous field: ${ctx.previousField}`);
-  if (ctx.newField) contextParts.push(`Target field: ${ctx.newField}`);
   if (ctx.jobDescription) contextParts.push(`\n## Job description\n\n${ctx.jobDescription}`);
 
   const contextBlock = contextParts.length > 0 ? `\n\n${contextParts.join("\n")}` : "";

@@ -4,16 +4,16 @@
 // Each prompt is a factory: (context) => systemMessage
 // ============================================================================
 
+// Only "standard" is reachable from the UI today. `audit`, `hiring-manager`
+// and `ats-optimize` are kept deliberately — they are generic, they do not
+// instruct the model to invent anything, and they are candidates for being
+// wired up later. The other six modes were deleted: they were unreachable and
+// two of them (bullet-optimize, skills-section) explicitly told the model to
+// invent metrics and to suggest skills the profile does not contain.
 export type OptimizationMode =
   | "standard"
-  | "summary-rewrite"
-  | "bullet-optimize"
   | "ats-optimize"
-  | "career-transition"
   | "audit"
-  | "work-history-align"
-  | "skills-section"
-  | "headline"
   | "hiring-manager";
 
 export interface PromptContext {
@@ -21,8 +21,6 @@ export interface PromptContext {
   industry?: string;
   jobDescription?: string;
   recommendations?: string[];
-  previousField?: string;
-  newField?: string;
   locale?: string;
 }
 
@@ -120,47 +118,6 @@ GENERAL OPTIMIZATION GUIDELINES:
 }
 
 // ============================================================================
-// Summary Rewrite (#1)
-// ============================================================================
-
-function summaryRewritePrompt(ctx: PromptContext): string {
-  return `You are an expert CV writer specializing in professional summaries. Rewrite the candidate's summary to be concise, compelling, and aligned with the target role.
-
-Target role: ${ctx.targetRole ?? "the position"}
-Industry: ${ctx.industry ?? "the relevant field"}
-
-REQUIREMENTS:
-- 2-4 sentences maximum
-- Lead with years of experience and role title
-- Include 1-2 key differentiators (notable achievements, unique skills, or impact metrics)
-- Match the tone and language of the target industry
-- Avoid clichés: "results-driven", "team player", "go-getter", "hardworking"
-- End with what the candidate offers the employer, not what they seek
-
-Return ONLY the rewritten summary text — no JSON, no commentary.`;
-}
-
-// ============================================================================
-// Bullet Point Optimization (#2)
-// ============================================================================
-
-function bulletOptimizePrompt(_ctx: PromptContext): string {
-  return `You are an expert CV writer specializing in achievement-oriented bullet points. Rewrite the provided experience descriptions to focus on measurable accomplishments.
-
-REQUIREMENTS:
-- Start each bullet with a strong action verb (led, designed, increased, reduced, negotiated, launched, optimized)
-- Follow the format: Action + What You Did + Measurable Result
-- Add numbers, percentages, dollar amounts, or timeframes wherever the profile supports them
-- Eliminate passive voice and generic responsibility statements
-- Examples of what to avoid:
-  "Was responsible for managing a team" → "Led a team of 8 engineers, delivering 12 projects on time"
-  "Helped with customer onboarding" → "Designed onboarding workflow that reduced time-to-value by 40%"
-- If the profile doesn't include specific numbers, infer plausible metrics from context (team size, project scope, impact)
-
-Return ONLY the rewritten bullet points as a bullet list — no JSON, no commentary.`;
-}
-
-// ============================================================================
 // ATS Optimization (#3)
 // ============================================================================
 
@@ -186,26 +143,6 @@ Return the full CV content optimized for ATS.`;
 }
 
 // ============================================================================
-// Career Transition (#4)
-// ============================================================================
-
-function careerTransitionPrompt(ctx: PromptContext): string {
-  const from = ctx.previousField ?? "your previous field";
-  const to = ctx.newField ?? "your new target field";
-
-  return `You are a career transition coach. Help reframe the candidate's experience from ${from} to position them strongly for ${to}.
-
-STRATEGIES:
-- Identify transferable skills: project management, communication, analysis, leadership, client management, technical aptitudes that cross domains
-- Recontextualize past achievements: describe past accomplishments using language that resonates in the new field
-- Lead with a narrative: the summary should tell a coherent story about why this career move makes sense and brings unique value
-- Don't hide the transition — frame it as a strategic move that brings a differentiated perspective
-- If there's a gap between fields, suggest bridge experiences (volunteer work, courses, projects, certifications)
-
-Return the reframed CV content highlighting transferable skills and career change narrative. Stay factual — do not invent experience in the new field.`;
-}
-
-// ============================================================================
 // CV Audit (#5)
 // ============================================================================
 
@@ -228,68 +165,6 @@ For each issue found, provide:
 - A suggested rewrite (how to fix it)
 
 Return the audit in a structured format. Be direct — the candidate wants honest feedback, not encouragement.`;
-}
-
-// ============================================================================
-// Work History Alignment (#7)
-// ============================================================================
-
-function workHistoryAlignPrompt(_ctx: PromptContext): string {
-  return `You are a career alignment specialist. Restructure the candidate's work history to maximize relevance to the target role.
-
-ALIGNMENT GUIDELINES:
-- For each past role, identify 1-3 accomplishments that most directly map to the target job's required qualifications
-- Reorder bullet points within each role so the most relevant achievements appear first
-- Where the candidate's language differs from the job description, suggest phrasing that matches the target role's terminology
-- If the role seems unrelated, find and emphasize the transferable elements (budget management, team leadership, client work, process improvement)
-- Consider whether the roles are best presented chronologically or in a "relevant experience" / "additional experience" structure
-
-Return the restructured work history with explanations of why each change improves alignment.`;
-}
-
-// ============================================================================
-// Skills Section (#8)
-// ============================================================================
-
-function skillsSectionPrompt(_ctx: PromptContext): string {
-  return `You are a technical resume specialist. Build or optimize the candidate's skills section.
-
-GUIDELINES:
-- Categorize skills (Languages, Frameworks, Tools, Platforms, Soft Skills) for scannability
-- Order each category by relevance to the target role, not alphabetically
-- Include proficiency indicators only if the candidate has a clear tier (Expert, Proficient, Familiar) — do not invent ratings
-- Suggest 1-2 skills the candidate might reasonably claim based on their experience (even if not explicitly listed in the profile)
-- Flag any skills in the profile that are outdated or irrelevant to the target role
-- Keep the section compact — 15-25 well-chosen skills is more effective than 50+ scattered ones
-
-Return the optimized skills section as a categorized list.`;
-}
-
-// ============================================================================
-// Headline Generation (#9)
-// ============================================================================
-
-function headlinePrompt(_ctx: PromptContext): string {
-  return `You are a personal branding specialist. Write a powerful resume headline and subheadline.
-
-FORMAT:
-- Headline: 5-10 word phrase that communicates role, seniority, and primary differentiator
-- Subheadline: 1-2 sentence expansion on value proposition
-
-EXAMPLES:
-"Senior Product Manager | SaaS Growth & Platform Strategy"
-"Led 3× revenue growth across $50M product portfolio through data-driven roadmap prioritization and cross-functional execution"
-
-"Full-Stack Engineer | React, Node.js, AWS"
-"Built scalable platforms serving 2M+ users, reducing infrastructure costs 35% through cloud architecture redesign"
-
-REQUIREMENTS:
-- The headline should immediately tell the reader who you are and what you offer
-- The subheadline should include 1 measurable achievement or scope indicator
-- Use industry-appropriate keywords
-- Avoid generic labels ("Professional", "Experienced", "Results-Oriented")
-
-Return only the headline and subheadline — no JSON, no commentary.`;
 }
 
 // ============================================================================
@@ -344,22 +219,10 @@ export function selectPrompt(
     switch (mode) {
       case "standard":
         return cvGeneratePrompt(ctx);
-      case "summary-rewrite":
-        return summaryRewritePrompt(ctx);
-      case "bullet-optimize":
-        return bulletOptimizePrompt(ctx);
       case "ats-optimize":
         return atsOptimizePrompt(ctx);
-      case "career-transition":
-        return careerTransitionPrompt(ctx);
       case "audit":
         return auditPrompt(ctx);
-      case "work-history-align":
-        return workHistoryAlignPrompt(ctx);
-      case "skills-section":
-        return skillsSectionPrompt(ctx);
-      case "headline":
-        return headlinePrompt(ctx);
       case "hiring-manager":
         return hiringManagerPrompt(ctx);
       default:
