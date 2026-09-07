@@ -1,0 +1,47 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify tag matches manifest version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION=$(node -p "require('./src/extension/manifest.json').version")
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match src/extension/manifest.json version $MANIFEST_VERSION"
+            exit 1
+          fi
+
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build:ext
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="Artemis Quiver ${GITHUB_REF_NAME} — see the commit history for details.
+
+          **Install:** download the zip → unzip → chrome://extensions → Load unpacked → select the folder. Open the web app once for profile fingerprint + error relay. Configure an LLM in the app Settings (local LM Studio/Ollama, WebLLM in-browser, or cloud API key)."
+
+          gh release create "${GITHUB_REF_NAME}" release/*.zip \
+            --title "Artemis Quiver ${GITHUB_REF_NAME}" \
+            --notes "$NOTES"

@@ -15,7 +15,7 @@ npm run build:ext     # Build Chrome extension -> Artemis_Quiver_extension/ (+ z
 npm run test          # vitest run (all tests)
 npm run test:watch    # vitest watch mode
 npm run typecheck     # tsc --noEmit
-npm run release:ext   # build:ext + commit/tag + publish zip to public release repo
+npm run release:ext   # tag main from manifest.json version + push -> GitHub Actions builds & publishes the release
 ```
 
 Run a single test file: `npx vitest run src/app/services/__tests__/<file>.test.ts`
@@ -36,7 +36,7 @@ Requires `@playwright/mcp` + `npx playwright install chromium`. See `QA_AGENT.md
 
 ### Releasing the extension
 
-`npm run release:ext` runs `build:ext`, then commits/tags the zip in the separate public `release/` repo and creates a GitHub Release. Flags: `-SkipBuild` (reuse existing zip), `-SkipPublish` (commit/tag only). The main repo stays private; only distributable zips go public.
+`npm run release:ext` tags `main` with `v<manifest version>` (from `src/extension/manifest.json`, the single source of truth) and pushes. `.github/workflows/release.yml` picks up the tag, verifies it matches the manifest version, runs typecheck/test, builds the extension, and publishes the zip as a GitHub Release on this repo. There is no separate release repo — `Artemis-Quiver-Releases` is archived.
 
 ## Architecture
 

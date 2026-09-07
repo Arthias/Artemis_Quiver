@@ -8,7 +8,7 @@ your browser.
 development and fallback surface.
 
 > **Try it**
-> Download the latest build from the [Releases](https://github.com/Arthias/Artemis-Quiver-Releases/releases)
+> Download the latest build from the [Releases](https://github.com/Arthias/Artemis_Quiver/releases)
 > page, unzip, then `chrome://extensions` → **Developer mode** → **Load unpacked** → select
 > the `Artemis_Quiver_extension/` folder. Open the web app once to link your profile.
 
@@ -48,7 +48,7 @@ real CV in.
 
 ## Install the extension
 
-1. Grab `Artemis_Quiver_extension-vX.Y.Z.zip` from the [Releases page](https://github.com/Arthias/Artemis-Quiver-Releases/releases).
+1. Grab `Artemis_Quiver_extension-vX.Y.Z.zip` from the [Releases page](https://github.com/Arthias/Artemis_Quiver/releases).
 2. Unzip → you get an `Artemis_Quiver_extension/` folder.
 3. `chrome://extensions` → **Developer mode** → **Load unpacked** → select that folder.
 4. Open the web app once so it can build the profile fingerprint used for scoring.
@@ -82,7 +82,7 @@ and reload the extension after any change to it.
 | `npm run test` | vitest suite |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:*` | Playwright QA suites — local only, needs a local LLM (see `QA_AGENT.md`) |
-| `npm run release:ext` | Maintainer only: publishes a zip to the release repo |
+| `npm run release:ext` | Maintainer only: tags `main` and pushes; GitHub Actions builds the extension and publishes the GitHub Release |
 
 ## Choosing a provider
 
