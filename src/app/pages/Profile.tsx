@@ -12,7 +12,6 @@ import { AppError } from "../utils/errors";
 import { useProfile } from "../context/ProfileContext";
 import { useConfig } from "../context/ConfigContext";
 import { useWorkspace } from "../context/WorkspaceProfileContext";
-import { mergeProfileFromUpload } from "../services/profileMergeService";
 import { getActiveEndpoint } from "../services/llmService";
 import {
   extractUpdatedProfile,
@@ -35,8 +34,6 @@ export function Profile() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
-  const [mergePreview, setMergePreview] = useState<string | null>(null);
-  const [merging, setMerging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messages = profileData.profileChat;
@@ -58,6 +55,10 @@ export function Profile() {
     setIsEditing(false);
   };
 
+  // Import is a plain file read: the file's text goes straight into the editor.
+  // No model call, no merge, no truncated review step — the user sees exactly
+  // what the file contained and edits it themselves. Nothing is persisted until
+  // they press Save.
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -71,24 +72,16 @@ export function Profile() {
       return;
     }
     setChatError(null);
-    setMerging(true);
     try {
       const text = await file.text();
-      const merged = await mergeProfileFromUpload(profile, text, getActiveEndpoint(config));
-      setMergePreview(merged);
+      setProfile(text);
+      setIsEditing(true);
+      setActiveTab("editor");
     } catch (err) {
-      setChatError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : t("profile.mergeFailed"));
+      setChatError(err instanceof Error ? err.message : t("profile.readFailed"));
     } finally {
-      setMerging(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  };
-
-  const applyMerge = () => {
-    if (!mergePreview) return;
-    setProfile(mergePreview);
-    setMergePreview(null);
-    setIsEditing(true);
   };
 
   const handleChatSend = async () => {
@@ -149,14 +142,9 @@ export function Profile() {
               <Button
                 variant="outline"
                 className="gap-2"
-                disabled={merging}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {merging ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
+                <Upload className="w-4 h-4" />
                 {t("profile.importFile")}
               </Button>
               <Button variant="outline" className="gap-2" onClick={exportProfile}>
@@ -195,25 +183,6 @@ export function Profile() {
               >
                 {t("app.dismiss")}
               </Button>
-            </Card>
-          )}
-
-          {mergePreview && (
-            <Card className="p-4 mb-6 border-primary/30">
-              <h3 className="font-medium mb-2">{t("profile.reviewMergedProfile")}</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                {t("profile.confirmMerge")}
-              </p>
-              <pre className="text-xs bg-muted/30 p-3 rounded max-h-48 overflow-auto whitespace-pre-wrap mb-3">
-                {mergePreview.slice(0, 2000)}
-                {mergePreview.length > 2000 ? "\n…" : ""}
-              </pre>
-              <div className="flex gap-2">
-                <Button onClick={applyMerge}>{t("profile.applyMerge")}</Button>
-                <Button variant="outline" onClick={() => setMergePreview(null)}>
-                  {t("profile.cancel")}
-                </Button>
-              </div>
             </Card>
           )}
 

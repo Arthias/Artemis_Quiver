@@ -70,10 +70,7 @@
     "lastSaved": "Último guardado",
     "unsavedChanges": "cambios sin guardar",
     "newProfile": "Nuevo perfil.",
-    "newProfileHint": "Pega tu CV o usa Importar archivo para fusionar un documento .md o .txt.",
-    "reviewMergedProfile": "Revisar perfil fusionado",
-    "confirmMerge": "Confirma antes de reemplazar tu perfil actual.",
-    "applyMerge": "Aplicar fusión",
+    "newProfileHint": "Pega tu CV o currículum abajo, o usa Importar archivo para cargar un documento .md o .txt en el editor.",
     "cancel": "Cancelar",
     "profileEditor": "Editor de Perfil",
     "aiAssistant": "Asistente IA",
@@ -87,8 +84,8 @@
     "chatPlaceholder": "Pide mejorar tu perfil...",
     "send": "Enviar",
     "fileTypeError": "Solo se admiten archivos .md y .txt.",
-    "fileTooLarge": "El archivo es demasiado grande (máx 500KB). Divide el contenido.",
-    "mergeFailed": "Fusión fallida.",
+    "fileTooLarge": "El archivo es demasiado grande (máx 500KB). Divide el contenido.",
+    "readFailed": "No se pudo leer el archivo.",
     "chatFailed": "Chat fallido.",
     "onlyMdTxt": "Solo se admiten archivos .md y .txt."
   },
