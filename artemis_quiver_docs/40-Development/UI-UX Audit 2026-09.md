@@ -1,6 +1,6 @@
 ---
 tags: [ui, ux, design, accessibility, responsive, audit]
-status: planning
+status: in-progress
 last_updated: 2026-09-08
 ---
 
@@ -13,7 +13,7 @@ rework. Not a redesign proposal — that's a separate decision once these are tr
 
 ## Findings
 
-### 1. Sidebar doesn't collapse below ~700px — [[Sidebar.tsx]]:75 (Medium-High)
+### 1. Sidebar doesn't collapse below ~700px — [[Sidebar.tsx]]:75 (Fixed 2026-09-08)
 
 `<aside className="w-72 ...">` is a fixed 288px width with no responsive variant and no
 mobile drawer/hamburger pattern. `RootLayout.tsx` gives the sidebar a fixed slot and the
@@ -27,7 +27,14 @@ realistic — but a narrowed or tiled browser window is. Worth fixing (a standar
 collapsible-sidebar-behind-a-toggle pattern below `md:`), but it's a "make it robust" fix,
 not "the app is broken for most users."
 
-### 2. Onboarding logo clipped off-screen on short/narrow viewports (Medium)
+**Fix**: below 768px, the static sidebar is replaced by a hamburger button + slide-in drawer
+(new `src/app/components/ui/sheet.tsx`, built on the `@radix-ui/react-dialog` dependency
+already in the project). Closes on backdrop click, Escape, or nav selection
+(`Sidebar`'s new `onNavigate` prop). Desktop (≥768px) unchanged. Verified in Playwright at
+390px, 768px, and 1440px, plus that the drawer doesn't double-mount `Sidebar`'s side-effecting
+hooks (gated by a `useMediaQuery` hook so only one instance renders at a time).
+
+### 2. Onboarding logo clipped off-screen on short/narrow viewports (Fixed 2026-09-08)
 
 The `AQ` logo mark at the top of the onboarding wizard renders partially above the visible
 viewport on a 390×812 screen, and there's no way to scroll up to see it — the scrollable
@@ -35,7 +42,13 @@ area's top bound already excludes it (see `onboarding-1-mobile.png`). Looks like
 vertically-centered flex/transform container that doesn't account for content taller than
 viewport. First-run bug, so it's the first thing a new mobile-width user would see.
 
-### 3. Model suggestion chips are wrong for 3 of 4 providers — [[Config.tsx]]:891-899 (Medium)
+**Fix**: `justify-center` → `justify-[safe_center]` on the wizard's scroll container —
+centers content when it fits, falls back to top-aligned+scrollable when it doesn't (CSS
+`justify-content: safe center`, Chromium 118+/Firefox 121+, fine for a Chrome-only
+extension). Verified at 390×700 (more aggressive than the original repro) — logo fully
+visible, rest of the step scrolls below it.
+
+### 3. Model suggestion chips are wrong for 3 of 4 providers — [[Config.tsx]] (Fixed 2026-09-08)
 
 `COMMON_MODELS` is a hardcoded list of Ollama-tag-style names (`llama3.2:3b`,
 `deepseek-r1:7b`, ...) shown as quick-pick chips under **both** Primary and Secondary model
@@ -46,13 +59,22 @@ button (fetches the real catalog from whatever endpoint is configured) sits righ
 the field. Recommend either gating the chips to only the local/self-hosted case, or dropping
 them in favor of the live fetch.
 
-### 4. Cloud/Local segmented toggle uses emoji icons (Low)
+**Fix**: removed `COMMON_MODELS` and the chips entirely from both Settings and onboarding.
+Onboarding didn't have a live-fetch affordance at all before — added the same "List available
+models" button Settings has, upgraded from icon-only to icon+label on both pages, with a
+hint line ("Not sure of the exact model name? Click to fetch the models available from this
+endpoint."). Verified end-to-end against real local LM Studio/Ollama endpoints in both
+Settings and onboarding — real model lists returned and selectable.
+
+### 4. Cloud/Local segmented toggle uses emoji icons (Fixed 2026-09-08)
 
 The ☁️/💻 emoji in the onboarding and Settings provider toggle render inconsistently across
 platforms (tiny/clipped in this Chromium build — see `onboarding-2-desktop.png`). The rest
 of the nav already uses `lucide-react` icons consistently; swapping these two for
 lucide equivalents (`Cloud`, `Laptop` or similar) would fix the rendering and match the rest
 of the icon language.
+
+**Fix**: swapped for `lucide-react` `Cloud`/`Laptop` icons in both onboarding and Settings.
 
 ### 5. Large empty-state placeholders feel dated (Low, design-taste)
 
