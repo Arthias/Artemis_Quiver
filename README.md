@@ -14,12 +14,23 @@ development and fallback surface.
 
 ## Screenshots
 
-<!-- TODO: screenshots. Placeholder — the UI is being reworked and pictures taken now would
-     be out of date immediately. Three candidates already exist in
-     src/assets/onboarding/ (overlay-badge.png, overlay-expanded.png, popup-add-site.png).
-     Add: the extension side panel on a real posting, and the Analysis Hub result. -->
+**Job Analysis** — paste a posting, get a match score, interview tips, CV suggestions and a
+cover letter draft, all against your saved profile.
 
-_Not yet. See the TODO above._
+![Job Analysis result](.github/screenshots/analysis-hub-result.png)
+
+**CV Builder** — pick a template, apply the recommendations from the analysis, edit inline.
+
+![CV Builder](.github/screenshots/cv-builder.png)
+
+**Cover Letter Builder** — same flow, with AI-assisted rewrites (more formal, shorter, more
+enthusiasm, ...).
+
+![Cover Letter Builder](.github/screenshots/cl-builder.png)
+
+**Profile** — one Markdown document is the source of truth for every analysis and generation.
+
+![Profile](.github/screenshots/profile-draft.png)
 
 ## What it does
 
@@ -55,6 +66,11 @@ real CV in.
 
 The extension asks for host access **per site**, when you add that site — not on install.
 Unpacked builds do not auto-update; re-download the zip.
+
+<img src="src/assets/onboarding/popup-add-site.png" alt="Extension popup" width="360">
+
+*The popup: toggle the overlay, generate your profile fingerprint, and add job sites one at
+a time — nothing is granted on install.*
 
 ## Run it yourself
 
