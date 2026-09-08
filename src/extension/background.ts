@@ -161,8 +161,11 @@ async function getOverlayDiagnostics(): Promise<OverlayDiagnostics> {
   };
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   void syncSiteContentScripts();
+  if (details.reason === "install") {
+    void chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
+  }
 });
 chrome.runtime.onStartup.addListener(() => {
   void syncSiteContentScripts();
