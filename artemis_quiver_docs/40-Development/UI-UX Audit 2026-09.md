@@ -66,6 +66,17 @@ pattern shows up on Cover Letter Builder's empty state.
 
 `favicon.ico` 404s on every page load. Trivial, but visible in devtools on a public product.
 
+### 7. Sidebar separator bled past the sidebar edge — [[Sidebar.tsx]]:118 (Fixed 2026-09-08)
+
+Reported directly by a user screenshot: the horizontal rule between the nav list and
+"Recent Analyses" extended well past the sidebar's right border into the main content area.
+Root cause: `<Separator className="mx-3" />` combines `width: 100%` (resolves against the
+`<aside>`'s content box) with a 12px margin on each side — percentage widths and margins
+aren't netted against each other in CSS, so the margin necessarily pushes the element past
+its container. Fixed by moving to padding on a wrapping div instead of margin on the
+separator (`<div className="px-3"><Separator /></div>`), the standard pattern for this
+component. No other `<Separator className="m...">` usages found elsewhere in the codebase.
+
 ## What's already solid — keep
 
 - **Dark mode** works well: good contrast, no broken components, respects
