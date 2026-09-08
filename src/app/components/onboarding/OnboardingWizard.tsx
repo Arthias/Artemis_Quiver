@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Loader2, Zap } from "lucide-react";
+import { Cloud, Laptop, List, Loader2, Zap } from "lucide-react";
 import { useOnboarding } from "../../context/OnboardingContext";
 import { useConfig } from "../../context/ConfigContext";
 import { useProfile } from "../../context/ProfileContext";
@@ -18,7 +18,7 @@ import { useWorkspace } from "../../context/WorkspaceProfileContext";
 import { saveProfile as saveProfileToDb, getProfile } from "../../db";
 import type { ProviderType, SecondaryUse } from "../../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../../types/llm";
-import { testConnection } from "../../services/llmService";
+import { testConnection, listModels } from "../../services/llmService";
 import { getAdapter } from "../../services/provider/registry";
 import { WEBLLM_MODELS } from "../../services/provider/WebLLMAdapter";
 import type { WebLLMAdapter } from "../../services/provider/WebLLMAdapter";
@@ -34,16 +34,6 @@ const CLOUD_PROVIDER_OPTIONS: { value: ProviderType; labelKey: string }[] = [
   { value: "anthropic", labelKey: "config.anthropic" },
   { value: "google-gemini", labelKey: "config.googleGemini" },
 ];
-
-const COMMON_MODELS = [
-  { id: "google/gemma-4-e2b", label: "Gemma 4 E2B" },
-  { id: "llama3.2:3b", label: "Llama 3.2 (3B)" },
-  { id: "llama3.2:1b", label: "Llama 3.2 (1B)" },
-  { id: "mistral:7b", label: "Mistral (7B)" },
-  { id: "qwen2.5:7b", label: "Qwen 2.5 (7B)" },
-  { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)" },
-  { id: "deepseek-r1:7b", label: "DeepSeek R1 (7B)" },
-] as const;
 
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
@@ -117,6 +107,8 @@ function AiSetupStep() {
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [vramInfo, setVramInfo] = useState<string | null>(null);
+  const [models, setModels] = useState<string[] | null>(null);
+  const [listingModels, setListingModels] = useState(false);
 
   // Clear stale test results when config changes
   const prevConfigRef = useRef({ provider: config.primary.provider, baseUrl: config.primary.baseUrl, model: config.primary.model });
@@ -125,6 +117,7 @@ function AiSetupStep() {
     if (curr.provider !== prevConfigRef.current.provider || curr.baseUrl !== prevConfigRef.current.baseUrl || curr.model !== prevConfigRef.current.model) {
       setTestMessage(null);
       setTestError(null);
+      setModels(null);
       prevConfigRef.current = curr;
     }
   }, [config.primary.provider, config.primary.baseUrl, config.primary.model]);
@@ -173,6 +166,21 @@ function AiSetupStep() {
     }
   }, [config.primary]);
 
+  const handleListModels = useCallback(async () => {
+    if (models !== null) { setModels(null); return; }
+    setListingModels(true);
+    try {
+      const list = await listModels(config.primary);
+      setModels(list);
+    } catch (err) {
+      setModels([]);
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestError(msg || t("config.testFailed"));
+    } finally {
+      setListingModels(false);
+    }
+  }, [config.primary, models, t]);
+
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-xl mx-auto">
       <div className="text-center">
@@ -201,7 +209,8 @@ function AiSetupStep() {
             }
           }}
         >
-          ☁️ {t("config.cloud")}
+          <Cloud className="inline w-4 h-4 -mt-0.5 mr-1.5" />
+          {t("config.cloud")}
         </button>
         <button
           type="button"
@@ -226,7 +235,8 @@ function AiSetupStep() {
             }
           }}
         >
-          💻 {t("config.local")}
+          <Laptop className="inline w-4 h-4 -mt-0.5 mr-1.5" />
+          {t("config.local")}
         </button>
       </div>
 
@@ -274,28 +284,43 @@ function AiSetupStep() {
 
           <div>
             <Label className="mb-1.5 block text-xs">{t("onboarding.model")}</Label>
-            <Input
-              value={config.primary.model}
-              onChange={(e) => updateConfig({ primary: { ...config.primary, model: e.target.value } })}
-              placeholder={t("onboarding.model")}
-              className="bg-input-background mb-2"
-            />
-            <div className="flex flex-wrap gap-1">
-              {COMMON_MODELS.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
-                    config.primary.model === m.id
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                  }`}
-                  onClick={() => updateConfig({ primary: { ...config.primary, model: m.id } })}
-                >
-                  {m.label}
-                </button>
-              ))}
+            <div className="flex gap-2">
+              <Input
+                value={config.primary.model}
+                onChange={(e) => updateConfig({ primary: { ...config.primary, model: e.target.value } })}
+                placeholder={t("onboarding.model")}
+                className="bg-input-background flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleListModels}
+                disabled={listingModels}
+              >
+                {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
+                {models ? t("config.closeModelList") : t("config.listModels")}
+              </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">{t("onboarding.listModelsHint")}</p>
+            {models && (
+              <div className="mt-2 max-h-32 overflow-y-auto border rounded p-2 text-xs space-y-1">
+                {models.length === 0 ? (
+                  <p className="text-muted-foreground">{t("config.noModelsListed")}</p>
+                ) : (
+                  models.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className="block w-full text-left hover:bg-accent rounded px-1 py-0.5"
+                      onClick={() => { updateConfig({ primary: { ...config.primary, model: m } }); setModels(null); }}
+                    >
+                      {m}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </Card>
       ) : (
@@ -486,7 +511,7 @@ export function OnboardingWizard() {
 
   return (
     <div className="fixed inset-0 z-[100] bg-background flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-[safe_center] px-6 py-8 overflow-y-auto">
         {step === 0 && <WelcomeStep name={profileName} setName={setProfileName} />}
         {step === 1 && <AiSetupStep />}
         {step === 2 && <ProfileStep />}

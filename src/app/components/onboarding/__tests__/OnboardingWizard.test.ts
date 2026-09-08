@@ -13,16 +13,6 @@ const CLOUD_PROVIDER_OPTIONS: { value: string; label: string }[] = [
   { value: "google-gemini", label: "Google Gemini" },
 ];
 
-const COMMON_MODELS = [
-  { id: "google/gemma-4-e2b", label: "Gemma 4 E2B" },
-  { id: "llama3.2:3b", label: "Llama 3.2 (3B)" },
-  { id: "llama3.2:1b", label: "Llama 3.2 (1B)" },
-  { id: "mistral:7b", label: "Mistral (7B)" },
-  { id: "qwen2.5:7b", label: "Qwen 2.5 (7B)" },
-  { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)" },
-  { id: "deepseek-r1:7b", label: "DeepSeek R1 (7B)" },
-] as const;
-
 // Helper function from OnboardingWizard
 function isValidWebLLMModel(modelId: string): boolean {
   return WEBLLM_CATALOG.some(m => m.id === modelId);
@@ -90,22 +80,6 @@ describe("OnboardingWizard — CLOUD_PROVIDER_OPTIONS", () => {
   it("should have unique values", () => {
     const values = CLOUD_PROVIDER_OPTIONS.map(o => o.value);
     expect(new Set(values).size).toBe(values.length);
-  });
-});
-
-describe("OnboardingWizard — COMMON_MODELS", () => {
-  it("should list 7 models", () => {
-    expect(COMMON_MODELS.length).toBe(7);
-  });
-
-  it("should have unique model IDs", () => {
-    const ids = COMMON_MODELS.map(m => m.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("should have unique labels", () => {
-    const labels = COMMON_MODELS.map(m => m.label);
-    expect(new Set(labels).size).toBe(labels.length);
   });
 });
 

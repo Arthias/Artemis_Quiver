@@ -7,7 +7,9 @@
     "noAnalysesYet": "Sin análisis aún",
     "switchProfile": "Cambiar perfil",
     "newAnalysis": "Nuevo Análisis",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "openMenu": "Abrir menú",
+    "mainNavigation": "Navegación principal"
   },
   "nav": {
     "analysisHub": "Centro de Análisis",
@@ -186,6 +188,7 @@
     "noModelsListed": "Sin modelos listados",
     "listModels": "Listar modelos disponibles",
     "closeModelList": "Cerrar lista de modelos",
+    "listModelsHint": "¿No sabes el nombre exacto del modelo? Haz clic para obtener los modelos disponibles en este endpoint.",
     "noProvidersConfigured": "No hay proveedor de IA configurado. Ve a Configuración.",
     "downloadZero": "Descargando... 0%",
     "downloadProgress": "Descargando {{name}}... {{pct}}%",
@@ -503,6 +506,7 @@
     "baseUrl": "URL Base",
     "apiKey": "Clave API (opcional para servidores locales)",
     "model": "Modelo",
+    "listModelsHint": "¿No sabes el nombre exacto del modelo? Haz clic en el icono de lista para obtener los modelos disponibles en este endpoint.",
     "testConnection": "Probar Conexión",
     "downloadModel": "Descargar Modelo",
     "buildProfile": "Construye tu Perfil",

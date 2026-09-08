@@ -7,7 +7,9 @@
     "noAnalysesYet": "No analyses yet",
     "switchProfile": "Switch profile",
     "newAnalysis": "New Analysis",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "openMenu": "Open menu",
+    "mainNavigation": "Main navigation"
   },
   "nav": {
     "analysisHub": "Analysis Hub",
@@ -186,6 +188,7 @@
     "noModelsListed": "No models listed",
     "listModels": "List available models",
     "closeModelList": "Close model list",
+    "listModelsHint": "Not sure of the exact model name? Click to fetch the models available from this endpoint.",
     "noProvidersConfigured": "No AI provider is configured. Go to Settings to set up an LLM endpoint.",
     "downloadZero": "Downloading... 0%",
     "downloadProgress": "Downloading {{name}}... {{pct}}%",
@@ -503,6 +506,7 @@
     "baseUrl": "Base URL",
     "apiKey": "API Key (optional for local servers)",
     "model": "Model",
+    "listModelsHint": "Not sure of the exact model name? Click the list icon to fetch the models available from this endpoint.",
     "testConnection": "Test Connection",
     "downloadModel": "Download Model",
     "buildProfile": "Build Your Profile",

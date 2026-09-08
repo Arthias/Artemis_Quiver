@@ -38,7 +38,7 @@ function sessionTitle(jobPosting: string, title?: string, summary?: string): str
   return first?.slice(0, 50) || "Untitled analysis";
 }
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { sessions, loadSession, clearCurrent, activeSessionId, draftJobPosting, setDraftJobPosting } = useAnalysis();
@@ -49,11 +49,13 @@ export function Sidebar() {
   const handleNewAnalysis = () => {
     clearCurrent();
     navigate("/");
+    onNavigate?.();
   };
 
   const handleLoadSession = (id: string) => {
     loadSession(id);
     navigate("/");
+    onNavigate?.();
   };
 
   const handleRunPending = (pending: PendingImport) => {
@@ -61,6 +63,7 @@ export function Sidebar() {
     setDraftJobPosting(pending.text);
     markPendingOpen(pending.id);
     navigate("/");
+    onNavigate?.();
   };
 
   // Auto-navigate when a new import arrives from extension
@@ -100,6 +103,7 @@ export function Sidebar() {
                 key={item.href}
                 to={item.href}
                 end={item.href === "/"}
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                     isActive

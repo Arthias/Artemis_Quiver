@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint, Workflow, Send, CheckCircle2, XCircle } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint, Workflow, Send, CheckCircle2, XCircle, Cloud, Laptop } from "lucide-react";
 import { useErrorLog } from "../context/ErrorLogContext";
 import {
   Select,
@@ -887,17 +887,6 @@ function isValidWebLLMModel(modelId: string): boolean {
   return WEBLLM_MODELS.some(m => m.id === modelId);
 }
 
-/** Common models for non-WebLLM providers (Ollama, LM Studio, etc.) */
-const COMMON_MODELS = [
-  { id: "google/gemma-4-e2b", label: "Gemma 4 E2B" },
-  { id: "llama3.2:3b", label: "Llama 3.2 (3B)" },
-  { id: "llama3.2:1b", label: "Llama 3.2 (1B)" },
-  { id: "mistral:7b", label: "Mistral (7B)" },
-  { id: "qwen2.5:7b", label: "Qwen 2.5 (7B)" },
-  { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)" },
-  { id: "deepseek-r1:7b", label: "DeepSeek R1 (7B)" },
-] as const;
-
 /** Detect raw WebGPU device-lost / DXGI errors and replace with a user-friendly message */
 function formatTestError(raw: unknown, tFn: (key: string) => string): string {
   const msg = raw instanceof Error ? raw.message : raw != null ? String(raw) : "";
@@ -1188,26 +1177,12 @@ function ModelEndpointCard({
                     placeholder={t("config.model")}
                     className="bg-input-background border-border flex-1"
                   />
-                  <Button variant="outline" size="icon" onClick={handleListModels} disabled={listingModels} title={models ? t("config.closeModelList") : t("config.listModels")}>
+                  <Button variant="outline" size="sm" onClick={handleListModels} disabled={listingModels}>
                     {listingModels ? <Loader2 className="w-4 h-4 animate-spin" /> : <List className="w-4 h-4" />}
+                    {models ? t("config.closeModelList") : t("config.listModels")}
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {COMMON_MODELS.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
-                        endpoint.model === m.id
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                      }`}
-                      onClick={() => onChange({ model: m.id })}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-xs text-muted-foreground">{t("config.listModelsHint")}</p>
               </div>
             )}
 
@@ -1562,7 +1537,8 @@ export function Config() {
                   }
                 }}
               >
-                ☁️ {t("config.cloud")}
+                <Cloud className="inline w-4 h-4 -mt-0.5 mr-1.5" />
+                {t("config.cloud")}
               </button>
               <button
                 type="button"
@@ -1593,7 +1569,8 @@ export function Config() {
                   }
                 }}
               >
-                💻 {t("config.local")}
+                <Laptop className="inline w-4 h-4 -mt-0.5 mr-1.5" />
+                {t("config.local")}
               </button>
             </div>
 

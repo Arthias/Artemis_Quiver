@@ -1,6 +1,6 @@
 {
   "name": "artemis-quiver",
-  "version": "3.9.3",
+  "version": "3.9.4",
   "description": "Job hunting automation engine: analyze job postings against your professional profile, then refine CVs and cover letters — powered by your choice of local or cloud LLM.",
   "author": "Arthias",
   "license": "MIT",
