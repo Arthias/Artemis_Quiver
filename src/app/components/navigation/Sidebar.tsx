@@ -115,7 +115,9 @@ export function Sidebar() {
           </nav>
         </div>
 
-        <Separator className="mx-3" />
+        <div className="px-3">
+          <Separator />
+        </div>
 
         {pendingImports.length > 0 && (
           <div className="px-3 pt-3">
