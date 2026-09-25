@@ -133,6 +133,26 @@ In the extension, set a **real** LLM URL — the Vite dev proxy paths (`/api/lms
 More in `artemis_quiver_docs/` — an Obsidian vault covering architecture, features,
 roadmap and bugs. Start at `00-Index/MOC.md`.
 
+## Known limitation: check what it generates
+
+**The model can put facts in your CV that were not in your profile.** This is not
+a hypothetical, and it is not a case of bad input producing bad output: in testing,
+the generator returned qualifications and job titles that differed from the ones
+supplied to it, while the *correct* values were present in its context. It
+overrides what it is given with priors about what a CV is supposed to look like.
+Qualifications get upgraded, improvements get dramatic, titles get senior.
+
+Nothing in the app currently validates output against your source facts, so:
+
+**Read every generated CV and cover letter against your own profile before sending
+it.** Pay particular attention to qualifications, job titles, dates, employer
+names and any number. Qualifications are the dangerous case, because they are what
+an employer can mechanically verify, and a mismatch there ends an application.
+
+This affects every provider, cloud and local, and smaller local models more than
+larger ones. A deterministic post-generation check is the intended fix and is not
+built yet.
+
 ## Status
 
 Working and used daily by its author, but early in public life. The onboarding flow,

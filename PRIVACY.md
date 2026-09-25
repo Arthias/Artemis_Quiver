@@ -129,6 +129,22 @@ enabled, and only to score or import the posting.
   took.
 - No automatic update channel — the extension is distributed as an unpacked zip.
 
+## What it does not guarantee about accuracy
+
+A privacy document is about where your data goes. This one item is about what comes
+back, and it belongs here because it concerns the integrity of a document you send
+out under your own name.
+
+**Generated CVs and cover letters can contain facts that were not in your profile.**
+In testing, the generator returned qualifications and job titles that differed from
+the ones supplied to it, while the correct values were present in its context. It
+overrides supplied context with priors about what a CV should look like. There is
+currently no validation of output against your source facts.
+
+**Check every generated document against your own profile before sending it**,
+especially qualifications, titles, dates, employer names and numbers. This applies
+to every provider, cloud and local.
+
 ## Where this diverges from "local-first"
 
 Stated explicitly, because the README makes a local-first claim and a reader deserves the
