@@ -4,8 +4,23 @@
 
 ## TL;DR
 
-React 18 SPA (Vite, Tailwind v4, shadcn/ui, React Router v7, Dexie.js).
-No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces content.
+React 18 SPA (Vite 6, Tailwind v4, shadcn/ui, React Router v7, Dexie.js).
+No backend — all data in IndexedDB.
+
+**The Chrome MV3 extension is the primary deliverable**; the standalone web app
+(`npm run dev`) is the secondary/dev/fallback surface. An older line here called the
+extension optional — it isn't, and `README.md` and `CLAUDE.md` both say so.
+
+**Public on GitHub.** Nothing from `F:\Dev\Profile\` or `F:\Dev\dispatch\` goes in
+this repo, in any form, including in examples and test fixtures.
+
+⚠️ **Known defect, disclosed in `README.md` and `PRIVACY.md`:** the generator
+overrides supplied context with priors about what a CV should look like —
+qualifications and titles come out different from the ones that went in. There is no
+validation of generated output against source facts anywhere in `src/`. A
+deny-list validator exists, but it lives at `F:\Dev\Profile\scripts\validate_claims.py`,
+outside this repo. Do not close this as fixed on the strength of the disclosure; the
+disclosure is a warning, not a fix.
 
 ## Commands
 
@@ -14,7 +29,7 @@ No backend — all data in IndexedDB. Chrome MV3 extension optionally surfaces c
 | `npm run dev` | Vite dev server (localhost:5173) |
 | `npm run build` | Production build |
 | `npm run build:ext` | Chrome extension → `Artemis_Quiver_extension/` (+ zip in `release/`) |
-| `npm run test` | vitest (130 tests, 12 files) |
+| `npm run test` | vitest — 144 tests across 12 files (counted 2026-09-25; `npm run test` is the authority, not this number) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:all` | Full auto-QA → `qa-reports/` |
 
@@ -27,8 +42,8 @@ src/
     config/         -- defaults.ts
     services/       -- services + provider/ (ProviderAdapter, 3 adapters, shared.ts, registry)
       __tests__/    -- per-service tests
-    context/        -- Config, Analysis, Profile, WorkspaceProfile, BuilderHandoff, ExtensionBridge, ErrorLog
-    pages/          -- Config, AnalysisHub, Profile, CVBuilder, CLBuilder
+    context/        -- Config, Analysis, Profile, WorkspaceProfile, BuilderHandoff, ExtensionBridge, ErrorLog, Onboarding
+    pages/          -- Config, AnalysisHub, Profile, CVBuilder, CLBuilder, Flow
     components/     -- ui/ (shadcn), cv/ (rendering), navigation/ (Sidebar), workspace/ (ProfileSwitcherModal), builder/ (BuilderAssistantPanel, BuilderErrorDisplay, ThemeConfigPanel)
     providers/      -- AppProviders.tsx
     db/             -- schema.ts, profileRepo.ts, sessionRepo.ts, errorLogRepo.ts, migrations.ts
@@ -47,7 +62,7 @@ src/
 - **Tailwind v4** via `@tailwindcss/vite` plugin
 - **Vite proxy**: `/api/lmstudio` → `http://<your-lm-studio-host>:1234`, `/api/ollama` → `http://localhost:11434`
 - **TypeScript strict** with `noUncheckedIndexedAccess`
-- **React 18** listed as optional peer dep (Figma Make compatibility)
+- **React 18** (`^18.3.1`) is a real entry in `dependencies`, not an optional peer dep — deliberately pinned rather than moving to React 19
 
 ## LLM Provider Layer
 
@@ -82,7 +97,7 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 
 **Rendering Engine**: `renderCVToHTML()` / `renderCLToHTML()` accept optional `lang` param. Section headings use locale-keyed map in `renderingEngine.ts`.
 
-**Phase 2 complete** — All 7 listed files now use `t()` calls. Overlay uses inline `ot()` helper (cannot import in MV3 content script).
+The overlay uses the inline `ot()` helper because an MV3 content script cannot import the React i18n stack. For what is and isn't translated, read the locale files and grep for `t(` — don't rely on a phase label here.
 
 ## Common Pitfalls
 

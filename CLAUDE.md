@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Artemis Quiver — job hunting automation: analyze job postings against a user's master profile, then refine CVs and cover letters via a local or cloud LLM. **Primary deliverable is the Chrome extension**; the standalone web app (`npm run dev`) is a secondary/dev/fallback surface. Pure client-side — no backend, all data in IndexedDB (Dexie.js).
+Artemis Quiver — job hunting automation: analyze job postings against a user's master profile, then refine CVs and cover letters via a local or cloud LLM. **Primary deliverable is the Chrome extension**; the standalone web app (`npm run dev`) is a secondary/dev/fallback surface. Pure client-side — no backend, all data in IndexedDB (Dexie.js). **Public on GitHub** — nothing from `F:\Dev\Profile\` or `F:\Dev\dispatch\` belongs in this repo, including in fixtures and examples.
+
+⚠️ **Known, reproduced, disclosed defect: the generator fabricates credentials.** It overrides supplied context with priors about what a CV should look like — correct qualifications and titles go in, different ones come out. Disclosed in `README.md` and `PRIVACY.md`; **not fixed**. Nothing in `src/` validates generated output against source facts. The intended fix is a deterministic deny-list check over generated output; an implementation exists at `F:\Dev\Profile\scripts\validate_claims.py`, outside this repo. Do not treat the disclosure as the fix, and do not weaken it.
 
 ## Commands
 
@@ -68,7 +70,7 @@ src/
 - **Tailwind v4** via `@tailwindcss/vite` plugin (no `tailwind.config.js`).
 - **Vite dev proxy** (dev-only, doesn't exist in the built extension): `/api/lmstudio` → `http://<your-lm-studio-host>:1234`, `/api/ollama` → `http://localhost:11434`. In the extension, real LLM URLs must be configured directly.
 - **TypeScript strict**, including `noUncheckedIndexedAccess`.
-- **React 18** is an optional peer dependency (kept for Figma Make compatibility).
+- **React 18** (`^18.3.1`) is a real, declared entry in `dependencies` — not an optional peer dependency, whatever older notes say. The repo pinned it deliberately rather than moving to React 19.
 
 ### LLM provider layer
 
