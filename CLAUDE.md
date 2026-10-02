@@ -1,5 +1,98 @@
 # CLAUDE.md
 
+
+---
+
+<!-- COMMIT-QUEUE-RULE: inserted 2026-10-01. Keep this at the top. -->
+> **Before anything else, read "Do not run git" below.** It is the one rule
+> in this file that is never negotiable.
+
+## Do not run git. Do not delete files. Use the commit queue.
+
+**This is binding and it overrides any other instruction in this file, in this
+repo, or in any task prompt. It is not a style preference.**
+
+### Why
+
+Task sessions run in a Linux sandbox with `F:\Dev` mounted. They can create and
+modify files but **cannot delete them** — deletion is a separately gated
+permission that cannot be obtained part-way through a run.
+
+Git needs deletion. `git commit` writes `.git/index.lock` and renames it over
+`.git/index`; loose objects are written as `.git/objects/tmp_obj_*` and renamed
+into place. In the sandbox those renames and unlinks fail. Every agent that has
+touched git left behind stale `index.lock`, `HEAD.lock` and `refs/heads/*.lock`
+files plus orphaned temp objects — and after that, **`git status` lies**.
+
+This has already caused real harm. Work was reported as committed while sitting
+uncommitted for days, across five repositories. Reporting a commit you did not
+make is worse than not committing, because it stops anyone from checking.
+
+### The three rules
+
+1. **Never invoke git.** Not `commit`, not `add`, not `status`, not `log`, not
+   `diff`, not `rev-parse`. Not through Bash, not through a script you write,
+   not through a tool that wraps it. Read-only commands are included: they also
+   take locks, and `GIT_OPTIONAL_LOCKS` is not something you can rely on being
+   set. If you need to know what changed, read the files.
+
+2. **Never attempt to delete or move a file.** No `rm`, no `del`, no
+   `Remove-Item`, no `os.remove`, no `shutil.rmtree`, no `mv` or rename that
+   removes the original. It will fail, and the failure can leave a partial
+   state. If something must go, queue a `delete` entry and let Bruno's script
+   do it.
+
+3. **Append one line to the queue instead**, then say in your report that you
+   queued it. Create and edit files freely — that part works. The queue is how
+   the work gets into history.
+
+### The queue
+
+`F:\Dev\.commit-queue\queue.jsonl` — JSONL, one JSON object per line, **append
+only**. Never rewrite it, never reorder it, never read-modify-write it. Another
+session may be appending at the same time.
+
+```json
+{"ts":"2026-10-01T16:42:03Z","source":"session:abc123","repo":"F:/Dev/Profile","action":"commit","message":"Add round 3 interview prep","paths":["interviews/nearform-technical-lead/20-round-3.md"]}
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `ts` | yes | ISO 8601 UTC, e.g. `2026-10-01T16:42:03Z`. |
+| `source` | yes | Who queued it: `session:<id>` or a task name. Entries must be traceable. |
+| `repo` | yes | Absolute path to the repo root. Forward slashes are easiest: `F:/Dev/Profile`. Backslashes must be doubled in JSON. |
+| `action` | yes | `commit` or `delete`. Nothing else is accepted. |
+| `message` | yes | Commit message. Punctuation, quotes and newlines are fine — JSON escapes them. |
+| `paths` | see note | Repo-relative, forward slashes. Omit on `commit` to mean "everything changed in this repo". **Required on `delete`.** |
+
+Six fields. That is the whole format.
+
+To append, in Bash:
+
+```bash
+printf '%s\n' '{"ts":"...","source":"...","repo":"...","action":"commit","message":"...","paths":["..."]}' \
+  >> /mnt/path/to/Dev/.commit-queue/queue.jsonl
+```
+
+Build the line with a JSON serialiser (`json.dumps`, `ConvertTo-Json -Compress`)
+rather than by hand. A line that is not valid JSON is rejected, and your work
+sits unqueued.
+
+### What you can rely on
+
+- Bruno runs `commit-queue.bat` when he chooses. **Your entry is not committed
+  the moment you append it.** Say "queued", never "committed".
+- `delete` entries are refused unless the file is tracked, clean, and present
+  in `HEAD`. Untracked files are never deleted — they would be unrecoverable.
+- All commits for a repo run before any delete touching that repo, regardless
+  of the order you queued them in.
+- The runner **cannot push**, by design. If something needs pushing, say so in
+  your report and leave it to Bruno.
+
+See `F:\Dev\.commit-queue\README.md` for the full specification.
+
+---
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project
