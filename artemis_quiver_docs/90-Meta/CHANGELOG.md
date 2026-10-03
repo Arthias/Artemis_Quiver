@@ -1,10 +1,27 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-09-09
+last_updated: 2026-10-03
 ---
 
 # Changelog
+
+## [v3.9.5] - October 3, 2026
+
+**Flow panel: queue breakdown, progress bars, and job-board sweep**
+
+- **Queue panel** under the Search & Scoring controls (`src/app/pages/Flow.tsx`): to score,
+  strong (70+), scored, parked for no description, ineligible, plus archived counts by
+  reason (duplicate, backlog cap, irrelevant title, low score). Reads Flow's new
+  `GET /api/queue`; hidden against an older Flow that lacks it.
+- **Progress bars** on the Search and Scoring blocks while running (`current/total`).
+- **Job boards panel**: active / unchecked boards per ATS (Greenhouse, Ashby, Lever) and a
+  "Sweep boards" button (`POST /api/ats/sweep`), optionally refreshing the board lists
+  first. Polling continues while a sweep runs.
+- `flowBridge.ts`: `FlowQueueSummary`, `getQueueSummary`, `startBoardSweep`;
+  `FlowSearchStatus.inserted`. New i18n strings in `en.json` and `es.json`.
+- Verified: `tsc --noEmit` clean; `/api/queue` payload checked against a live Flow.
+  Not verified in a browser.
 
 ## [v3.9.4] - September 8, 2026
 

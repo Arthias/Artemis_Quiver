@@ -35,6 +35,9 @@ import {
   updateStrategy,
   generateStrategy,
   getStrategyHistory,
+  getQueueSummary,
+  startBoardSweep,
+  type FlowQueueSummary,
   type FlowStatus,
   type FlowJobSummary,
   type FlowRankStatus,
@@ -86,7 +89,7 @@ function ControlBlock({
   t,
 }: {
   label: string;
-  status: { running: boolean; phase?: string; message?: string; error?: string } | null;
+  status: { running: boolean; phase?: string; message?: string; error?: string; current?: number; total?: number } | null;
   busy: boolean;
   unavailable: boolean;
   /** Autopilot is driving search+scoring itself — manual toggling would just
@@ -120,7 +123,100 @@ function ControlBlock({
               ? status?.message || status?.phase || t("flow.running")
               : t("flow.idle")}
       </p>
+      {running && !!status?.total && (
+        <div className="h-1.5 rounded bg-muted overflow-hidden" title={`${status.current ?? 0}/${status.total}`}>
+          <div
+            className="h-full bg-teal-500 transition-all"
+            style={{ width: `${Math.min(100, ((status.current ?? 0) / status.total) * 100)}%` }}
+          />
+        </div>
+      )}
       {status?.error && <p className="text-xs text-destructive">{status.error}</p>}
+    </div>
+  );
+}
+
+function QueueStat({ label, value, tone }: { label: string; value: number; tone?: string }) {
+  return (
+    <div className="rounded border border-border p-2">
+      <div className={`text-lg font-semibold ${tone ?? ""}`}>{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function QueueBlock({
+  queue,
+  sweepBusy,
+  onSweep,
+  t,
+}: {
+  queue: FlowQueueSummary;
+  sweepBusy: boolean;
+  onSweep: (importLists: boolean) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [importLists, setImportLists] = useState(false);
+  const archived = Object.entries(queue.archived_by_reason).sort((a, b) => b[1] - a[1]);
+  const boards = Object.entries(queue.boards);
+  const sweep = queue.sweep;
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium mb-2">{t("flow.queue")}</p>
+        <div className="grid grid-cols-5 gap-2">
+          <QueueStat label={t("flow.queueToScore")} value={queue.to_score} tone="text-amber-600 dark:text-amber-400" />
+          <QueueStat label={t("flow.queueStrong")} value={queue.strong} tone="text-teal-600 dark:text-teal-400" />
+          <QueueStat label={t("flow.queueScored")} value={queue.scored} />
+          <QueueStat label={t("flow.queueParked")} value={queue.parked_no_description} />
+          <QueueStat label={t("flow.queueIneligible")} value={queue.ineligible} />
+        </div>
+        {archived.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2 items-center">
+            <span className="text-xs text-muted-foreground mr-1">{t("flow.queueArchived")}:</span>
+            {archived.map(([reason, n]) => (
+              <Badge key={reason} variant="outline" className="text-xs">
+                {reason.replace(/_/g, " ")} {n}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-2 gap-4">
+          <div>
+            <p className="text-sm font-medium">{t("flow.boards")}</p>
+            <p className="text-xs text-muted-foreground">{t("flow.boardsDesc")}</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <input type="checkbox" checked={importLists} onChange={(e) => setImportLists(e.target.checked)} disabled={sweep.running} />
+              {t("flow.boardsImport")}
+            </label>
+            <Button size="sm" variant="outline" onClick={() => onSweep(importLists)} disabled={sweepBusy || sweep.running}>
+              {sweepBusy || sweep.running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {sweep.running ? t("flow.boardsSweeping") : t("flow.boardsSweep")}
+            </Button>
+          </div>
+        </div>
+        {boards.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {boards.map(([ats, b]) => (
+              <div key={ats} className="rounded border border-border p-2 text-xs">
+                <div className="font-medium capitalize">{ats}</div>
+                <div>{t("flow.boardsActive", { n: b.active })}</div>
+                <div className="text-muted-foreground">{t("flow.boardsUnchecked", { n: b.unchecked, total: b.inactive })}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">{t("flow.boardsNone")}</p>
+        )}
+        {!sweep.running && sweep.result && (
+          <p className="text-xs text-muted-foreground mt-2">{t("flow.boardsLastSweep", { ...sweep.result })}</p>
+        )}
+        {sweep.error && <p className="text-xs text-destructive mt-2">{sweep.error}</p>}
+      </div>
     </div>
   );
 }
@@ -775,6 +871,8 @@ export function Flow() {
   const [autopilotStatus, setAutopilotStatus] = useState<FlowAutopilotStatus | null>(null);
   const [autopilotAvailable, setAutopilotAvailable] = useState(true);
   const [autopilotBusy, setAutopilotBusy] = useState(false);
+  const [queue, setQueue] = useState<FlowQueueSummary | null>(null);
+  const [sweepBusy, setSweepBusy] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatResult, setChatResult] = useState<string | null>(null);
@@ -840,6 +938,13 @@ export function Flow() {
       setSearchAvailable(false);
     }
 
+    // Queue summary is newer than everything above — hidden on an older Flow.
+    try {
+      setQueue(await getQueueSummary(flowBaseUrl));
+    } catch {
+      setQueue(null);
+    }
+
     // Autopilot endpoints are newer still — same "may 404 on an older Flow" guard.
     try {
       setAutopilotStatus(await getAutopilotStatus(flowBaseUrl));
@@ -854,7 +959,8 @@ export function Flow() {
     refresh();
   }, [refresh]);
 
-  const anyRunning = !!rankStatus?.running || !!searchStatus?.running || !!autopilotStatus?.enabled;
+  const anyRunning =
+    !!rankStatus?.running || !!searchStatus?.running || !!autopilotStatus?.enabled || !!queue?.sweep.running;
   const autopilotOn = !!autopilotStatus?.enabled;
 
   useEffect(() => {
@@ -902,6 +1008,17 @@ export function Flow() {
       await refresh();
     } finally {
       setAutopilotBusy(false);
+    }
+  }
+
+  async function handleSweep(importLists: boolean) {
+    if (!flowBaseUrl) return;
+    setSweepBusy(true);
+    try {
+      await startBoardSweep(flowBaseUrl, importLists);
+      await refresh();
+    } finally {
+      setSweepBusy(false);
     }
   }
 
@@ -999,6 +1116,12 @@ export function Flow() {
                   t={t}
                 />
               </div>
+              {queue && (
+                <>
+                  <Separator />
+                  <QueueBlock queue={queue} sweepBusy={sweepBusy} onSweep={handleSweep} t={t} />
+                </>
+              )}
             </Card>
 
             <Tabs defaultValue="digest">

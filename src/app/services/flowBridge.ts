@@ -194,6 +194,8 @@ export interface FlowSearchStatus {
   total: number;
   message: string;
   error: string;
+  /** Net-new rows this search batch has inserted so far. */
+  inserted?: number;
   /** Set once a batch stops for a real, non-transient reason — Autopilot
    * won't restart search on its own until the user intervenes. */
   hard_cap_reached?: boolean;
@@ -316,6 +318,42 @@ export function startAutopilot(baseUrl: string): Promise<{ status: string; enabl
 
 export function stopAutopilot(baseUrl: string): Promise<{ status: string; enabled: boolean }> {
   return flowPost(baseUrl, "/api/pipeline/autopilot/stop", "stopAutopilot");
+}
+
+// --- Queue and job-board pool ---------------------------------------------
+
+/** GET /api/queue — the backlog split the way Flow actually handles it. */
+export interface FlowQueueSummary {
+  to_score: number;
+  parked_no_description: number;
+  ineligible: number;
+  scored: number;
+  strong: number;
+  archived_by_reason: Record<string, number>;
+  boards: Record<string, { active: number; inactive: number; unchecked: number }>;
+  sweep: {
+    running: boolean;
+    result: { checked: number; promoted: number; inserted: number } | null;
+    started_at: string | null;
+    finished_at: string | null;
+    error: string;
+  };
+}
+
+export function getQueueSummary(baseUrl: string): Promise<FlowQueueSummary> {
+  return flowGet(baseUrl, "/api/queue", "getQueueSummary");
+}
+
+/** Check every inactive ATS board once and activate those with matching roles.
+ * importLists first refreshes the board lists from the public aggregator. */
+export async function startBoardSweep(baseUrl: string, importLists = false): Promise<{ status: string }> {
+  const res = await fetch(`${baseUrl}/api/ats/sweep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ import_lists: importLists }),
+  });
+  if (!res.ok) throw new Error(`startBoardSweep failed: ${res.status}`);
+  return res.json();
 }
 
 // --- Job detail, tracking, and stats --------------------------------------
