@@ -3,164 +3,54 @@
 
 ---
 
-<!-- COMMIT-QUEUE-RULE: inserted 2026-10-01, revised 2026-10-02. Keep this at the top. -->
-> **Before anything else, read "Probe first, then commit or queue" below.** It is
-> the one rule in this file that is never negotiable.
+<!-- COMMIT-QUEUE-RULE: revised 2026-10-02. Keep this at the top of the file.
+     Canonical text: F:\Dev\.commit-queue\_rule.md. Edit there, then re-sync.
+     There is one form now, not a long and a short one. -->
 
-## Probe first, then commit or queue
+## Rule zero: commit or queue, and never leave work unrecorded
 
-**This is binding and it overrides any other instruction in this file, in this
-repo, or in any task prompt. It is not a style preference.**
+Binding. Overrides anything else in this file, in this repo, or in any task
+prompt.
 
-### Step one: run the capability probe
+Two things hold absolutely, in every case, because they are not about
+permissions: **never push** — that stays a manual decision Bruno makes at a
+terminal — and **never delete a file that is untracked or has uncommitted
+changes**, because an untracked file deleted is gone for good.
 
-Before you touch git, and before you decide how your work reaches history, run
-the probe. It writes a scratch file beside the queue and tries to delete it:
+**When the work is on disk and it is time to record it**, find out whether this
+filesystem lets you delete: create `.agent-probe` in the root of the repo you
+are working in, then delete it. It is gitignored in every repo here, so a
+leftover is harmless and invisible to `git status`.
 
-```bash
-sh /path/to/Dev/.commit-queue/capability-probe.sh    # prints FULL or RESTRICTED
-```
+- **Delete worked → commit.** Run git normally. Leave pre-existing stale
+  `*.lock` files and orphaned `tmp_obj_*` objects alone; `commit-queue.bat`
+  sweeps those deliberately and in a known order, and ad-hoc cleanup in the
+  middle of someone else's git operation is how races happen.
+- **Delete failed, or you cannot tell → do not touch git at all**, not even
+  `status` or `log`. Git's commit path needs deletions that fail here, and the
+  stale locks left behind make `git status` misreport — work has sat uncommitted
+  for days while being reported as committed. Don't delete or move anything
+  either. Record the commit instead: append one line to
+  `F:\Dev\.commit-queue\queue.jsonl`, or, if that path is not mounted in your
+  session, append the same line to `.pending-commit.jsonl` in the repo root,
+  which the runner collects during discovery and processes alongside the central
+  queue. Either is a complete record. Don't invent a third place.
 
-```powershell
-F:\Dev\.commit-queue\capability-probe.ps1            # prints FULL or RESTRICTED
-```
+**Finishing with work on disk and no record in either place is the one
+unacceptable outcome.** Everything else here is fixable afterwards; that is not,
+and it is the exact failure this arrangement exists to prevent.
 
-Inline, if you would rather not shell out to a file — POSIX:
+**Report it in one line** — "committed", or "queued to `queue.jsonl`", or
+"queued to `Profile/.pending-commit.jsonl`". Do not narrate the probe, explain
+mount tables, or justify the branch at length: that detail is noise and belongs
+nowhere in a report. If recording the work is genuinely impossible, one sentence
+saying so is enough.
 
-```bash
-P="/path/to/Dev/.commit-queue/.probe"
-: > "$P" 2>/dev/null || { echo RESTRICTED; exit 1; }
-rm -f "$P" 2>/dev/null; [ -e "$P" ] && echo RESTRICTED || echo FULL
-```
-
-PowerShell:
-
-```powershell
-$P = 'F:\Dev\.commit-queue\.probe'
-try { Set-Content -LiteralPath $P -Value '' -ErrorAction Stop } catch { 'RESTRICTED'; exit 1 }
-Remove-Item -LiteralPath $P -Force -ErrorAction SilentlyContinue
-if (Test-Path -LiteralPath $P) { 'RESTRICTED' } else { 'FULL' }
-```
-
-Do **not** try to work out which product or harness you are instead. Agents
-cannot introspect that reliably and the answer drifts as tooling changes. What
-actually matters is whether this filesystem lets you delete, so test that
-directly.
-
-Two things about the probe that are deliberate and must not be changed:
-
-- The target is `.commit-queue/.probe`, not anything under `.git`. Never probe
-  by trying to remove a real lock file. `F:\Dev` is not itself a repo, so a
-  leftover `.probe` dirties no `git status`, and the name is fixed so there is
-  never more than one.
-- It must be run from a path on the same filesystem as the repos. `/tmp` inside
-  a sandbox **is** deletable, so probing `/tmp` returns FULL and is wrong.
-
-**If the probe does not run, errors, or you cannot tell what it returned, you
-are RESTRICTED.** Fail closed, never open.
-
-### Step two, branch A — probe returned FULL
-
-Deletion works, so git works. You may run git normally in this repo: `status`,
-`diff`, `add`, `commit`. Commit your own work rather than queuing it; the queue
-exists to work around a restriction you do not have.
-
-Do not clean up stale `*.lock` files or orphaned `tmp_obj_*` / `tmp_pack_*`
-objects left behind by earlier sandbox runs, even though you now could.
-`commit-queue.bat` sweeps them deliberately, in a known order, before it does
-anything else. Ad-hoc cleanup in the middle of somebody else's git operation is
-exactly how a race gets created. Leave them; mention them in your report if you
-want.
-
-### Step two, branch B — probe returned RESTRICTED
-
-You are in the sandbox. Git's commit path depends on deletion — `git commit`
-writes `.git/index.lock` and renames it over `.git/index`; loose objects are
-written as `.git/objects/tmp_obj_*` and renamed into place — and those renames
-and unlinks fail here. Every agent that has run git in this state left stale
-`index.lock`, `HEAD.lock` and `refs/heads/*.lock` files plus orphaned temp
-objects, after which **`git status` lies**.
-
-That has already caused real harm: work reported as committed while sitting
-uncommitted for days, across five repositories. Reporting a commit you did not
-make is worse than not committing, because it stops anyone from checking.
-
-So, in this branch:
-
-1. **Never invoke git.** Not `commit`, not `add`, not `status`, not `log`, not
-   `diff`, not `rev-parse`. Not through Bash, not through a script you write,
-   not through a tool that wraps it. Read-only commands are included: they also
-   take locks, and `GIT_OPTIONAL_LOCKS` is not something you can rely on being
-   set. If you need to know what changed, read the files.
-
-2. **Never attempt to delete or move a file.** No `rm`, no `del`, no
-   `Remove-Item`, no `os.remove`, no `shutil.rmtree`, no `mv` or rename that
-   removes the original. It will fail, and the failure can leave a partial
-   state. If something must go, queue a `delete` entry.
-
-3. **Append one line to the queue instead**, then say in your report that you
-   queued it. Create and edit files freely — that part works.
-
-### Both branches, without exception
-
-- **Never push.** Not in either branch. Pushing is a manual decision Bruno
-  makes at a terminal, and having full filesystem access changes nothing about
-  that. The queue runner cannot push by design; a native agent must not either.
-  If something needs pushing, say so in your report and stop.
-- **Never delete a file that is untracked, or that has uncommitted changes.**
-  This is about recoverability, not permissions, so it survives the probe in
-  both branches. An untracked file you delete is gone for good. A file with
-  uncommitted changes loses those changes. History must be able to give it back
-  before you remove it.
-- **Say in your report which branch you took and why.** One line: the probe
-  returned FULL and you committed, or it returned RESTRICTED and you queued.
-  Never let a reader guess whether the work is in history. The original harm
-  here was work reported as committed when it was not, and that is only
-  prevented by saying plainly which path you were on.
-
-### The queue (branch B)
-
-`F:\Dev\.commit-queue\queue.jsonl` — JSONL, one JSON object per line, **append
-only**. Never rewrite it, never reorder it, never read-modify-write it. Another
-session may be appending at the same time.
-
-```json
-{"ts":"2026-10-01T16:42:03Z","source":"session:abc123","repo":"F:/Dev/Profile","action":"commit","message":"Add round 3 interview prep","paths":["interviews/nearform-technical-lead/20-round-3.md"]}
-```
-
-| Field | Required | Meaning |
-|---|---|---|
-| `ts` | yes | ISO 8601 UTC, e.g. `2026-10-01T16:42:03Z`. |
-| `source` | yes | Who queued it: `session:<id>` or a task name. Entries must be traceable. |
-| `repo` | yes | Absolute path to the repo root. Forward slashes are easiest: `F:/Dev/Profile`. Backslashes must be doubled in JSON. |
-| `action` | yes | `commit` or `delete`. Nothing else is accepted. |
-| `message` | yes | Commit message. Punctuation, quotes and newlines are fine — JSON escapes them. |
-| `paths` | see note | Repo-relative, forward slashes. Omit on `commit` to mean "everything changed in this repo". **Required on `delete`.** |
-
-Six fields. That is the whole format.
-
-To append, in Bash:
-
-```bash
-printf '%s\n' '{"ts":"...","source":"...","repo":"...","action":"commit","message":"...","paths":["..."]}' \
-  >> /mnt/path/to/Dev/.commit-queue/queue.jsonl
-```
-
-Build the line with a JSON serialiser (`json.dumps`, `ConvertTo-Json -Compress`)
-rather than by hand. A line that is not valid JSON is rejected, and your work
-sits unqueued.
-
-### What you can rely on
-
-- Bruno runs `commit-queue.bat` when he chooses. **A queued entry is not
-  committed the moment you append it.** Say "queued", never "committed".
-- `delete` entries are refused unless the file is tracked, clean, and present
-  in `HEAD`. Untracked files are never deleted — they would be unrecoverable.
-- All commits for a repo run before any delete touching that repo, regardless
-  of the order you queued them in.
-- The runner **cannot push**, by design.
-
-See `F:\Dev\.commit-queue\README.md` for the full specification.
+Entry format: `F:\Dev\.commit-queue\README.md`. **Prefer explicit `paths` over
+whole-repo scope.** Entries run in queue order, and a whole-repo entry stages
+everything pending at the moment it runs — so a later entry for the same repo
+finds nothing, is skipped, and its commit message never reaches history at all.
+One entry per logical commit, carrying the paths that commit should contain.
 
 ---
 

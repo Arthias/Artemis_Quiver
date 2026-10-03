@@ -70,3 +70,12 @@ Temp_Design-analysis/
 .Spotlight-V100/
 .Trashes/
 .aider*
+
+# ---- Agent rule zero (see AGENTS.md / CLAUDE.md) ----------------------------
+# Scratch file the capability probe writes and tries to delete. If the delete
+# fails, the agent is in the sandbox and the file is left behind; ignoring it
+# makes that leftover harmless and invisible to git status.
+.agent-probe
+# Fallback commit record, used when F:\Dev\.commit-queue\queue.jsonl is not
+# mounted in the session. commit-queue.bat collects and clears these.
+.pending-commit.jsonl
