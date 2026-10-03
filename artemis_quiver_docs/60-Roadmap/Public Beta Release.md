@@ -1,10 +1,27 @@
 ---
 tags: [roadmap, release, public-beta, extension, distribution]
-status: in-progress
-last_updated: 2026-08-05
+status: stale — the distribution strategy it describes was replaced; flagged 2026-10-03, not rewritten
+last_updated: 2026-10-03
 ---
 
 # Public Beta Release
+
+> [!WARNING] ⚠️ **STALE — flagged 2026-10-03. Do not act on the distribution strategy below.**
+>
+> Two of this document's premises are now false:
+>
+> - **The separate public artifacts repo is gone.** `Arthias/Artemis-Quiver-Releases`
+>   is **archived**. Releases are published on *this* repo by
+>   `.github/workflows/release.yml`, triggered by `npm run release:ext` tagging
+>   `main` with the version from `src/extension/manifest.json`. `CLAUDE.md` is
+>   the authority on this. `release/README.md` also still links to the archived
+>   repo's releases page.
+> - **This repo is public.** The whole "without making the repo public" framing
+>   of this page no longer applies.
+>
+> The R1–R5 readiness checklist content may still be useful; the distribution
+> mechanics are not. **Flagged rather than rewritten** — a rewrite is a separate
+> piece of work and a wrong rewrite would be worse than a marked-stale document.
 
 Release-readiness checklist for shipping Artemis Quiver as a Chrome extension to public beta testers **without making the repo public**, distributed as **versioned zips**.
 

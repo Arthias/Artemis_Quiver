@@ -1,10 +1,26 @@
 ---
 tags: [api, llm, prompt-engineering]
-status: completed
-last_updated: 2026-06-13
+status: stale — the mode catalogue and intent classification below no longer exist in the code; flagged 2026-10-03, not rewritten
+last_updated: 2026-10-03
 ---
 
 # AI Prompt Templates & System Rules
+
+> [!WARNING] ⚠️ **STALE — flagged 2026-10-03. The code is the source of truth and this page disagrees with it.**
+>
+> - **The ten CV optimization modes are three.** `OptimizationMode` in
+>   `prompts.ts:13` is `"standard" | "ats-optimize" | "audit"`, and a comment
+>   there records that **only `standard` is reachable from the UI** and that two
+>   of the removed modes (`bullet-optimize`, `skills-section`) were deleted
+>   because they **explicitly told the model to embellish**.
+> - **`classifyEditIntent()` does not exist.** No match anywhere in `src/`.
+>
+> **This is the stale document that matters most in this vault**, because it is a
+> prompt-engineering reference describing prompts that were deliberately deleted
+> for instructing fabrication — so acting on it could reinstate them. Treat the
+> mode table and the intent-classification section as historical only.
+>
+> See [[Fabrication Surface Analysis]] for the current analysis of these prompts.
 
 Reference spec for system prompts. Source of truth in code (`src/app/services/prompts.ts` and per-service files). This doc catalogues modes and intent classification.
 

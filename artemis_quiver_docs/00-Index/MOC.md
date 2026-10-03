@@ -1,7 +1,7 @@
 ---
 tags: [index, MOC]
 status: completed
-last_updated: 2026-07-06
+last_updated: 2026-10-03
 ---
 
 # Artemis Quiver — Map of Content
@@ -16,7 +16,8 @@ last_updated: 2026-07-06
 
 ## APIs & LLM Connectors
 - [[../20-APIs/Local LLM Integration|Local LLM Setup & Proxies]]
-- [[../20-APIs/AI Prompt Templates|Prompt Engineering Specs]]
+- [[../20-APIs/AI Prompt Templates|Prompt Engineering Specs]] — ⚠️ **stale: documents ten CV modes and a `classifyEditIntent()` that no longer exist**
+- [[../20-APIs/Fabrication Surface Analysis|Fabrication Surface Analysis]] — where in the code a fabricated claim becomes possible, and proposals for closing each surface. **Analysis only; nothing implemented**
 
 ## Core Features
 - [[../30-Features/Analysis Hub|Analysis Hub]]
@@ -40,7 +41,7 @@ last_updated: 2026-07-06
 
 ## Project Roadmap & Backlog
 - [[../60-Roadmap/Plan|Development Plan & Backlog]]
-- [[../60-Roadmap/Public Beta Release|Public Beta Release]] — store-readiness checklist (R1–R5 blockers, CI flow)
+- [[../60-Roadmap/Public Beta Release|Public Beta Release]] — store-readiness checklist (R1–R5 blockers, CI flow). ⚠️ **stale: describes the archived `Artemis-Quiver-Releases` repo as live and this repo as private; both are wrong**
 - [[../60-Roadmap/UI-Restructure-Proposals|UI Restructure Proposals]] — open discussion: Flow as its own page, overlay → sidebar (not decided, not scoped)
 
 ## Project Metadata
