@@ -194,6 +194,10 @@ export interface FlowSearchStatus {
   total: number;
   message: string;
   error: string;
+  /** Set once a batch stops for a real, non-transient reason — Autopilot
+   * won't restart search on its own until the user intervenes. */
+  hard_cap_reached?: boolean;
+  exhausted?: boolean;
 }
 
 async function flowGet<T>(baseUrl: string, path: string, action: string): Promise<T> {
@@ -287,6 +291,33 @@ export function stopSearch(baseUrl: string): Promise<{ status: string; running: 
   return flowPost(baseUrl, "/api/pipeline/search/stop", "stopSearch");
 }
 
+// --- Autopilot (the A/B loop: chains batch search + scoring, unattended) ---
+
+export interface FlowAutopilotStatus {
+  enabled: boolean;
+  /** Why autopilot last powered itself off. "" while running/never started. */
+  stopped_reason: "" | "user" | "hard_cap" | "exhausted" | "no_strategy" | "error";
+  started_at: string | null;
+  stopped_at: string | null;
+  ticks: number;
+  search: FlowSearchStatus;
+  rank: FlowRankStatus;
+  rank_backlog_unscored: number;
+  logs: string[];
+}
+
+export function getAutopilotStatus(baseUrl: string): Promise<FlowAutopilotStatus> {
+  return flowGet(baseUrl, "/api/pipeline/autopilot/status", "getAutopilotStatus");
+}
+
+export function startAutopilot(baseUrl: string): Promise<{ status: string; enabled: boolean }> {
+  return flowPost(baseUrl, "/api/pipeline/autopilot", "startAutopilot");
+}
+
+export function stopAutopilot(baseUrl: string): Promise<{ status: string; enabled: boolean }> {
+  return flowPost(baseUrl, "/api/pipeline/autopilot/stop", "stopAutopilot");
+}
+
 // --- Job detail, tracking, and stats --------------------------------------
 
 export function getJob(baseUrl: string, jobId: string): Promise<FlowJobDetail> {
@@ -358,10 +389,23 @@ export function getStrategyHistory(baseUrl: string, limit = 10): Promise<FlowStr
 // --- Backlog cap settings --------------------------------------------------
 
 export interface FlowBacklogConfig {
-  soft_cap: number;
-  hard_cap: number;
+  /** Pauses search (self-recovering — resumes once scoring drains the
+   * backlog back under this) once the total pending "new" backlog reaches
+   * this size. null = no pending-backlog gate at all (2026-09-09) — search
+   * runs every cycle regardless of review-queue size; useful when scoring
+   * (e.g. a slow local model) can't keep pace and an unattended run
+   * shouldn't throttle on that. */
+  soft_cap: number | null;
+  /** Caps net-new jobs a single search batch can insert before ending that
+   * batch early — the direct fix for one sweep dumping hundreds of jobs at
+   * once. null = a batch runs to completion however many sources/keywords
+   * that takes (Autopilot still restarts search on its own after). */
+  hard_cap: number | null;
   archive_retention_days: number;
   archive_score_threshold: number;
+  /** Days an unscored/unactioned 'new' job can sit before it's archived as
+   * stale, independent of score. null = disabled. */
+  stale_new_days: number | null;
 }
 
 export function getBacklogConfig(baseUrl: string): Promise<FlowBacklogConfig> {

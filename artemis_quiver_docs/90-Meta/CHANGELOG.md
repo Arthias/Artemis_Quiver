@@ -1,10 +1,52 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-08-21
+last_updated: 2026-09-09
 ---
 
 # Changelog
+
+## [v3.9.4] - September 8, 2026
+
+**Flow panel: Autopilot controls and optional (unbounded) backlog hard cap**
+
+- **Autopilot start/stop + live status** in the Flow page's Search & Scoring card
+  (`src/app/pages/Flow.tsx`) — a new "either/or" control alongside the existing manual
+  Search/Scoring toggles: turning Autopilot on hands both to Flow's new A/B loop
+  (batch search → clean → score → repeat, unattended), and the manual toggles grey out
+  with a "Controlled by Autopilot" note so they can't fight it. Shows tick count, the
+  unscored backlog size while running, and — once it stops itself — *why* (hard cap
+  reached, search strategy exhausted, no strategy yet, or a caught error), each with
+  plain guidance on what to do next. Polls alongside the existing rank/search status
+  polling; degrades silently (Autopilot section just doesn't render) against an older
+  Flow instance that doesn't expose the new endpoints yet.
+- **Backlog settings (Config → Flow) gained a hard-cap on/off switch and a new "stale
+  job cleanup" field** (`src/app/pages/Config.tsx`): hard cap can now be turned off
+  entirely for unbounded/unattended monitoring instead of always requiring a number,
+  and a new optional "archive if unscored/unactioned for N days" cleanup threshold is
+  editable next to the existing soft cap, retention, and score-threshold fields.
+- `flowBridge.ts`: `FlowBacklogConfig.hard_cap` is now `number | null` (was a required
+  number) and gained `stale_new_days: number | null`; added `FlowAutopilotStatus` plus
+  `getAutopilotStatus` / `startAutopilot` / `stopAutopilot`, mirroring Flow's new
+  `/api/pipeline/autopilot*` endpoints; `FlowSearchStatus` gained optional
+  `hard_cap_reached` / `exhausted` flags.
+- New i18n strings for all of the above in `en.json` and `es.json`.
+- **Follow-up (September 9, 2026): soft cap gained the same on/off switch hard cap
+  already had.** A real run exposed that Flow's hard/soft caps had swapped which
+  count each one gates (see Flow's own changelog) — soft cap became the one that
+  pauses search once the pending review queue gets too large, and it was still
+  mandatory, so a slow local scorer meant search couldn't outrun scoring even
+  though that's exactly what an unattended run needs. `FlowBacklogConfig.soft_cap`
+  is now `number | null` too; Config → Flow's soft cap field got the same
+  toggle/placeholder treatment as hard cap, and both fields' hint text was
+  rewritten to describe what they actually gate post-swap (the two hints had
+  gone stale describing the pre-swap roles). Verified: `tsc --noEmit` clean.
+- Verified: `tsc --noEmit` clean. Backend counterpart documented in Artemis Flow's own
+  changelog and design doc
+  (`artemis_flow_docs/60-Roadmap/Search-Scoring-Independence-and-Backlog-Management.md`).
+  Not live-tested against a running Flow instance in this environment — no bridge to
+  exercise the actual HTTP round-trip here; recommend a manual click-through before
+  relying on it.
 
 ## [Extension v3.9.3] - August 21, 2026
 

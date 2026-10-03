@@ -24,6 +24,9 @@ import {
   getSearchStatus,
   startSearch,
   stopSearch,
+  getAutopilotStatus,
+  startAutopilot,
+  stopAutopilot,
   getJobsByStatus,
   getArchivedJobs,
   getDashboardStats,
@@ -36,6 +39,7 @@ import {
   type FlowJobSummary,
   type FlowRankStatus,
   type FlowSearchStatus,
+  type FlowAutopilotStatus,
   type FlowDashboardStats,
   type FlowStrategy,
   type FlowStrategyHistoryEntry,
@@ -77,6 +81,7 @@ function ControlBlock({
   status,
   busy,
   unavailable,
+  lockedByAutopilot = false,
   onToggle,
   t,
 }: {
@@ -84,6 +89,9 @@ function ControlBlock({
   status: { running: boolean; phase?: string; message?: string; error?: string } | null;
   busy: boolean;
   unavailable: boolean;
+  /** Autopilot is driving search+scoring itself — manual toggling would just
+   * fight it, so the button is disabled and a note explains why. */
+  lockedByAutopilot?: boolean;
   onToggle: () => void;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
@@ -92,7 +100,7 @@ function ControlBlock({
     <div className="rounded border border-border p-3 space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{label}</p>
-        <Button size="sm" variant="outline" onClick={onToggle} disabled={busy || unavailable}>
+        <Button size="sm" variant="outline" onClick={onToggle} disabled={busy || unavailable || lockedByAutopilot}>
           {busy ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : running ? (
@@ -104,13 +112,66 @@ function ControlBlock({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        {unavailable
-          ? t("flow.controlUnavailable")
-          : running
-            ? status?.message || status?.phase || t("flow.running")
-            : t("flow.idle")}
+        {lockedByAutopilot
+          ? t("flow.controlledByAutopilot")
+          : unavailable
+            ? t("flow.controlUnavailable")
+            : running
+              ? status?.message || status?.phase || t("flow.running")
+              : t("flow.idle")}
       </p>
       {status?.error && <p className="text-xs text-destructive">{status.error}</p>}
+    </div>
+  );
+}
+
+function AutopilotBlock({
+  status,
+  busy,
+  onToggle,
+  t,
+}: {
+  status: FlowAutopilotStatus | null;
+  busy: boolean;
+  onToggle: () => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const enabled = !!status?.enabled;
+  const reasonKey: Record<string, string> = {
+    hard_cap: "flow.autopilotStoppedHardCap",
+    exhausted: "flow.autopilotStoppedExhausted",
+    no_strategy: "flow.autopilotStoppedNoStrategy",
+    error: "flow.autopilotStoppedError",
+    user: "flow.autopilotStoppedUser",
+  };
+  const stoppedReason = status?.stopped_reason ? reasonKey[status.stopped_reason] : null;
+
+  return (
+    <div className="rounded border border-teal-500/40 bg-teal-500/5 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">{t("flow.autopilot")}</p>
+          <p className="text-xs text-muted-foreground">{t("flow.autopilotDesc")}</p>
+        </div>
+        <Button size="sm" variant={enabled ? "outline" : "default"} onClick={onToggle} disabled={busy}>
+          {busy ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : enabled ? (
+            <Pause className="w-4 h-4" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+          {enabled ? t("flow.autopilotStop") : t("flow.autopilotStart")}
+        </Button>
+      </div>
+      {enabled && (
+        <p className="text-xs text-muted-foreground">
+          {t("flow.autopilotRunning", { ticks: status?.ticks ?? 0, backlog: status?.rank_backlog_unscored ?? 0 })}
+        </p>
+      )}
+      {!enabled && stoppedReason && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">{t(stoppedReason)}</p>
+      )}
     </div>
   );
 }
@@ -711,6 +772,9 @@ export function Flow() {
   const [searchAvailable, setSearchAvailable] = useState(true);
   const [rankBusy, setRankBusy] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
+  const [autopilotStatus, setAutopilotStatus] = useState<FlowAutopilotStatus | null>(null);
+  const [autopilotAvailable, setAutopilotAvailable] = useState(true);
+  const [autopilotBusy, setAutopilotBusy] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatResult, setChatResult] = useState<string | null>(null);
@@ -775,13 +839,23 @@ export function Flow() {
       setSearchStatus(null);
       setSearchAvailable(false);
     }
+
+    // Autopilot endpoints are newer still — same "may 404 on an older Flow" guard.
+    try {
+      setAutopilotStatus(await getAutopilotStatus(flowBaseUrl));
+      setAutopilotAvailable(true);
+    } catch {
+      setAutopilotStatus(null);
+      setAutopilotAvailable(false);
+    }
   }, [flowBaseUrl]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const anyRunning = !!rankStatus?.running || !!searchStatus?.running;
+  const anyRunning = !!rankStatus?.running || !!searchStatus?.running || !!autopilotStatus?.enabled;
+  const autopilotOn = !!autopilotStatus?.enabled;
 
   useEffect(() => {
     if (pollTimer.current) {
@@ -816,6 +890,18 @@ export function Flow() {
       await refresh();
     } finally {
       setSearchBusy(false);
+    }
+  }
+
+  async function handleToggleAutopilot() {
+    if (!flowBaseUrl) return;
+    setAutopilotBusy(true);
+    try {
+      if (autopilotStatus?.enabled) await stopAutopilot(flowBaseUrl);
+      else await startAutopilot(flowBaseUrl);
+      await refresh();
+    } finally {
+      setAutopilotBusy(false);
     }
   }
 
@@ -885,12 +971,21 @@ export function Flow() {
           <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
             <Card className="p-6 space-y-4">
               <h2 className="text-lg font-semibold">{t("flow.controls")}</h2>
+              {autopilotAvailable && (
+                <AutopilotBlock
+                  status={autopilotStatus}
+                  busy={autopilotBusy}
+                  onToggle={handleToggleAutopilot}
+                  t={t}
+                />
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <ControlBlock
                   label={t("flow.search")}
                   status={searchStatus}
                   busy={searchBusy}
                   unavailable={!searchAvailable}
+                  lockedByAutopilot={autopilotOn}
                   onToggle={handleToggleSearch}
                   t={t}
                 />
@@ -899,6 +994,7 @@ export function Flow() {
                   status={rankStatus}
                   busy={rankBusy}
                   unavailable={false}
+                  lockedByAutopilot={autopilotOn}
                   onToggle={handleToggleRank}
                   t={t}
                 />

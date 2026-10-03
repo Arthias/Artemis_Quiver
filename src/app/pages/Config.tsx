@@ -796,6 +796,15 @@ function BacklogSettingsSection({ flowBaseUrl }: { flowBaseUrl: string }) {
     setSaved(false);
   }
 
+  /** hard_cap and stale_new_days are nullable ("unbounded" / "disabled") —
+   * toggled separately from the numeric field so a user can flip between a
+   * capped run and an open-ended one without losing the last number they had. */
+  function toggleNullable(key: "soft_cap" | "hard_cap" | "stale_new_days", enabled: boolean, fallback: number) {
+    if (!cfg) return;
+    setCfg({ ...cfg, [key]: enabled ? fallback : null });
+    setSaved(false);
+  }
+
   async function handleSave() {
     if (!cfg) return;
     setSaving(true);
@@ -830,24 +839,48 @@ function BacklogSettingsSection({ flowBaseUrl }: { flowBaseUrl: string }) {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs text-muted-foreground">{t("config.flowSoftCap")}</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">{t("config.flowSoftCap")}</Label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">{t("config.flowUnbounded")}</span>
+              <Switch
+                checked={cfg.soft_cap == null}
+                onCheckedChange={(checked) => toggleNullable("soft_cap", !checked, cfg.soft_cap ?? 50)}
+              />
+            </div>
+          </div>
           <Input
             type="number"
             min={1}
-            value={cfg.soft_cap}
+            value={cfg.soft_cap ?? ""}
+            disabled={cfg.soft_cap == null}
+            placeholder={cfg.soft_cap == null ? t("config.flowUnbounded") : undefined}
             onChange={(e) => field("soft_cap", e.target.value)}
             className="bg-input-background"
           />
+          <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowSoftCapHint")}</p>
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground">{t("config.flowHardCap")}</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">{t("config.flowHardCap")}</Label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">{t("config.flowUnbounded")}</span>
+              <Switch
+                checked={cfg.hard_cap == null}
+                onCheckedChange={(checked) => toggleNullable("hard_cap", !checked, cfg.hard_cap ?? 150)}
+              />
+            </div>
+          </div>
           <Input
             type="number"
             min={1}
-            value={cfg.hard_cap}
+            value={cfg.hard_cap ?? ""}
+            disabled={cfg.hard_cap == null}
+            placeholder={cfg.hard_cap == null ? t("config.flowUnbounded") : undefined}
             onChange={(e) => field("hard_cap", e.target.value)}
             className="bg-input-background"
           />
+          <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowHardCapHint")}</p>
         </div>
         <div>
           <Label className="text-xs text-muted-foreground">{t("config.flowArchiveRetention")}</Label>
@@ -869,6 +902,28 @@ function BacklogSettingsSection({ flowBaseUrl }: { flowBaseUrl: string }) {
             onChange={(e) => field("archive_score_threshold", e.target.value)}
             className="bg-input-background"
           />
+        </div>
+        <div className="col-span-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">{t("config.flowStaleNewDays")}</Label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">{t("config.flowDisabled")}</span>
+              <Switch
+                checked={cfg.stale_new_days == null}
+                onCheckedChange={(checked) => toggleNullable("stale_new_days", !checked, cfg.stale_new_days ?? 21)}
+              />
+            </div>
+          </div>
+          <Input
+            type="number"
+            min={1}
+            value={cfg.stale_new_days ?? ""}
+            disabled={cfg.stale_new_days == null}
+            placeholder={cfg.stale_new_days == null ? t("config.flowDisabled") : undefined}
+            onChange={(e) => field("stale_new_days", e.target.value)}
+            className="bg-input-background"
+          />
+          <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowStaleNewDaysHint")}</p>
         </div>
       </div>
 
