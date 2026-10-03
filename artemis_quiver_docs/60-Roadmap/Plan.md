@@ -178,3 +178,27 @@ Interactive mock interviews with structured STAR feedback.
 - [ ] Session persistence in IndexedDB
 - [ ] Final report: strengths, weaknesses, STAR score
 - [ ] Question bank seeded by profile skills + job requirements
+
+---
+
+## Backlog — Unscheduled
+
+Small, not-yet-sprint-assigned ideas surfaced during other work.
+
+### CV templates: review multi-column layouts for ATS text-extraction risk
+
+The Executive template's Skills/Education/Certifications block renders as a
+2-column CSS grid (`.print-grid-2` in `CVBuilder.tsx`), and its Contact
+variant offers a `badges` (horizontal) layout. Multi-column resume layouts
+are a known ATS risk independent of the PDF engine: parsers that reconstruct
+reading order from text position (rather than DOM order) can interleave
+columns — e.g. a skill from the sidebar gets glued onto an unrelated job
+title, or a contact field gets skipped entirely. Single-column layouts
+(Classic, Modern, Minimal) don't have this exposure.
+
+Surfaced while fixing the CV PDF pagination bugs (2026-09-10) — see
+[[../40-Development/CV PDF Export — Paged.js Migration]]. Not fixed as part
+of that pass; flagged for a follow-up review of whether to redesign
+Executive's grid as single-column, or add an explicit "ATS-safe mode" that
+forces single-column rendering for export regardless of the on-screen
+template.

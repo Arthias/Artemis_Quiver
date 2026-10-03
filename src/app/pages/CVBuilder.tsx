@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
@@ -24,6 +24,7 @@ import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
 import { buildPdfFilename } from "../utils/pdfFilename";
+import { printWithPagedJs, printWithTitleRestore } from "../utils/pagedExport";
 
 const CV_THEME_STORAGE_KEY = "artemis:cvThemeConfig";
 
@@ -55,6 +56,8 @@ export function CVBuilder() {
   const [chatLoading, setChatLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryableError, setRetryableError] = useState<AppError | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     saveThemeConfig(CV_THEME_STORAGE_KEY, themeConfig);
@@ -160,21 +163,34 @@ export function CVBuilder() {
     ? sessions.find((s) => s.id === sourceSessionId)?.result.title ?? cvContent?.title
     : cvContent?.title;
 
-  const printPDF = useCallback(() => {
-    const originalTitle = document.title;
-    const restoreTitle = () => {
-      document.title = originalTitle;
-      window.removeEventListener("afterprint", restoreTitle);
-    };
-    window.addEventListener("afterprint", restoreTitle);
-    document.title = buildPdfFilename(["CV", cvContent?.name, jobLabel], originalTitle);
-    window.print();
-    toast.success("PDF sent to printer");
+  const printPDF = useCallback(async () => {
+    const filename = buildPdfFilename(["CV", cvContent?.name, jobLabel], document.title);
+    const cardEl = previewContainerRef.current?.querySelector<HTMLElement>(".cv-preview-card");
+
+    if (!cardEl) {
+      printWithTitleRestore(filename);
+      toast.success("PDF sent to printer");
+      return;
+    }
+
+    setExportingPdf(true);
+    try {
+      await printWithPagedJs({ sourceEl: cardEl, documentTitle: filename });
+      toast.success("PDF sent to printer");
+    } catch (err) {
+      logAppError(err, { phase: "printCvPdf" });
+      toast.error("Paginated export failed, falling back to browser print.");
+      printWithTitleRestore(filename);
+    } finally {
+      setExportingPdf(false);
+    }
   }, [cvContent, jobLabel]);
 
   return (
     <div className="h-full flex flex-col">
-      <style>{`
+      <style data-pagedjs-ignore="true">{`
+        /* Fallback native print path — used only if the Paged.js export fails
+           or the preview card can't be found. */
         @media print {
           @page { size: A4; margin: 0.15in; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -186,6 +202,19 @@ export function CVBuilder() {
           .cv-preview-card .page-keep { page-break-inside: avoid; break-inside: avoid; }
           .cv-preview-card .page-break-before { page-break-before: always; break-before: page; }
           .print-grid-2 { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.75rem !important; }
+        }
+        /* Paged.js export target — laid out off-screen at all times so
+           pagination can be computed, then swapped in for print only. */
+        #paged-export-root {
+          position: fixed;
+          top: 0;
+          left: -99999px;
+          z-index: -1;
+        }
+        @media print {
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body.paged-exporting > *:not(#paged-export-root) { display: none !important; }
+          body.paged-exporting #paged-export-root { position: static; left: auto; z-index: auto; }
         }
       `}</style>
       <div className="border-b border-border bg-card print:hidden">
@@ -208,9 +237,13 @@ export function CVBuilder() {
                   <RotateCcw className="w-4 h-4" />
                   {t("cv.regenerate")}
                 </Button>
-                <Button onClick={printPDF} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">                  <polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
-                  {t("cv.exportPdf")}
+                <Button onClick={printPDF} disabled={exportingPdf} className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600">
+                  {exportingPdf ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">                  <polyline points="6 9 6 2 18 2 18 9"></polyline><line x1="6" y1="17" x2="6" y2="6"></line><line x1="6" y1="17" x2="18" y2="17"></line></svg>
+                  )}
+                  {exportingPdf ? t("cv.preparingPdf") : t("cv.exportPdf")}
                 </Button>
 
               </div>
@@ -335,7 +368,10 @@ export function CVBuilder() {
 
             ) : (
               <div className="max-w-4xl mx-auto h-full flex flex-col print:max-w-none print:mx-0 print:h-auto">
-                <div className={`flex-1 overflow-auto mb-4 print:overflow-visible print:flex-none print:mb-0 ${generating ? "animate-pulse print:animate-none" : ""}`}>
+                <div
+                  ref={previewContainerRef}
+                  className={`flex-1 overflow-auto mb-4 print:overflow-visible print:flex-none print:mb-0 ${generating ? "animate-pulse print:animate-none" : ""}`}
+                >
                   {!cvContent ? (
                     <div className="flex items-center justify-center h-64 text-muted-foreground print:hidden">
                       <p>{t("cv.previewEmpty")}</p>
