@@ -242,6 +242,10 @@
     "flowStaleNewDays": "Limpieza de trabajos obsoletos (días)",
     "flowDisabled": "Desactivado",
     "flowStaleNewDaysHint": "Archiva trabajos sin puntuar/sin acción que llevan tanto tiempo, sin importar la puntuación.",
+    "flow_skip_aggregator_boards": "Omitir portales agregadores",
+    "flow_skip_aggregator_boards_hint": "No consultar portales que republican ofertas de otras empresas (listados en config/ats.yaml de Flow).",
+    "flow_skip_applied_companies": "Omitir empresas a las que ya postulaste",
+    "flow_skip_applied_companies_hint": "Archiva ofertas nuevas de cualquier empresa con una oferta ya marcada como postulada, entrevista, oferta o rechazada.",
     "flowBacklogSave": "Guardar",
     "flowBacklogSaved": "Guardado"
   },

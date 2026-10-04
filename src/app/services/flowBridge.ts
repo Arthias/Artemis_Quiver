@@ -444,6 +444,10 @@ export interface FlowBacklogConfig {
   /** Days an unscored/unactioned 'new' job can sit before it's archived as
    * stale, independent of score. null = disabled. */
   stale_new_days: number | null;
+  /** Skip the boards listed under aggregator_boards in Flow's config/ats.yaml. */
+  skip_aggregator_boards?: boolean;
+  /** Archive new jobs from companies already applied to on the board. */
+  skip_applied_companies?: boolean;
 }
 
 export function getBacklogConfig(baseUrl: string): Promise<FlowBacklogConfig> {

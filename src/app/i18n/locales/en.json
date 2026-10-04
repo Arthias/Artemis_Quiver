@@ -242,6 +242,10 @@
     "flowStaleNewDays": "Stale job cleanup (days)",
     "flowDisabled": "Disabled",
     "flowStaleNewDaysHint": "Archive unscored/unactioned jobs that have sat this long, regardless of score.",
+    "flow_skip_aggregator_boards": "Skip aggregator boards",
+    "flow_skip_aggregator_boards_hint": "Don't fetch boards that relist other companies' jobs (listed in Flow's config/ats.yaml).",
+    "flow_skip_applied_companies": "Skip companies already applied to",
+    "flow_skip_applied_companies_hint": "Archive new jobs from any company with a job already marked applied, interviewing, offer or rejected.",
     "flowBacklogSave": "Save",
     "flowBacklogSaved": "Saved"
   },

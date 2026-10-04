@@ -925,6 +925,18 @@ function BacklogSettingsSection({ flowBaseUrl }: { flowBaseUrl: string }) {
           />
           <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowStaleNewDaysHint")}</p>
         </div>
+        {(["skip_aggregator_boards", "skip_applied_companies"] as const).map((key) => (
+          <div key={key} className="col-span-2 flex items-center justify-between gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">{t(`config.flow_${key}`)}</Label>
+              <p className="text-[11px] text-muted-foreground">{t(`config.flow_${key}_hint`)}</p>
+            </div>
+            <Switch
+              checked={!!cfg[key]}
+              onCheckedChange={(checked) => { setCfg({ ...cfg, [key]: checked }); setSaved(false); }}
+            />
+          </div>
+        ))}
       </div>
 
       <div className="flex items-center gap-2">
