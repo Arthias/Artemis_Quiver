@@ -450,6 +450,44 @@ export interface FlowBacklogConfig {
   skip_applied_companies?: boolean;
 }
 
+export interface FlowCaptureJob {
+  id: string;
+  url: string;
+  title: string;
+  company: string | null;
+}
+
+/** Description-less jobs for background-tab capture. Flow never hands out
+ * LinkedIn and stamps each job so it isn't handed out again for a week. */
+export async function getCaptureQueue(baseUrl: string, limit = 1): Promise<FlowCaptureJob[]> {
+  const res = await flowGet<{ jobs: FlowCaptureJob[] }>(baseUrl, `/api/capture/queue?limit=${limit}`, "getCaptureQueue");
+  return res.jobs;
+}
+
+export interface FlowCaptureResult {
+  job_id: string | null;
+  matched_by: string | null;
+  fields_written: string[];
+  rescore_queued: boolean;
+  error?: string;
+}
+
+export async function postCapture(baseUrl: string, capture: unknown): Promise<FlowCaptureResult> {
+  try {
+    const res = await fetch(`${baseUrl}/api/capture`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(capture),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`postCapture failed: ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    logFlowError(err, baseUrl, "postCapture");
+    throw err;
+  }
+}
+
 export function getBacklogConfig(baseUrl: string): Promise<FlowBacklogConfig> {
   return flowGet(baseUrl, "/api/settings/backlog", "getBacklogConfig");
 }

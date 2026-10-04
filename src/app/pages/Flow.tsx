@@ -15,6 +15,7 @@ import { useConfig } from "../context/ConfigContext";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
 import { JobCard } from "../components/flow/JobCard";
 import { JobDetailDialog } from "../components/flow/JobDetailDialog";
+import { CaptureBlock, captureAvailable } from "../components/flow/CaptureBlock";
 import {
   checkFlowHealth,
   getFlowDigest,
@@ -1122,6 +1123,7 @@ export function Flow() {
                   <QueueBlock queue={queue} sweepBusy={sweepBusy} onSweep={handleSweep} t={t} />
                 </>
               )}
+              {captureAvailable && <CaptureBlock flowBaseUrl={flowBaseUrl} />}
             </Card>
 
             <Tabs defaultValue="digest">
