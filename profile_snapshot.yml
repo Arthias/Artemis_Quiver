@@ -1,0 +1,28 @@
+- generic [ref=e8] [box=0,0,929,879]:
+  - generic [ref=e10] [box=209,61,512,692]:
+    - generic [ref=e11] [box=433,61,64,64]: AQ
+    - heading "Welcome to Artemis Quiver" [level=2] [ref=e13] [box=314,149,301,32]
+    - paragraph [ref=e14] [box=209,205,512,72]: Your AI-powered job application companion. Analyze job postings, build tailored CVs and cover letters, and get match scoring — all from your browser.
+    - generic [ref=e15] [box=209,301,512,76]:
+      - generic [ref=e16] [box=209,301,512,20]: What's your name?
+      - textbox "Enter your name" [ref=e17] [box=209,327,512,50]
+    - generic [ref=e18] [box=358,409,214,36]:
+      - generic [ref=e19] [box=358,417,66,20]: "Language:"
+      - combobox [ref=e20] [box=431,409,140,36]:
+        - generic [box=444,417,45,20]: English
+    - generic [ref=e21] [box=209,477,512,276]:
+      - generic [ref=e22] [box=209,477,248,106]:
+        - paragraph [ref=e23] [box=226,494,214,20]: Job Analysis
+        - paragraph [ref=e24] [box=226,518,214,48]: Paste a job posting, get detailed analysis and match scoring against your profile.
+      - generic [ref=e25] [box=473,477,248,106]:
+        - paragraph [ref=e26] [box=490,494,214,20]: CV & Cover Letters
+        - paragraph [ref=e27] [box=490,518,214,32]: Generate tailored CVs and cover letters using your profile and AI.
+      - generic [ref=e28] [box=209,599,248,154]:
+        - paragraph [ref=e29] [box=226,616,214,20]: Chrome Extension
+        - paragraph [ref=e30] [box=226,640,214,32]: Get match scores on job sites with the optional browser extension.
+      - generic [ref=e31] [box=473,599,248,154]:
+        - paragraph [ref=e32] [box=490,616,214,20]: Your Data Stays Local
+        - paragraph [ref=e33] [box=490,640,214,96]: Your profile, CVs, and job history are stored only in your browser. AI processing uses whichever provider you choose — from fully local (WebLLM/LM Studio) to cloud (OpenRouter, Anthropic, Gemini).
+  - generic [ref=e35] [box=177,831,576,32]:
+    - button "← Back" [disabled] [box=177,831,70,32]
+    - button "Next →" [ref=e40] [box=682,831,70,32]
