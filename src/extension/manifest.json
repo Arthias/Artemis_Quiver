@@ -8,7 +8,6 @@
     "http://localhost/*",
     "http://127.0.0.1/*"
   ],
-  "optional_permissions": ["debugger"],
   "optional_host_permissions": [
     "*://*/*"
   ],

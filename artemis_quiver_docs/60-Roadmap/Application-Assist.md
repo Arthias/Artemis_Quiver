@@ -269,6 +269,10 @@ synthetic data only (this repo is public).
 
 - 2026-10-08 r1: initial plan.
 - 2026-10-08 build: phases 1–3 implemented (see "As built").
+- 2026-10-08: **`debugger` cannot be an optional permission** (Chrome rejects it at load).
+  Removed from the manifest; the auto-save toggle only appears in a build whose manifest
+  declares `debugger` as required (`isAutoSaveSupported()` reads the manifest). Open
+  decision: make it required (install-time warning for every user) or drop auto-save.
 - 2026-10-08 r2 (Bruno): skip fixed-choice fields; standard fields + saved
   answers live in one mutable JSON "form profile"; Nano for field identification
   where available, main model for drafts on request only; a "Review & fill"

@@ -105,7 +105,6 @@ Declared in `src/extension/manifest.json`:
 | `storage` | The keys listed above | Always |
 | `activeTab` | Read the current tab when you explicitly act on it | Only on your click |
 | `sidePanel` | The side panel UI | Always |
-| `debugger` (**optional**) | Save exported CVs as PDF straight into your linked folder | Only if you turn on "Auto-save generated CVs"; Chrome shows a "started debugging this browser" bar during each export |
 
 Host access is deliberately narrow:
 

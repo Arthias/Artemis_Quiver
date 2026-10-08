@@ -131,12 +131,17 @@ export function matchesCompany(name: string, company: string): boolean {
 
 // ── Auto-save: PDF bytes via the debugger ───────────────────────────────
 // The browser exposes no print-to-PDF bytes; Page.printToPDF over
-// chrome.debugger is the only way. `debugger` is an optional permission,
-// requested when the user turns auto-save on. Chrome shows its "started
-// debugging this browser" bar while attached — a few seconds per export.
+// chrome.debugger is the only way. Chrome does not allow `debugger` as an
+// optional permission, so auto-save is only offered in a build whose manifest
+// declares it as a required one — the shipped manifest doesn't. Chrome shows
+// its "started debugging this browser" bar while attached.
 
 export function isAutoSaveSupported(): boolean {
-  return typeof chrome !== "undefined" && !!chrome.permissions && !!chrome.tabs;
+  try {
+    return chrome.runtime.getManifest().permissions?.includes("debugger") ?? false;
+  } catch {
+    return false;
+  }
 }
 
 export async function hasDebuggerPermission(): Promise<boolean> {
