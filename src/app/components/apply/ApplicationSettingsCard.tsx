@@ -1,5 +1,5 @@
 // Settings → Applications: the form profile JSON (standard field answers,
-// saved answers, rules) and the linked CV folder with its auto-save option.
+// saved answers, rules) and the linked CV folder.
 // The side panel reads and writes the same records (see services/formProfile.ts
 // and services/cvFolder.ts).
 import { useEffect, useState } from "react";
@@ -8,8 +8,6 @@ import { toast } from "sonner";
 import { ClipboardList, FolderOpen, Loader2, Sparkles } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
-import { Label } from "../ui/label";
-import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { useWorkspace } from "../../context/WorkspaceProfileContext";
 import { useConfig } from "../../context/ConfigContext";
@@ -23,12 +21,7 @@ import {
   getFolderHandle,
   pickFolder,
   unlinkFolder,
-  getAutoSave,
-  setAutoSave,
   isFolderSupported,
-  isAutoSaveSupported,
-  hasDebuggerPermission,
-  requestDebuggerPermission,
   QUIVER_SUBFOLDER,
 } from "../../services/cvFolder";
 
@@ -40,7 +33,6 @@ export function ApplicationSettingsCard() {
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [folderName, setFolderName] = useState<string | null>(null);
-  const [autoSave, setAutoSaveState] = useState(false);
 
   useEffect(() => {
     void loadFormProfile(activeProfileId).then((fp) => setText(JSON.stringify(fp, null, 2)));
@@ -49,9 +41,6 @@ export function ApplicationSettingsCard() {
   useEffect(() => {
     if (!isFolderSupported()) return;
     void getFolderHandle().then((h) => setFolderName(h?.name ?? null));
-    void (async () => {
-      setAutoSaveState((await getAutoSave()) && isAutoSaveSupported() && (await hasDebuggerPermission()));
-    })();
   }, []);
 
   const parse = () => {
@@ -109,15 +98,7 @@ export function ApplicationSettingsCard() {
 
   const unlink = async () => {
     await unlinkFolder();
-    await setAutoSave(false);
     setFolderName(null);
-    setAutoSaveState(false);
-  };
-
-  const toggleAutoSave = async (on: boolean) => {
-    if (on && !(await requestDebuggerPermission())) return;
-    await setAutoSave(on);
-    setAutoSaveState(on);
   };
 
   return (
@@ -143,15 +124,6 @@ export function ApplicationSettingsCard() {
                 </Button>
               )}
             </div>
-            {folderName && isAutoSaveSupported() && (
-              <div className="flex items-start justify-between gap-4 pt-2">
-                <div>
-                  <Label>{t("apply.autoSave")}</Label>
-                  <p className="text-xs text-muted-foreground mt-1">{t("apply.autoSaveDesc", { sub: QUIVER_SUBFOLDER })}</p>
-                </div>
-                <Switch checked={autoSave} onCheckedChange={(v) => void toggleAutoSave(v)} />
-              </div>
-            )}
           </>
         )}
       </Card>

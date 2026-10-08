@@ -12,16 +12,19 @@ last_updated: 2026-10-08
 
 - **CVs** section: link a local folder (File System Access, handle in IndexedDB), list
   CVs with favourites and a "for this job" tag, **Attach** into the page's resume input,
-  drag experiment. Generated CVs live in a `Quiver/` subfolder.
+  drag experiment. Exported CVs are saved by hand into a `Quiver/` subfolder (read-only
+  folder access; auto-save via the debugger permission was built and dropped — Chrome
+  rejects `debugger` as an optional permission).
 - **Apply** section: **Review & fill** scans text fields (all frames), proposes values
   from a per-profile **form profile** JSON (aliases, saved answers scoped by region,
   rules note), identifies unmatched labels with Gemini Nano when installed or the
   configured model, **Draft** generates free-text answers on request. Never submits;
   demographic questions are skipped.
-- **Settings → Applications**: folder link, **Auto-save generated CVs** (optional
-  `debugger` permission → `Page.printToPDF`), form-profile JSON editor with
+- **Settings → Applications**: folder link, form-profile JSON editor with
   "Fill from my profile".
-- `PRIVACY.md` updated for the new data flows and the optional permission.
+- `PRIVACY.md` updated for the new data flows.
+- `build:ext` packages the zip only when `CI` is set (the release workflow); the archived
+  `Artemis-Quiver-Releases` checkout in `release/` is gone.
 - Verified: `tsc --noEmit`, vitest (163 passing, 2 new files), `build:ext`.
   **Not tested in a browser** — checklist in `60-Roadmap/Application-Assist.md`.
 

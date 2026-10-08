@@ -29,7 +29,7 @@ All application data lives in your browser's **IndexedDB**, in a database named
 |---|---|
 | `profiles` | Your master profile Markdown, workspace settings (including provider config and API keys), the job posting draft, and your profile-assistant chat history |
 | `analysisSessions` | Each job posting you analysed, the model's result, generated CVs |
-| `metadata` | App-level flags such as the active profile and schema version; your **form profile** per profile (application-form answers: contact details, links, salary expectation, saved answers, rules note); the linked CV folder handle, favourites and auto-save setting |
+| `metadata` | App-level flags such as the active profile and schema version; your **form profile** per profile (application-form answers: contact details, links, salary expectation, saved answers, rules note); the linked CV folder handle and favourites |
 | `errorLogs` | Errors from the app, extension overlay, popup, background worker and LLM calls, with message, stack and metadata |
 
 **API keys are stored in this IndexedDB alongside the rest of the profile, in plain text.**
@@ -130,8 +130,8 @@ submitted. Demographic / equal-opportunity questions are never filled or drafted
 
 **Your CV folder.** If you link a folder, the browser stores a handle to it in IndexedDB
 and Quiver lists the CVs in it. A CV's file goes only into the upload field of the page
-you attach it to — it is never sent to a model or anywhere else. Quiver writes only into
-the `Quiver` subfolder, and only when you export a CV.
+you attach it to — it is never sent to a model or anywhere else. Folder access is
+read-only; Quiver never writes to it.
 
 ## What the app never does
 

@@ -25,7 +25,6 @@ import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
 import { buildPdfFilename } from "../utils/pdfFilename";
 import { printWithPagedJs, printWithTitleRestore } from "../utils/pagedExport";
-import { getAutoSaveFolder, saveToQuiverSubfolder, capturePdfOfThisTab, QUIVER_SUBFOLDER } from "../services/cvFolder";
 
 const CV_THEME_STORAGE_KEY = "artemis:cvThemeConfig";
 
@@ -176,26 +175,6 @@ export function CVBuilder() {
 
     setExportingPdf(true);
     try {
-      // Auto-save to the linked folder's Quiver/ subfolder when enabled; any
-      // failure falls through to the normal print dialog.
-      const folder = await getAutoSaveFolder();
-      if (folder) {
-        try {
-          let saved = "";
-          await printWithPagedJs({
-            sourceEl: cardEl,
-            documentTitle: filename,
-            capture: async () => {
-              saved = await saveToQuiverSubfolder(folder, filename, await capturePdfOfThisTab());
-            },
-          });
-          toast.success(t("cv.autoSaved", { path: `${folder.name}/${QUIVER_SUBFOLDER}/${saved}` }));
-          return;
-        } catch (err) {
-          logAppError(err, { phase: "autoSaveCvPdf" });
-          toast.error(t("cv.autoSaveFailed", { error: err instanceof Error ? err.message : String(err) }));
-        }
-      }
       await printWithPagedJs({ sourceEl: cardEl, documentTitle: filename });
       toast.success("PDF sent to printer");
     } catch (err) {
@@ -205,7 +184,7 @@ export function CVBuilder() {
     } finally {
       setExportingPdf(false);
     }
-  }, [cvContent, jobLabel, t]);
+  }, [cvContent, jobLabel]);
 
   return (
     <div className="h-full flex flex-col">

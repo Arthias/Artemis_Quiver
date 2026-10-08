@@ -441,9 +441,7 @@
     "parseError": "Estructura JSON inválida. Revisa la consola para más detalles.",
     "generationFailed": "Generación de CV fallida.",
     "applyChangesFailed": "No se pudieron aplicar los cambios.",
-    "renderFailed": "No se pudo renderizar el CV. Actualiza e inténtalo de nuevo.",
-    "autoSaved": "Guardado en {{path}}",
-    "autoSaveFailed": "Falló el guardado automático ({{error}}). Se abre el diálogo de impresión."
+    "renderFailed": "No se pudo renderizar el CV. Actualiza e inténtalo de nuevo."
   },
   "cl": {
     "title": "Creador de Cartas de Presentación",
@@ -671,7 +669,7 @@
       "attached": "Adjuntado a “{{field}}”. Comprueba que la página muestra el archivo.",
       "uploadField": "campo de subida",
       "noUploadField": "No se encontró ningún campo para subir archivos en esta página.",
-      "generatedHint": "Los CVs generados en Quiver se guardan en {{folder}}."
+      "generatedHint": "Guarda los CVs que exportes desde Quiver en {{folder}}."
     },
     "apply": {
       "title": "Candidatura",
@@ -733,14 +731,12 @@
   },
   "apply": {
     "cvFolder": "Carpeta de CVs",
-    "cvFolderDesc": "Tus CVs, listados en el panel lateral para adjuntarlos a las candidaturas. Quiver solo escribe dentro de la subcarpeta “{{sub}}”; tus archivos nunca se modifican.",
+    "cvFolderDesc": "Tus CVs, listados en el panel lateral para adjuntarlos a las candidaturas. Guarda los CVs que exportes desde Quiver en la subcarpeta “{{sub}}” — el diálogo Guardar como PDF de Chrome recuerda la última carpeta usada.",
     "folderUnsupported": "Vincular una carpeta requiere Chrome o Edge.",
     "noFolder": "Ninguna carpeta vinculada",
     "linkFolder": "Vincular carpeta",
     "changeFolder": "Cambiar",
     "unlinkFolder": "Desvincular",
-    "autoSave": "Guardar automáticamente los CVs generados",
-    "autoSaveDesc": "Al exportar un CV, el PDF también se guarda en “{{sub}}” sin el diálogo de impresión. Requiere el permiso de depuración del navegador: Chrome muestra una barra “ha empezado a depurar este navegador” durante unos segundos en cada exportación.",
     "formProfile": "Perfil de formulario",
     "formProfileDesc": "Respuestas para formularios de candidatura. “fields” son campos estándar (aliases son las etiquetas de formulario que les corresponden, aprendidas al rellenar), “answers” son respuestas guardadas a preguntas recurrentes con un ámbito (“always”, o una región como US/EU/UK), “rules” es texto libre que lee el modelo al redactar (p. ej. “Necesito patrocinio de visado para puestos en EE. UU., no en la UE”).",
     "save": "Guardar",

@@ -441,9 +441,7 @@
     "parseError": "Invalid JSON structure generated. Please check console for details.",
     "generationFailed": "CV generation failed.",
     "applyChangesFailed": "Could not apply changes.",
-    "renderFailed": "Unable to render CV. Please refresh and try again.",
-    "autoSaved": "Saved to {{path}}",
-    "autoSaveFailed": "Auto-save failed ({{error}}). Opening the print dialog instead."
+    "renderFailed": "Unable to render CV. Please refresh and try again."
   },
   "cl": {
     "title": "Cover Letter Builder",
@@ -671,7 +669,7 @@
       "attached": "Attached to “{{field}}”. Check the page shows the file.",
       "uploadField": "upload field",
       "noUploadField": "No file upload field found on this page.",
-      "generatedHint": "CVs generated in Quiver are saved to {{folder}}."
+      "generatedHint": "Save CVs you export from Quiver into {{folder}}."
     },
     "apply": {
       "title": "Apply",
@@ -733,14 +731,12 @@
   },
   "apply": {
     "cvFolder": "CV folder",
-    "cvFolderDesc": "Your CVs, listed in the side panel so you can attach them to applications. Quiver only writes inside the “{{sub}}” subfolder; your own files are never changed.",
+    "cvFolderDesc": "Your CVs, listed in the side panel so you can attach them to applications. Save CVs you export from Quiver into the “{{sub}}” subfolder — Chrome's Save-as-PDF dialog remembers the last folder you used.",
     "folderUnsupported": "Linking a folder needs Chrome or Edge.",
     "noFolder": "No folder linked",
     "linkFolder": "Link folder",
     "changeFolder": "Change",
     "unlinkFolder": "Unlink",
-    "autoSave": "Auto-save generated CVs",
-    "autoSaveDesc": "Exporting a CV also saves the PDF to “{{sub}}” without the print dialog. Needs the browser's debugger permission: Chrome shows a “started debugging this browser” bar for a few seconds on each export.",
     "formProfile": "Form profile",
     "formProfileDesc": "Answers for application forms. “fields” are standard fields (aliases are the form labels that match them, learned as you fill), “answers” are saved answers to recurring questions with a scope (“always”, or a region such as US/EU/UK), “rules” is free text the drafting model reads (e.g. “I need visa sponsorship for US roles, not for EU roles”).",
     "save": "Save",

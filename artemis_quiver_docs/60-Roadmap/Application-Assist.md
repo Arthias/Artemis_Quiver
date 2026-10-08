@@ -16,12 +16,11 @@ last_updated: 2026-10-08
 
 | Piece | File |
 |---|---|
-| CV folder: handle, listing, favourites, `Quiver/` writes, auto-save via debugger | `src/app/services/cvFolder.ts` |
+| CV folder: handle (read-only), listing, favourites, `Quiver/` subfolder listed separately | `src/app/services/cvFolder.ts` |
 | Form profile: storage, matching, aliases, answers, Nano/model classification, seeding, drafts | `src/app/services/formProfile.ts` |
 | Injected page functions: scan, fill, read, attach | `src/extension/formPageScripts.ts` |
 | Side panel "Apply" and "CVs" sections | `src/extension/ApplyAssist.tsx`, mounted in `sidepanel.tsx` |
-| Settings → Applications tab (folder, auto-save toggle, form-profile JSON editor) | `src/app/components/apply/ApplicationSettingsCard.tsx` |
-| Auto-save hook on CV export | `printWithPagedJs({ capture })` in `utils/pagedExport.ts`, `CVBuilder.tsx` |
+| Settings → Applications tab (folder, form-profile JSON editor) | `src/app/components/apply/ApplicationSettingsCard.tsx` |
 | Tests | `services/__tests__/formProfile.test.ts`, `extension/__tests__/formPageScripts.test.ts` |
 
 Deviations from the plan below:
@@ -34,7 +33,8 @@ Deviations from the plan below:
 - Unmatched fields get a "Use profile field…" picker — choosing one teaches the alias.
 - Dropzone-only uploads (no `input[type=file]`) are not handled; both target ATSes use
   a hidden file input.
-- Cover-letter export does not auto-save; only the CV Builder does.
+- **Auto-save dropped** (2026-10-08): generated CVs are saved by hand into `Quiver/`
+  from the print dialog; folder access is read-only.
 
 ## Browser test checklist
 
@@ -54,10 +54,8 @@ Load the build unpacked (`npm run build:ext`), open the side panel on a job page
 6. **Draft**: on a "Why …" textarea → Draft → Generate → edit → Insert.
 7. **Settings → Applications**: Fill from my profile → values appear in the editor (not
    saved) → Save; invalid JSON shows an error.
-8. **Auto-save** (biggest unknown): turn on → Chrome asks for the debugger permission →
-   export a CV → the "debugging" bar flashes and the PDF lands in `<folder>/Quiver/`. If
-   it fails, the toast shows the error and the print dialog opens — note the error.
-   Also check the saved PDF looks identical to a manually printed one.
+8. **Manual save**: export a CV, save it into `<folder>/Quiver/` → Refresh in the panel
+   shows it with the "Quiver" tag (and "for this job" on that company's page).
 
 ## Goal
 
@@ -271,8 +269,10 @@ synthetic data only (this repo is public).
 - 2026-10-08 build: phases 1–3 implemented (see "As built").
 - 2026-10-08: **`debugger` cannot be an optional permission** (Chrome rejects it at load).
   Removed from the manifest; the auto-save toggle only appears in a build whose manifest
-  declares `debugger` as required (`isAutoSaveSupported()` reads the manifest). Open
-  decision: make it required (install-time warning for every user) or drop auto-save.
+  declares `debugger` as required.
+- 2026-10-08 (Bruno): **drop auto-save for now.** Code removed; manual save into `Quiver/`
+  (Chrome's print dialog remembers the folder). Revisit only with a required `debugger`
+  permission, which warns every user at install.
 - 2026-10-08 r2 (Bruno): skip fixed-choice fields; standard fields + saved
   answers live in one mutable JSON "form profile"; Nano for field identification
   where available, main model for drafts on request only; a "Review & fill"
