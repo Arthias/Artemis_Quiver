@@ -1,10 +1,29 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-10-03
+last_updated: 2026-10-08
 ---
 
 # Changelog
+
+## [Unreleased]
+
+**Side panel: Application Assist — CV folder, form filling, drafts**
+
+- **CVs** section: link a local folder (File System Access, handle in IndexedDB), list
+  CVs with favourites and a "for this job" tag, **Attach** into the page's resume input,
+  drag experiment. Generated CVs live in a `Quiver/` subfolder.
+- **Apply** section: **Review & fill** scans text fields (all frames), proposes values
+  from a per-profile **form profile** JSON (aliases, saved answers scoped by region,
+  rules note), identifies unmatched labels with Gemini Nano when installed or the
+  configured model, **Draft** generates free-text answers on request. Never submits;
+  demographic questions are skipped.
+- **Settings → Applications**: folder link, **Auto-save generated CVs** (optional
+  `debugger` permission → `Page.printToPDF`), form-profile JSON editor with
+  "Fill from my profile".
+- `PRIVACY.md` updated for the new data flows and the optional permission.
+- Verified: `tsc --noEmit`, vitest (163 passing, 2 new files), `build:ext`.
+  **Not tested in a browser** — checklist in `60-Roadmap/Application-Assist.md`.
 
 ## [v3.9.5] - October 3, 2026
 

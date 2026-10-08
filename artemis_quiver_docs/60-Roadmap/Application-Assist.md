@@ -1,14 +1,63 @@
 ---
 tags: [roadmap, extension, sidepanel, autofill]
-status: planned
+status: in-progress
 last_updated: 2026-10-08
 ---
 
 # Application Assist — side panel help for filling job applications
 
-> **Status: planned.** Nothing here is built. Code references describe the
-> as-built state on 2026-10-08 (manifest v3.9.4). Revision 2: scope narrowed
-> after the first review (decisions log at the bottom).
+> **Status: built, not browser-tested (2026-10-08).** Phases 1–3 are
+> implemented; unit tests and typecheck pass, nothing has been run against a
+> real ATS page yet — see "Browser test checklist". The design below is the
+> plan it was built from; "As built" lists where it landed and where it
+> deviates.
+
+## As built (2026-10-08)
+
+| Piece | File |
+|---|---|
+| CV folder: handle, listing, favourites, `Quiver/` writes, auto-save via debugger | `src/app/services/cvFolder.ts` |
+| Form profile: storage, matching, aliases, answers, Nano/model classification, seeding, drafts | `src/app/services/formProfile.ts` |
+| Injected page functions: scan, fill, read, attach | `src/extension/formPageScripts.ts` |
+| Side panel "Apply" and "CVs" sections | `src/extension/ApplyAssist.tsx`, mounted in `sidepanel.tsx` |
+| Settings → Applications tab (folder, auto-save toggle, form-profile JSON editor) | `src/app/components/apply/ApplicationSettingsCard.tsx` |
+| Auto-save hook on CV export | `printWithPagedJs({ capture })` in `utils/pagedExport.ts`, `CVBuilder.tsx` |
+| Tests | `services/__tests__/formProfile.test.ts`, `extension/__tests__/formPageScripts.test.ts` |
+
+Deviations from the plan below:
+
+- Text inputs that are really comboboxes (`role="combobox"`, `aria-autocomplete="list"`,
+  e.g. Ashby's location picker) are skipped along with selects/radios.
+- Region is a manual selector in the panel (remembered), not guessed from the job.
+- Fields a model *identified* (label → key, value from your own profile) are pre-ticked
+  and badged "AI"; *generated* text is only ever produced by pressing Generate.
+- Unmatched fields get a "Use profile field…" picker — choosing one teaches the alias.
+- Dropzone-only uploads (no `input[type=file]`) are not handled; both target ATSes use
+  a hidden file input.
+- Cover-letter export does not auto-save; only the CV Builder does.
+
+## Browser test checklist
+
+Load the build unpacked (`npm run build:ext`), open the side panel on a job page.
+
+1. **Folder**: CVs → Link CV folder → pick a folder with a few PDFs; list appears. Restart
+   Chrome → panel shows the list again, or a "Reconnect" button that works in one click.
+2. **Attach — Ashby** (`jobs.ashbyhq.com/<co>/<id>/application`): Attach a PDF → the form
+   shows the file as the resume. Same on **Greenhouse** (`job-boards.greenhouse.io`) and on
+   one **company career page embedding Greenhouse/Ashby in an iframe**.
+3. **Drag (experiment)**: hover a CV row, then drag it onto the Ashby resume box and onto
+   the desktop. Report which, if either, works.
+4. **Review & fill — Ashby**: labels read correctly; Fill selected → values appear, *and
+   survive* clicking elsewhere / changing a field (proves React picked them up).
+5. **Unmatched fields**: with Chrome's on-device model installed, unmatched labels come
+   back badged "AI"; without it, the configured model is used (one quick call).
+6. **Draft**: on a "Why …" textarea → Draft → Generate → edit → Insert.
+7. **Settings → Applications**: Fill from my profile → values appear in the editor (not
+   saved) → Save; invalid JSON shows an error.
+8. **Auto-save** (biggest unknown): turn on → Chrome asks for the debugger permission →
+   export a CV → the "debugging" bar flashes and the PDF lands in `<folder>/Quiver/`. If
+   it fails, the toast shows the error and the print dialog opens — note the error.
+   Also check the saved PDF looks identical to a manually printed one.
 
 ## Goal
 
@@ -219,6 +268,7 @@ synthetic data only (this repo is public).
 ## Decisions log
 
 - 2026-10-08 r1: initial plan.
+- 2026-10-08 build: phases 1–3 implemented (see "As built").
 - 2026-10-08 r2 (Bruno): skip fixed-choice fields; standard fields + saved
   answers live in one mutable JSON "form profile"; Nano for field identification
   where available, main model for drafts on request only; a "Review & fill"
