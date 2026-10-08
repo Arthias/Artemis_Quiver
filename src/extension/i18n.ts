@@ -1,30 +1,24 @@
 /// <reference types="chrome" />
 
-let cache: Record<string, string> | null = null;
+let cache: Record<string, unknown> | null = null;
 
-// Key the storage cache by the extension version so a rebuilt locale file with
-// new keys is always re-fetched instead of serving stale cached translations
-// (raw keys shown). Old keys are orphaned, never read again.
-function cacheKey(): string {
-  let version = "dev";
-  try {
-    version = chrome.runtime.getManifest().version || "dev";
-  } catch {}
-  return `i18n_cache_${version}`;
+// The locale files ship inside the extension (copied to locales/ by build:ext),
+// so fetching them is a local read — no caching. A storage cache keyed by the
+// extension version used to live here and served stale strings (raw keys) after
+// any rebuild that added keys without bumping the version.
+async function fetchLocale(locale: string): Promise<Record<string, unknown>> {
+  const resp = await fetch(chrome.runtime.getURL(`locales/${locale}.json`));
+  if (!resp.ok) throw new Error(`No locale file for "${locale}"`);
+  return resp.json();
 }
 
 export async function loadTranslations(locale: string): Promise<void> {
-  const key = cacheKey();
-  const result = await chrome.storage.local.get(key);
-  const cached = result[key] as Record<string, Record<string, string>> | undefined;
-  if (cached?.[locale]) {
-    cache = cached[locale];
-    return;
+  try {
+    cache = await fetchLocale(locale);
+  } catch {
+    // Unsupported browser language (e.g. "it") → English rather than raw keys.
+    cache = await fetchLocale("en");
   }
-  const resp = await fetch(chrome.runtime.getURL(`locales/${locale}.json`));
-  const data = await resp.json();
-  cache = data;
-  await chrome.storage.local.set({ [key]: { [locale]: data } });
 }
 
 function getNested(obj: Record<string, unknown> | null, path: string): unknown {

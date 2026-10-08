@@ -139,6 +139,14 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 
 ## i18n (Internationalization)
 
+**Rule: the UI is localized — no hard-coded user-visible text.** Every string a user
+sees (app, side panel, popup, toasts, errors shown in the UI) goes through `t()`, and every
+new key is added to **both** `en.json` and `es.json` in the same change, with a real Spanish
+translation. Extension keys (side panel, popup, background) are *not* type-checked — a
+missing key renders as the raw key (`sidepanel.cv.title`); `src/extension/__tests__/i18nKeys.test.ts`
+catches that and en/es drift, so run the tests. The overlay content script is the one
+exception: it keeps its own inline `ot()` map.
+
 **Stack**: `react-i18next` + `i18next-browser-languagedetector`. Init in `src/app/i18n/index.ts`.
 
 **Locale files**: `src/app/i18n/locales/{en,es}.json` auto-discovered via `import.meta.glob`. Add new language → drop a `xx.json` file, no manual imports.
@@ -147,7 +155,7 @@ Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **
 
 **Key convention**: `page.component.element` — e.g., `analysis.analyze`, `profile.saveChanges`, `config.llmProvider`.
 
-**Extension**: Lightweight `src/extension/i18n.ts` loader for service worker/overlay (no React). Locale JSON copied to `Artemis_Quiver_extension/locales/` during `build:ext`.
+**Extension**: Lightweight `src/extension/i18n.ts` loader for the side panel, popup and service worker (no React). Locale JSON copied to `Artemis_Quiver_extension/locales/` during `build:ext` and fetched at runtime, uncached; an unsupported browser language falls back to English.
 
 **Rendering Engine**: `renderCVToHTML()` / `renderCLToHTML()` accept optional `lang` param. Section headings use locale-keyed map in `renderingEngine.ts`.
 

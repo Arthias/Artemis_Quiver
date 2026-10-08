@@ -152,9 +152,17 @@ Debugging: background logs via `chrome://extensions` → Inspect service worker;
 
 ### i18n
 
+**Rule: the UI is localized — no hard-coded user-visible text.** Every string a user
+sees (app, side panel, popup, toasts, errors shown in the UI) goes through `t()`, and every
+new key is added to **both** `en.json` and `es.json` in the same change, with a real Spanish
+translation. Extension keys (side panel, popup, background) are *not* type-checked — a
+missing key renders as the raw key (`sidepanel.cv.title`); `src/extension/__tests__/i18nKeys.test.ts`
+catches that and en/es drift, so run the tests. The overlay content script is the one
+exception: it keeps its own inline `ot()` map.
+
 Stack: `react-i18next` + `i18next-browser-languagedetector`, initialized in `src/app/i18n/index.ts`. Locale files `src/app/i18n/locales/{en,es}.json` are auto-discovered via `import.meta.glob` — add a new language by dropping in a `xx.json` file, no manual imports needed. `src/app/i18n/i18next.d.ts` augments `CustomTypeOptions` so mistyped translation keys fail `tsc --noEmit`. Key convention: `page.component.element` (e.g. `analysis.analyze`, `profile.saveChanges`, `config.llmProvider`).
 
-The extension's service worker/overlay can't import React, so it has its own lightweight loader (`src/extension/i18n.ts`) with an inline `ot()` helper; locale JSON is copied to `Artemis_Quiver_extension/locales/` during `build:ext`.
+The extension can't import the React i18n stack, so the side panel, popup and service worker use a lightweight loader (`src/extension/i18n.ts`) that fetches the locale JSON copied to `Artemis_Quiver_extension/locales/` during `build:ext` — uncached, falling back to English for an unsupported browser language. The overlay content script uses its own inline `ot()` map.
 
 The CV/CL rendering engine (`renderCVToHTML()` / `renderCLToHTML()` in `src/components/cv/renderingEngine.ts`) accepts an optional `lang` param; section headings use a locale-keyed map there.
 
