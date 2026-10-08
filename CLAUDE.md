@@ -67,7 +67,7 @@ Artemis Quiver — job hunting automation: analyze job postings against a user's
 ```bash
 npm run dev          # Vite dev server, localhost:5173 (web app)
 npm run build         # Production build of the web app
-npm run build:ext     # Build Chrome extension -> Artemis_Quiver_extension/ (+ zip in release/)
+npm run build:ext     # Build Chrome extension -> Artemis_Quiver_extension/ (zip in release/ only when CI is set)
 npm run test          # vitest run (all tests)
 npm run test:watch    # vitest watch mode
 npm run typecheck     # tsc --noEmit

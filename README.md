@@ -94,7 +94,7 @@ and reload the extension after any change to it.
 |---|---|
 | `npm run dev` | Web app dev server on `:5173` |
 | `npm run build` | Production build of the web app |
-| `npm run build:ext` | Build the Chrome extension → `Artemis_Quiver_extension/` (+ zip in `release/`) |
+| `npm run build:ext` | Build the Chrome extension → `Artemis_Quiver_extension/` (the release zip is only built in CI) |
 | `npm run test` | vitest suite |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:*` | Playwright QA suites — local only, needs a local LLM (see `QA_AGENT.md`) |

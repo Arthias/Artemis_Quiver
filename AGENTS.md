@@ -82,7 +82,7 @@ disclosure is a warning, not a fix.
 |---------|------|
 | `npm run dev` | Vite dev server (localhost:5173) |
 | `npm run build` | Production build |
-| `npm run build:ext` | Chrome extension → `Artemis_Quiver_extension/` (+ zip in `release/`) |
+| `npm run build:ext` | Chrome extension → `Artemis_Quiver_extension/` (zip in `release/` only when `CI` is set) |
 | `npm run test` | vitest — 144 tests across 12 files (counted 2026-09-25; `npm run test` is the authority, not this number) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run qa:all` | Full auto-QA → `qa-reports/` |

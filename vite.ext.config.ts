@@ -47,7 +47,10 @@ function extensionAssets() {
         }
       } catch { /* locales dir may not exist */ }
 
-      // Package the built extension into a zip for distribution
+      // Package the built extension into a zip for distribution. Only in CI:
+      // .github/workflows/release.yml publishes release/*.zip; locally the
+      // unpacked folder is all that's needed.
+      if (!process.env.CI) return;
       mkdirSync(path.dirname(ZIP_PATH), { recursive: true });
       const output = createWriteStream(ZIP_PATH);
       const archive = archiver("zip", { zlib: { level: 9 } });
