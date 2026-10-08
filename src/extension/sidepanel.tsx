@@ -9,6 +9,7 @@ import { analyzeJobPosting } from "../app/services/jobAnalysisService";
 import { getActiveEndpoint } from "../app/services/llmService";
 import type { AnalysisResult } from "../app/types/analysis";
 import type { BuilderHandoff } from "../app/types/workspace";
+import { ApplySection, CvSection, companyFromUrl } from "./ApplyAssist";
 
 function logErrorToApp(message: string, stack?: string, code?: string) {
   try {
@@ -561,8 +562,12 @@ function Panel() {
               </div>
             )}
           </div>
+
+          <ApplySection tabId={tabId} currentUrl={currentUrl} />
         </>
       )}
+
+      <CvSection tabId={tabId} currentUrl={currentUrl} company={entry?.company || companyFromUrl(currentUrl)} />
     </div>
   );
 }

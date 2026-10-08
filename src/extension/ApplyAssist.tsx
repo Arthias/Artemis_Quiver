@@ -1,0 +1,593 @@
+/// <reference types="chrome" />
+// Side-panel sections for applying: the linked CV folder ("CVs") and form
+// filling from the form profile ("Apply"). See
+// artemis_quiver_docs/60-Roadmap/Application-Assist.md.
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { t } from "./i18n";
+import { siteToOriginPatterns } from "./job-sites";
+import { extractPageContent } from "./pageExtract";
+import {
+  scanFormFields,
+  fillFormFields,
+  attachFileToInput,
+  type ScannedField,
+  type ScannedFileInput,
+} from "./formPageScripts";
+import {
+  getFolderHandle,
+  pickFolder,
+  hasFolderAccess,
+  ensureFolderAccess,
+  listCvFiles,
+  getFavourites,
+  setFavourites,
+  sortCvFiles,
+  matchesCompany,
+  cvFileKey,
+  isFolderSupported,
+  QUIVER_SUBFOLDER,
+  type CvFile,
+} from "../app/services/cvFolder";
+import {
+  loadFormProfile,
+  saveFormProfile,
+  proposeValue,
+  classifyLabels,
+  addAlias,
+  upsertAnswer,
+  draftAnswer,
+  REGIONS,
+  type FormProfile,
+  type ProposalSource,
+} from "../app/services/formProfile";
+import { getActiveProfileId, getProfile, getSessions } from "../app/db";
+import type { AnalysisSessionRecord } from "../app/db/schema";
+
+// Company career sites embed these ATSes in cross-origin iframes; asking for
+// them alongside the current site keeps it to one prompt, inside the click.
+const ATS_ORIGINS = ["*://*.ashbyhq.com/*", "*://*.greenhouse.io/*"];
+
+/** Must be the FIRST await in a click handler, or Chrome drops the user gesture. */
+async function ensurePageAccess(url: string): Promise<boolean> {
+  try {
+    const host = new URL(url).hostname;
+    return await chrome.permissions.request({ origins: [...siteToOriginPatterns(host), ...ATS_ORIGINS] });
+  } catch {
+    return false;
+  }
+}
+
+async function runInAllFrames<A extends unknown[], R>(tabId: number, func: (...args: A) => R, args: A) {
+  const results = await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, func, args } as any);
+  return (results as Array<{ frameId: number; result?: Awaited<R> }>).filter((r) => r.result != null);
+}
+
+async function runInFrame<A extends unknown[], R>(tabId: number, frameId: number, func: (...args: A) => R, args: A) {
+  const [res] = await chrome.scripting.executeScript({ target: { tabId, frameIds: [frameId] }, func, args } as any);
+  return (res as { result?: Awaited<R> } | undefined)?.result;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+const MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  odt: "application/vnd.oasis.opendocument.text",
+  rtf: "application/rtf",
+  txt: "text/plain",
+};
+const mimeOf = (name: string) => MIME[name.split(".").pop()?.toLowerCase() ?? ""] ?? "application/octet-stream";
+
+/** Ashby / Greenhouse put the company slug first in the path — better than nothing when there's no quick score. */
+export function companyFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (/(^|\.)ashbyhq\.com$|(^|\.)greenhouse\.io$/.test(u.hostname)) return u.pathname.split("/").filter(Boolean)[0] ?? "";
+  } catch {}
+  return "";
+}
+
+// ── CVs ──────────────────────────────────────────────────────────────────
+
+export function CvSection({ tabId, currentUrl, company }: { tabId: number | null; currentUrl: string; company: string }) {
+  const [handle, setHandle] = useState<Awaited<ReturnType<typeof getFolderHandle>>>(null);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
+  const [files, setFiles] = useState<CvFile[]>([]);
+  const [favourites, setFavs] = useState<string[]>([]);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  // Drag experiment: a file is only draggable once its blob is ready, because
+  // dragstart can't await.
+  const dragFiles = useRef<Record<string, { file: File; url: string }>>({});
+
+  const refresh = useCallback(async (h: NonNullable<typeof handle>) => {
+    setFiles(await listCvFiles(h));
+    setFavs(await getFavourites());
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const h = await getFolderHandle();
+      setHandle(h);
+      if (!h) return;
+      if (await hasFolderAccess(h)) await refresh(h);
+      else setNeedsReconnect(true);
+    })().catch((err) => setStatus({ ok: false, text: String(err?.message ?? err) }));
+  }, [refresh]);
+
+  const link = async () => {
+    try {
+      const h = await pickFolder();
+      setHandle(h);
+      setNeedsReconnect(false);
+      await refresh(h);
+    } catch (err: any) {
+      if (err?.name !== "AbortError") setStatus({ ok: false, text: String(err?.message ?? err) });
+    }
+  };
+
+  const reconnect = async () => {
+    if (!handle) return;
+    if (await ensureFolderAccess(handle)) {
+      setNeedsReconnect(false);
+      await refresh(handle);
+    }
+  };
+
+  const toggleFav = async (f: CvFile) => {
+    const key = cvFileKey(f);
+    const next = favourites.includes(key) ? favourites.filter((k) => k !== key) : [...favourites, key];
+    setFavs(next);
+    await setFavourites(next);
+  };
+
+  const attach = async (f: CvFile) => {
+    if (!tabId) return;
+    setStatus(null);
+    if (!(await ensurePageAccess(currentUrl))) {
+      setStatus({ ok: false, text: t("sidepanel.permissionDenied") });
+      return;
+    }
+    setBusy(cvFileKey(f));
+    try {
+      const scans = await runInAllFrames(tabId, scanFormFields, []);
+      const inputs = scans.flatMap((s) => s.result!.fileInputs.map((fi: ScannedFileInput) => ({ ...fi, frameId: s.frameId })));
+      const notCover = inputs.filter((i) => !/cover/i.test(i.label));
+      const target = notCover.find((i) => /resume|r[ée]sum[ée]|\bcv\b|curriculum/i.test(i.label)) ?? notCover[0] ?? inputs[0];
+      if (!target) {
+        setStatus({ ok: false, text: t("sidepanel.cv.noUploadField") });
+        return;
+      }
+      const bytes = new Uint8Array(await (await f.handle.getFile()).arrayBuffer());
+      const ok = await runInFrame(tabId, target.frameId, attachFileToInput, [target.id, toBase64(bytes), f.name, mimeOf(f.name)]);
+      setStatus(
+        ok
+          ? { ok: true, text: t("sidepanel.cv.attached", { field: target.label || t("sidepanel.cv.uploadField") }) }
+          : { ok: false, text: t("sidepanel.cv.noUploadField") }
+      );
+    } catch (err: any) {
+      setStatus({ ok: false, text: String(err?.message ?? err) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const prepareDrag = async (f: CvFile) => {
+    const key = cvFileKey(f);
+    if (dragFiles.current[key]) return;
+    const file = await f.handle.getFile();
+    const typed = new File([file], f.name, { type: mimeOf(f.name) });
+    dragFiles.current[key] = { file: typed, url: URL.createObjectURL(typed) };
+  };
+
+  if (!isFolderSupported()) return null;
+
+  const sorted = sortCvFiles(files, favourites, company);
+
+  return (
+    <div style={cardStyle}>
+      <div style={sectionTitle}>{t("sidepanel.cv.title")}</div>
+      {!handle ? (
+        <>
+          <div style={hintStyle}>{t("sidepanel.cv.linkHint")}</div>
+          <button onClick={link} style={{ ...secBtnStyle, width: "100%", marginTop: 8 }}>{t("sidepanel.cv.link")}</button>
+        </>
+      ) : needsReconnect ? (
+        <button onClick={reconnect} style={{ ...secBtnStyle, width: "100%" }}>{t("sidepanel.cv.reconnect", { folder: handle.name })}</button>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+            <span style={{ ...hintStyle, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📁 {handle.name}</span>
+            <button onClick={() => refresh(handle)} style={miniBtnStyle}>{t("sidepanel.cv.refresh")}</button>
+            <button onClick={link} style={miniBtnStyle}>{t("sidepanel.cv.change")}</button>
+          </div>
+          {sorted.length === 0 && <div style={hintStyle}>{t("sidepanel.cv.empty")}</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {sorted.map((f) => {
+              const key = cvFileKey(f);
+              const fav = favourites.includes(key);
+              return (
+                <div
+                  key={key}
+                  draggable
+                  onPointerEnter={() => void prepareDrag(f)}
+                  onDragStart={(e) => {
+                    const ready = dragFiles.current[key];
+                    if (!ready) return e.preventDefault();
+                    e.dataTransfer.effectAllowed = "copy";
+                    e.dataTransfer.items.add(ready.file);
+                    e.dataTransfer.setData("DownloadURL", `${ready.file.type}:${f.name}:${ready.url}`);
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, background: "rgba(255,255,255,0.03)", cursor: "grab" }}
+                >
+                  <button onClick={() => toggleFav(f)} title={t("sidepanel.cv.favourite")} style={{ ...iconBtnStyle, color: fav ? "#facc15" : "#475569" }}>★</button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={f.name}>{f.name}</div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {f.folder === QUIVER_SUBFOLDER && <span style={tagStyle("#8b5cf6")}>{t("sidepanel.cv.generated")}</span>}
+                      {matchesCompany(f.name, company) && <span style={tagStyle("#22c55e")}>{t("sidepanel.cv.forThisJob")}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => attach(f)} disabled={!tabId || busy !== null} style={miniBtnStyle}>
+                    {busy === key ? "…" : t("sidepanel.cv.attach")}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ ...hintStyle, marginTop: 8 }}>{t("sidepanel.cv.generatedHint", { folder: `${handle.name}/${QUIVER_SUBFOLDER}` })}</div>
+        </>
+      )}
+      {status && <div style={{ marginTop: 6, fontSize: 11, color: status.ok ? "#4ade80" : "#ef4444" }}>{status.text}</div>}
+    </div>
+  );
+}
+
+// ── Apply ────────────────────────────────────────────────────────────────
+
+interface Row {
+  frameId: number;
+  field: ScannedField;
+  key?: string;
+  value: string;
+  source: ProposalSource;
+  checked: boolean;
+  /** Key chosen by the user or a model — becomes an alias once filled. */
+  learnAlias?: boolean;
+  drafting?: boolean;
+  hint?: string;
+  busy?: boolean;
+}
+
+const BADGE: Record<ProposalSource, { color: string; key: string }> = {
+  profile: { color: "#3b82f6", key: "sidepanel.apply.srcProfile" },
+  answer: { color: "#22c55e", key: "sidepanel.apply.srcAnswer" },
+  model: { color: "#8b5cf6", key: "sidepanel.apply.srcModel" },
+  eeo: { color: "#64748b", key: "sidepanel.apply.srcEeo" },
+  none: { color: "#475569", key: "sidepanel.apply.srcNone" },
+};
+
+const REGION_STORE = "artemis:applyRegion";
+
+export function ApplySection({ tabId, currentUrl }: { tabId: number | null; currentUrl: string }) {
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [fp, setFp] = useState<FormProfile | null>(null);
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [region, setRegion] = useState("");
+  const [sessions, setSessions] = useState<AnalysisSessionRecord[]>([]);
+  const [contextId, setContextId] = useState<string>("page");
+  const [state, setState] = useState<"idle" | "scanning" | "filling">("idle");
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      setRegion(localStorage.getItem(REGION_STORE) ?? "");
+    } catch {}
+  }, []);
+
+  // A new page means a new form.
+  useEffect(() => {
+    setRows(null);
+    setMessage(null);
+  }, [currentUrl]);
+
+  const loadProfile = useCallback(async () => {
+    const id = await getActiveProfileId();
+    if (!id) throw new Error(t("sidepanel.noProfile"));
+    const [form, sess] = await Promise.all([loadFormProfile(id), getSessions(id)]);
+    setProfileId(id);
+    setFp(form);
+    const recent = [...sess].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
+    setSessions(recent);
+    // Usual flow is analyze → build CV → apply, so the latest analysis is the best default.
+    setContextId((prev) => (prev === "page" && recent[0] ? recent[0].id : prev));
+    return { id, form };
+  }, []);
+
+  const persist = async (next: FormProfile) => {
+    setFp(next);
+    if (profileId) await saveFormProfile(profileId, next);
+  };
+
+  const scan = async () => {
+    if (!tabId) return;
+    setMessage(null);
+    if (!(await ensurePageAccess(currentUrl))) {
+      setMessage({ ok: false, text: t("sidepanel.permissionDenied") });
+      return;
+    }
+    setState("scanning");
+    try {
+      const { form } = await loadProfile();
+      const scans = await runInAllFrames(tabId, scanFormFields, []);
+      const next: Row[] = scans.flatMap((s) =>
+        s.result!.fields.map((field: ScannedField) => {
+          const p = proposeValue(field, form, region || null);
+          const hasValue = p.value.trim().length > 0;
+          return {
+            frameId: s.frameId,
+            field,
+            key: p.key,
+            value: field.value || p.value,
+            source: p.source,
+            checked: hasValue && !field.value,
+          };
+        })
+      );
+      if (next.length === 0) {
+        setRows([]);
+        setMessage({ ok: false, text: t("sidepanel.apply.noFields") });
+        return;
+      }
+
+      // Short unmatched fields: let a model pick the key (labels only, no values sent).
+      const unmatched = next.filter((r) => r.source === "none" && r.field.kind === "text" && r.field.label);
+      if (unmatched.length > 0) {
+        try {
+          const profile = await getProfile((await getActiveProfileId())!);
+          const keys = Object.keys(form.fields);
+          const { matches } = await classifyLabels(unmatched.map((r) => r.field.label), keys, profile?.settings ?? null);
+          unmatched.forEach((r, i) => {
+            const key = matches[i];
+            const value = key ? form.fields[key]?.value ?? "" : "";
+            if (!key || !value) return;
+            Object.assign(r, { key, value: r.field.value || value, source: "model", learnAlias: true, checked: !r.field.value });
+          });
+        } catch {
+          // Identification is a nicety — rows stay unmatched and can be mapped by hand.
+        }
+      }
+      setRows(next);
+    } catch (err: any) {
+      setMessage({ ok: false, text: String(err?.message ?? err) });
+    } finally {
+      setState("idle");
+    }
+  };
+
+  const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs && rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  const fillRows = async (targets: Row[]) => {
+    if (!tabId || !fp) return;
+    setState("filling");
+    setMessage(null);
+    try {
+      let filled = 0;
+      for (const frameId of new Set(targets.map((r) => r.frameId))) {
+        const values = targets.filter((r) => r.frameId === frameId).map((r) => ({ id: r.field.id, value: r.value }));
+        filled += (await runInFrame(tabId, frameId, fillFormFields, [values]))?.length ?? 0;
+      }
+      let next = fp;
+      for (const r of targets) if (r.learnAlias && r.key) next = addAlias(next, r.key, r.field.label);
+      if (next !== fp) await persist(next);
+      setRows((rs) => rs && rs.map((r) => (targets.includes(r) ? { ...r, checked: false, learnAlias: false, field: { ...r.field, value: r.value } } : r)));
+      setMessage({ ok: true, text: t("sidepanel.apply.filled", { count: filled }) });
+    } catch (err: any) {
+      setMessage({ ok: false, text: String(err?.message ?? err) });
+    } finally {
+      setState("idle");
+    }
+  };
+
+  const mapToKey = (i: number, key: string) => {
+    if (!fp || !rows) return;
+    if (!key) return update(i, { key: undefined, source: "none", learnAlias: false });
+    const value = fp.fields[key]?.value ?? "";
+    update(i, { key, value, source: "profile", learnAlias: true, checked: value.length > 0 });
+  };
+
+  const saveAnswer = async (r: Row) => {
+    if (!fp || !r.value.trim()) return;
+    await persist(upsertAnswer(fp, r.field.label, r.value.trim(), region || "always"));
+    setMessage({ ok: true, text: t("sidepanel.apply.answerSaved", { scope: region || t("sidepanel.apply.regionAny") }) });
+  };
+
+  const generate = async (i: number) => {
+    const r = rows?.[i];
+    if (!r || !tabId || !fp) return;
+    update(i, { busy: true });
+    setMessage(null);
+    try {
+      const profile = await getProfile((await getActiveProfileId())!);
+      if (!profile) throw new Error(t("sidepanel.noProfile"));
+      let jobText = sessions.find((s) => s.id === contextId)?.jobPosting ?? "";
+      if (!jobText) {
+        const [res] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageContent });
+        jobText = (res?.result as { text?: string } | undefined)?.text ?? "";
+      }
+      const text = await draftAnswer(
+        { question: r.field.label, maxLength: r.field.maxLength, profileMarkdown: profile.profileMarkdown, rules: fp.rules, jobText, hint: r.hint },
+        profile.settings
+      );
+      update(i, { value: text, source: "model", checked: true, busy: false });
+    } catch (err: any) {
+      update(i, { busy: false });
+      setMessage({ ok: false, text: String(err?.message ?? err) });
+    }
+  };
+
+  const setRegionStored = (v: string) => {
+    setRegion(v);
+    try {
+      localStorage.setItem(REGION_STORE, v);
+    } catch {}
+  };
+
+  const checkedRows = rows?.filter((r) => r.checked && r.value) ?? [];
+  const keys = fp ? Object.keys(fp.fields) : [];
+
+  return (
+    <div style={cardStyle}>
+      <div style={sectionTitle}>{t("sidepanel.apply.title")}</div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <label style={{ ...hintStyle, display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
+          {t("sidepanel.apply.region")}
+          <select value={region} onChange={(e) => setRegionStored(e.target.value)} style={selectStyle}>
+            <option value="">{t("sidepanel.apply.regionAny")}</option>
+            {REGIONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <button onClick={scan} disabled={!tabId || state !== "idle"} style={{ ...primaryBtnStyle, width: "100%" }}>
+        {state === "scanning" ? t("sidepanel.apply.scanning") : rows ? t("sidepanel.apply.rescan") : t("sidepanel.apply.reviewFill")}
+      </button>
+
+      {rows && rows.length > 0 && (
+        <>
+          <label style={{ ...hintStyle, display: "flex", alignItems: "center", gap: 4, marginTop: 10 }}>
+            {t("sidepanel.apply.context")}
+            <select value={contextId} onChange={(e) => setContextId(e.target.value)} style={{ ...selectStyle, flex: 1, minWidth: 0 }}>
+              <option value="page">{t("sidepanel.apply.contextPage")}</option>
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {(s.result.title || t("sidepanel.untitledJob")) + " · " + s.createdAt.slice(0, 10)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+            {rows.map((r, i) => {
+              const badge = BADGE[r.source];
+              const long = r.field.kind === "textarea";
+              return (
+                <div key={`${r.frameId}:${r.field.id}`} style={{ padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.03)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={r.checked}
+                      disabled={r.source === "eeo" || !r.value}
+                      onChange={(e) => update(i, { checked: e.target.checked })}
+                    />
+                    <span style={{ fontSize: 12, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.field.label}>
+                      {r.field.label || r.field.name || "—"}
+                      {r.field.required ? " *" : ""}
+                    </span>
+                    <span style={tagStyle(badge.color)}>{t(badge.key)}</span>
+                  </div>
+                  {r.source !== "eeo" && (
+                    <>
+                      {long ? (
+                        <textarea
+                          value={r.value}
+                          onChange={(e) => update(i, { value: e.target.value, checked: e.target.value.length > 0 })}
+                          rows={r.value ? 5 : 2}
+                          maxLength={r.field.maxLength ?? undefined}
+                          style={{ ...inputStyle, resize: "vertical" }}
+                        />
+                      ) : (
+                        <input
+                          value={r.value}
+                          onChange={(e) => update(i, { value: e.target.value, checked: e.target.value.length > 0 })}
+                          maxLength={r.field.maxLength ?? undefined}
+                          style={inputStyle}
+                        />
+                      )}
+                      <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+                        {(r.source === "none" || r.learnAlias) && !long && (
+                          <select value={r.key ?? ""} onChange={(e) => mapToKey(i, e.target.value)} style={{ ...selectStyle, flex: 1, minWidth: 0 }} title={t("sidepanel.apply.mapHint")}>
+                            <option value="">{t("sidepanel.apply.mapTo")}</option>
+                            {keys.map((k) => (
+                              <option key={k} value={k}>{k}</option>
+                            ))}
+                          </select>
+                        )}
+                        {r.source !== "profile" && (
+                          <button onClick={() => update(i, { drafting: !r.drafting })} style={miniBtnStyle}>{t("sidepanel.apply.draft")}</button>
+                        )}
+                        {r.source !== "profile" && r.value.trim() && (
+                          <button onClick={() => saveAnswer(r)} style={miniBtnStyle}>{t("sidepanel.apply.saveAnswer")}</button>
+                        )}
+                        {r.value && (
+                          <button onClick={() => fillRows([r])} disabled={state !== "idle"} style={miniBtnStyle}>{t("sidepanel.apply.insert")}</button>
+                        )}
+                      </div>
+                      {r.drafting && (
+                        <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                          <input
+                            value={r.hint ?? ""}
+                            onChange={(e) => update(i, { hint: e.target.value })}
+                            placeholder={t("sidepanel.apply.hintPlaceholder")}
+                            style={{ ...inputStyle, marginTop: 0, flex: 1 }}
+                          />
+                          <button onClick={() => generate(i)} disabled={r.busy} style={miniBtnStyle}>
+                            {r.busy ? "…" : t("sidepanel.apply.generate")}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => fillRows(checkedRows)}
+            disabled={checkedRows.length === 0 || state !== "idle"}
+            style={{ ...primaryBtnStyle, width: "100%", marginTop: 10, opacity: checkedRows.length === 0 ? 0.5 : 1 }}
+          >
+            {state === "filling" ? "…" : t("sidepanel.apply.fillSelected", { count: checkedRows.length })}
+          </button>
+          <div style={{ ...hintStyle, marginTop: 6 }}>{t("sidepanel.apply.reviewWarning")}</div>
+        </>
+      )}
+      {message && <div style={{ marginTop: 6, fontSize: 11, color: message.ok ? "#4ade80" : "#ef4444" }}>{message.text}</div>}
+    </div>
+  );
+}
+
+// ── Styles (match sidepanel.tsx) ─────────────────────────────────────────
+
+const cardStyle: CSSProperties = { border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 };
+const sectionTitle: CSSProperties = { fontSize: 11, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" };
+const hintStyle: CSSProperties = { fontSize: 11, color: "#64748b" };
+const secBtnStyle: CSSProperties = {
+  padding: "8px 10px", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6,
+  background: "#1e293b", color: "#e2e8f0", fontSize: 12, fontWeight: 500, cursor: "pointer",
+};
+const primaryBtnStyle: CSSProperties = {
+  padding: "9px 12px", border: "none", borderRadius: 8, background: "#3b82f6",
+  color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+};
+const miniBtnStyle: CSSProperties = {
+  padding: "3px 8px", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 5,
+  background: "#1e293b", color: "#e2e8f0", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
+};
+const iconBtnStyle: CSSProperties = { background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 0 };
+const inputStyle: CSSProperties = {
+  width: "100%", boxSizing: "border-box", marginTop: 4, padding: "5px 7px", borderRadius: 5,
+  border: "1px solid rgba(255,255,255,0.12)", background: "#0f172a", color: "#e2e8f0", fontSize: 12, fontFamily: "inherit",
+};
+const selectStyle: CSSProperties = {
+  padding: "3px 5px", borderRadius: 5, border: "1px solid rgba(255,255,255,0.12)",
+  background: "#0f172a", color: "#e2e8f0", fontSize: 11,
+};
+const tagStyle = (color: string): CSSProperties => ({
+  fontSize: 10, padding: "1px 6px", borderRadius: 999, color, border: `1px solid ${color}55`, whiteSpace: "nowrap",
+});

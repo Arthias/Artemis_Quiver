@@ -29,7 +29,7 @@ All application data lives in your browser's **IndexedDB**, in a database named
 |---|---|
 | `profiles` | Your master profile Markdown, workspace settings (including provider config and API keys), the job posting draft, and your profile-assistant chat history |
 | `analysisSessions` | Each job posting you analysed, the model's result, generated CVs |
-| `metadata` | App-level flags such as the active profile and schema version |
+| `metadata` | App-level flags such as the active profile and schema version; your **form profile** per profile (application-form answers: contact details, links, salary expectation, saved answers, rules note); the linked CV folder handle, favourites and auto-save setting |
 | `errorLogs` | Errors from the app, extension overlay, popup, background worker and LLM calls, with message, stack and metadata |
 
 **API keys are stored in this IndexedDB alongside the rest of the profile, in plain text.**
@@ -72,6 +72,9 @@ When a cloud provider is active, the following is sent to it, in the request bod
 | Profile assistant chat | Your entire master profile and the conversation |
 | Extension: score a page | Your profile **fingerprint** (not the whole profile) plus up to the first 8,000 characters of the page text |
 | Extension: generate the fingerprint | The first ~4,000 characters of your profile |
+| Side panel: "Review & fill", fields it can't match by itself | The **labels** of those form fields and the names of your form-profile keys — not your values. Goes to Chrome's on-device model when it's already installed, otherwise to the provider |
+| Side panel: "Draft" an answer | Your entire master profile, your form-profile `rules` note, the question, and the job posting (a saved analysis, or the current page's text) |
+| Settings: "Fill from my profile" (form profile) | Your entire master profile |
 
 Your profile typically contains your name, contact details, employers and education. Treat
 sending it to a provider as equivalent to emailing your CV to that company. What the
@@ -102,6 +105,7 @@ Declared in `src/extension/manifest.json`:
 | `storage` | The keys listed above | Always |
 | `activeTab` | Read the current tab when you explicitly act on it | Only on your click |
 | `sidePanel` | The side panel UI | Always |
+| `debugger` (**optional**) | Save exported CVs as PDF straight into your linked folder | Only if you turn on "Auto-save generated CVs"; Chrome shows a "started debugging this browser" bar during each export |
 
 Host access is deliberately narrow:
 
@@ -118,6 +122,17 @@ visit. That happens per site, after you ask for it.
 
 The extension reads the page you are on (title, URL, visible text) only for sites you
 enabled, and only to score or import the posting.
+
+**Applying from the side panel.** "Review & fill" and "Attach" ask for access to the
+current site plus Ashby (`*.ashbyhq.com`) and Greenhouse (`*.greenhouse.io`), because
+company career pages often embed those forms in a frame. They read the page's text fields
+and file inputs, and write only the values you tick, when you click. Nothing is ever
+submitted. Demographic / equal-opportunity questions are never filled or drafted.
+
+**Your CV folder.** If you link a folder, the browser stores a handle to it in IndexedDB
+and Quiver lists the CVs in it. A CV's file goes only into the upload field of the page
+you attach it to — it is never sent to a model or anywhere else. Quiver writes only into
+the `Quiver` subfolder, and only when you export a CV.
 
 ## What the app never does
 

@@ -247,7 +247,8 @@
     "flow_skip_applied_companies": "Skip companies already applied to",
     "flow_skip_applied_companies_hint": "Archive new jobs from any company with a job already marked applied, interviewing, offer or rejected.",
     "flowBacklogSave": "Save",
-    "flowBacklogSaved": "Saved"
+    "flowBacklogSaved": "Saved",
+    "tabApply": "Applications"
   },
   "flow": {
     "title": "Artemis Flow",
@@ -440,7 +441,9 @@
     "parseError": "Invalid JSON structure generated. Please check console for details.",
     "generationFailed": "CV generation failed.",
     "applyChangesFailed": "Could not apply changes.",
-    "renderFailed": "Unable to render CV. Please refresh and try again."
+    "renderFailed": "Unable to render CV. Please refresh and try again.",
+    "autoSaved": "Saved to {{path}}",
+    "autoSaveFailed": "Auto-save failed ({{error}}). Opening the print dialog instead."
   },
   "cl": {
     "title": "Cover Letter Builder",
@@ -652,7 +655,51 @@
     "buildCoverLetter": "Build Cover Letter",
     "goToFullAnalysis": "Go to full analysis",
     "noContent": "No job content found on this page.",
-    "noProfile": "No active profile found. Open Artemis Quiver and create a profile first."
+    "noProfile": "No active profile found. Open Artemis Quiver and create a profile first.",
+    "cv": {
+      "title": "CVs",
+      "linkHint": "Link the folder where you keep your CVs to attach them to applications from here.",
+      "link": "Link CV folder",
+      "reconnect": "Reconnect “{{folder}}”",
+      "refresh": "Refresh",
+      "change": "Change",
+      "empty": "No CVs found in this folder (PDF, DOCX, ODT, RTF, TXT).",
+      "favourite": "Favourite",
+      "generated": "Quiver",
+      "forThisJob": "for this job",
+      "attach": "Attach",
+      "attached": "Attached to “{{field}}”. Check the page shows the file.",
+      "uploadField": "upload field",
+      "noUploadField": "No file upload field found on this page.",
+      "generatedHint": "CVs generated in Quiver are saved to {{folder}}."
+    },
+    "apply": {
+      "title": "Apply",
+      "region": "Job region",
+      "regionAny": "Any",
+      "reviewFill": "Review & fill",
+      "rescan": "Rescan form",
+      "scanning": "Reading the form…",
+      "noFields": "No text fields found. Fixed-choice fields (dropdowns, checkboxes) are left to you.",
+      "context": "Job",
+      "contextPage": "This page",
+      "srcProfile": "profile",
+      "srcAnswer": "saved",
+      "srcModel": "AI",
+      "srcEeo": "skipped",
+      "srcNone": "no match",
+      "mapTo": "Use profile field…",
+      "mapHint": "Pick which form-profile field this is; it will be recognised next time.",
+      "draft": "Draft",
+      "hintPlaceholder": "Optional: what to mention",
+      "generate": "Generate",
+      "saveAnswer": "Save answer",
+      "answerSaved": "Answer saved (region: {{scope}}).",
+      "insert": "Insert",
+      "fillSelected": "Fill selected ({{count}})",
+      "filled": "Filled {{count}} field(s).",
+      "reviewWarning": "Check every value on the page before submitting. AI drafts can state things that aren't in your profile."
+    }
   },
   "overlay": {
     "matchScore": "Match Score",
@@ -683,5 +730,23 @@
     "bridgeNotLoaded": "✗ Bridge not loaded",
     "nanoAvailable": "✓ Available",
     "nanoErrorTimedOut": "✗ Error (timed out)"
+  },
+  "apply": {
+    "cvFolder": "CV folder",
+    "cvFolderDesc": "Your CVs, listed in the side panel so you can attach them to applications. Quiver only writes inside the “{{sub}}” subfolder; your own files are never changed.",
+    "folderUnsupported": "Linking a folder needs Chrome or Edge.",
+    "noFolder": "No folder linked",
+    "linkFolder": "Link folder",
+    "changeFolder": "Change",
+    "unlinkFolder": "Unlink",
+    "autoSave": "Auto-save generated CVs",
+    "autoSaveDesc": "Exporting a CV also saves the PDF to “{{sub}}” without the print dialog. Needs the browser's debugger permission: Chrome shows a “started debugging this browser” bar for a few seconds on each export.",
+    "formProfile": "Form profile",
+    "formProfileDesc": "Answers for application forms. “fields” are standard fields (aliases are the form labels that match them, learned as you fill), “answers” are saved answers to recurring questions with a scope (“always”, or a region such as US/EU/UK), “rules” is free text the drafting model reads (e.g. “I need visa sponsorship for US roles, not for EU roles”).",
+    "save": "Save",
+    "saved": "Form profile saved",
+    "seed": "Fill from my profile",
+    "seedDesc": "Fills empty values from your profile with the configured model. Nothing is saved until you press Save — check the values first.",
+    "seeded": "Filled {{count}} value(s). Review, then Save."
   }
 }

@@ -146,7 +146,7 @@ function ensureExportRoot(): HTMLDivElement {
  * the actual print-media state directly and fires as soon as it stops
  * matching, so we listen on both and restore on whichever signals first.
  */
-function withTitleRestore(documentTitle: string, onRestore?: () => void): void {
+function withTitleRestore(documentTitle: string, onRestore?: () => void): () => void {
   const originalTitle = document.title;
   const printMediaQuery = window.matchMedia("print");
   let restored = false;
@@ -164,6 +164,7 @@ function withTitleRestore(documentTitle: string, onRestore?: () => void): void {
   window.addEventListener("afterprint", restore);
   printMediaQuery.addEventListener("change", onPrintMediaChange);
   document.title = documentTitle;
+  return restore;
 }
 
 /**
@@ -182,6 +183,12 @@ export interface PagedPrintOptions {
   documentTitle: string;
   /** Extra top/right/bottom/left page margin, e.g. "0.2in". */
   pageMargin?: string;
+  /**
+   * Called instead of `window.print()` once the paginated layout is in place
+   * (e.g. to capture it with Page.printToPDF). The UI is restored afterwards
+   * whether it succeeds or throws.
+   */
+  capture?: () => Promise<void>;
 }
 
 /**
@@ -190,7 +197,7 @@ export interface PagedPrintOptions {
  * content. Resolves once `window.print()` has been invoked (not once the
  * dialog closes — printing itself is synchronous/blocking in the browser).
  */
-export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "0.2in" }: PagedPrintOptions): Promise<void> {
+export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "0.2in", capture }: PagedPrintOptions): Promise<void> {
   const { Previewer } = await import("pagedjs");
 
   const computedBg = getComputedStyle(sourceEl).backgroundColor;
@@ -205,7 +212,7 @@ export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "
   const previewer = new Previewer();
   await previewer.preview(clone, stylesheets, root);
 
-  withTitleRestore(documentTitle, () => {
+  const restore = withTitleRestore(documentTitle, () => {
     document.body.classList.remove(EXPORTING_BODY_CLASS);
     root.innerHTML = "";
   });
@@ -215,5 +222,13 @@ export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "
   // before invoking print, so the browser measures final page geometry.
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
+  if (capture) {
+    try {
+      await capture();
+    } finally {
+      restore();
+    }
+    return;
+  }
   window.print();
 }

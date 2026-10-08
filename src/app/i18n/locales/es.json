@@ -247,7 +247,8 @@
     "flow_skip_applied_companies": "Omitir empresas a las que ya postulaste",
     "flow_skip_applied_companies_hint": "Archiva ofertas nuevas de cualquier empresa con una oferta ya marcada como postulada, entrevista, oferta o rechazada.",
     "flowBacklogSave": "Guardar",
-    "flowBacklogSaved": "Guardado"
+    "flowBacklogSaved": "Guardado",
+    "tabApply": "Candidaturas"
   },
   "flow": {
     "title": "Artemis Flow",
@@ -440,7 +441,9 @@
     "parseError": "Estructura JSON inválida. Revisa la consola para más detalles.",
     "generationFailed": "Generación de CV fallida.",
     "applyChangesFailed": "No se pudieron aplicar los cambios.",
-    "renderFailed": "No se pudo renderizar el CV. Actualiza e inténtalo de nuevo."
+    "renderFailed": "No se pudo renderizar el CV. Actualiza e inténtalo de nuevo.",
+    "autoSaved": "Guardado en {{path}}",
+    "autoSaveFailed": "Falló el guardado automático ({{error}}). Se abre el diálogo de impresión."
   },
   "cl": {
     "title": "Creador de Cartas de Presentación",
@@ -652,7 +655,51 @@
     "buildCoverLetter": "Crear carta de presentación",
     "goToFullAnalysis": "Ir al análisis completo",
     "noContent": "No se encontró contenido de empleo en esta página.",
-    "noProfile": "No se encontró un perfil activo. Abre Artemis Quiver y crea un perfil primero."
+    "noProfile": "No se encontró un perfil activo. Abre Artemis Quiver y crea un perfil primero.",
+    "cv": {
+      "title": "CVs",
+      "linkHint": "Vincula la carpeta donde guardas tus CVs para adjuntarlos a las candidaturas desde aquí.",
+      "link": "Vincular carpeta de CVs",
+      "reconnect": "Volver a conectar “{{folder}}”",
+      "refresh": "Actualizar",
+      "change": "Cambiar",
+      "empty": "No hay CVs en esta carpeta (PDF, DOCX, ODT, RTF, TXT).",
+      "favourite": "Favorito",
+      "generated": "Quiver",
+      "forThisJob": "para este puesto",
+      "attach": "Adjuntar",
+      "attached": "Adjuntado a “{{field}}”. Comprueba que la página muestra el archivo.",
+      "uploadField": "campo de subida",
+      "noUploadField": "No se encontró ningún campo para subir archivos en esta página.",
+      "generatedHint": "Los CVs generados en Quiver se guardan en {{folder}}."
+    },
+    "apply": {
+      "title": "Candidatura",
+      "region": "Región del puesto",
+      "regionAny": "Cualquiera",
+      "reviewFill": "Revisar y rellenar",
+      "rescan": "Volver a leer el formulario",
+      "scanning": "Leyendo el formulario…",
+      "noFields": "No se encontraron campos de texto. Los campos de opciones fijas (desplegables, casillas) quedan para ti.",
+      "context": "Puesto",
+      "contextPage": "Esta página",
+      "srcProfile": "perfil",
+      "srcAnswer": "guardada",
+      "srcModel": "IA",
+      "srcEeo": "omitido",
+      "srcNone": "sin coincidencia",
+      "mapTo": "Usar campo del perfil…",
+      "mapHint": "Elige qué campo del perfil de formulario es; se reconocerá la próxima vez.",
+      "draft": "Borrador",
+      "hintPlaceholder": "Opcional: qué mencionar",
+      "generate": "Generar",
+      "saveAnswer": "Guardar respuesta",
+      "answerSaved": "Respuesta guardada (región: {{scope}}).",
+      "insert": "Insertar",
+      "fillSelected": "Rellenar seleccionados ({{count}})",
+      "filled": "{{count}} campo(s) rellenado(s).",
+      "reviewWarning": "Revisa cada valor en la página antes de enviar. Los borradores de IA pueden afirmar cosas que no están en tu perfil."
+    }
   },
   "overlay": {
     "matchScore": "Puntuación de Compatibilidad",
@@ -683,5 +730,23 @@
     "bridgeNotLoaded": "✗ Puente no cargado",
     "nanoAvailable": "✓ Disponible",
     "nanoErrorTimedOut": "✗ Error (tiempo agotado)"
+  },
+  "apply": {
+    "cvFolder": "Carpeta de CVs",
+    "cvFolderDesc": "Tus CVs, listados en el panel lateral para adjuntarlos a las candidaturas. Quiver solo escribe dentro de la subcarpeta “{{sub}}”; tus archivos nunca se modifican.",
+    "folderUnsupported": "Vincular una carpeta requiere Chrome o Edge.",
+    "noFolder": "Ninguna carpeta vinculada",
+    "linkFolder": "Vincular carpeta",
+    "changeFolder": "Cambiar",
+    "unlinkFolder": "Desvincular",
+    "autoSave": "Guardar automáticamente los CVs generados",
+    "autoSaveDesc": "Al exportar un CV, el PDF también se guarda en “{{sub}}” sin el diálogo de impresión. Requiere el permiso de depuración del navegador: Chrome muestra una barra “ha empezado a depurar este navegador” durante unos segundos en cada exportación.",
+    "formProfile": "Perfil de formulario",
+    "formProfileDesc": "Respuestas para formularios de candidatura. “fields” son campos estándar (aliases son las etiquetas de formulario que les corresponden, aprendidas al rellenar), “answers” son respuestas guardadas a preguntas recurrentes con un ámbito (“always”, o una región como US/EU/UK), “rules” es texto libre que lee el modelo al redactar (p. ej. “Necesito patrocinio de visado para puestos en EE. UU., no en la UE”).",
+    "save": "Guardar",
+    "saved": "Perfil de formulario guardado",
+    "seed": "Rellenar desde mi perfil",
+    "seedDesc": "Rellena los valores vacíos a partir de tu perfil con el modelo configurado. No se guarda nada hasta que pulses Guardar — revisa los valores antes.",
+    "seeded": "{{count}} valor(es) rellenado(s). Revisa y guarda."
   }
 }

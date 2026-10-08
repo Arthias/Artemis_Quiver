@@ -54,9 +54,10 @@ export async function createProfile(profile: ProfileRecord): Promise<void> {
 
 export async function deleteProfile(id: string): Promise<void> {
   try {
-    await db.transaction("rw", [db.profiles, db.analysisSessions], async () => {
+    await db.transaction("rw", [db.profiles, db.analysisSessions, db.metadata], async () => {
       await db.profiles.delete(id);
       await db.analysisSessions.where("profileId").equals(id).delete();
+      await db.metadata.delete(`formProfile:${id}`);
     });
   } catch (err) {
     throw err instanceof AppError ? err : new AppError(ErrorCodes.DB_DELETE_FAILED, `Failed to delete profile ${id}`);

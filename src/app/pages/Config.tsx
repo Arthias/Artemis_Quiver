@@ -50,6 +50,7 @@ import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../components/ui/LanguageSelector";
 import { toast } from "sonner";
 import { AppError } from "../utils/errors";
+import { ApplicationSettingsCard } from "../components/apply/ApplicationSettingsCard";
 
 function ExtensionSettingsCard() {
   const { t } = useTranslation();
@@ -1571,6 +1572,7 @@ export function Config() {
               <TabsTrigger value="ai">{t("config.tabModel")}</TabsTrigger>
               <TabsTrigger value="general">{t("config.tabGeneral")}</TabsTrigger>
               <TabsTrigger value="extension">{t("config.tabExtension")}</TabsTrigger>
+              <TabsTrigger value="apply">{t("config.tabApply")}</TabsTrigger>
               <TabsTrigger value="flow">{t("config.tabFlow")}</TabsTrigger>
             </TabsList>
 
@@ -1818,6 +1820,10 @@ export function Config() {
 
             <TabsContent value="extension" className="space-y-6">
               <ExtensionSettingsCard />
+            </TabsContent>
+
+            <TabsContent value="apply" className="space-y-6">
+              <ApplicationSettingsCard />
             </TabsContent>
 
             <TabsContent value="flow" className="space-y-6">
