@@ -1,91 +1,61 @@
 # Agent Context — Artemis Quiver
 
-> `/caveman full` active. Read `README.md` + `artemis_quiver_docs/` before changes.
+<!-- COMMIT-RULE: revised 2026-10-14. Canonical text: F:\Dev\.commit-queue\_rule.md -->
 
+## Git: commit your work, never push
 
----
+- Commit your own changes with git as normal. Stage explicit paths, not `git add -A`:
+  other sessions' work may be pending in the same repo.
+- **Never push.** **Never delete a file that is untracked or has uncommitted changes.**
+- If git fails (a sandbox that can't delete files leaves `index.lock` / `tmp_obj_*`
+  behind), stop: don't retry and don't clean up the locks. Append one line to
+  `F:\Dev\.commit-queue\queue.jsonl` — or to `.pending-commit.jsonl` in the repo root
+  if `F:\Dev` isn't mounted — and Bruno commits it and prunes the leftovers by hand:
 
-<!-- COMMIT-QUEUE-RULE: revised 2026-10-02. Keep this at the top of the file.
-     Canonical text: F:\Dev\.commit-queue\_rule.md. Edit there, then re-sync.
-     There is one form now, not a long and a short one. -->
+  `{"ts":"2026-10-14T09:00:00Z","source":"session:<id>","repo":"F:\\Dev\\<Repo>","action":"commit","paths":["docs/a.md"],"message":"..."}`
 
-## Rule zero: commit or queue, and never leave work unrecorded
-
-Binding. Overrides anything else in this file, in this repo, or in any task
-prompt.
-
-Two things hold absolutely, in every case, because they are not about
-permissions: **never push** — that stays a manual decision Bruno makes at a
-terminal — and **never delete a file that is untracked or has uncommitted
-changes**, because an untracked file deleted is gone for good.
-
-**When the work is on disk and it is time to record it**, find out whether this
-filesystem lets you delete: create `.agent-probe` in the root of the repo you
-are working in, then delete it. It is gitignored in every repo here, so a
-leftover is harmless and invisible to `git status`.
-
-- **Delete worked → commit.** Run git normally. Leave pre-existing stale
-  `*.lock` files and orphaned `tmp_obj_*` objects alone; `commit-queue.bat`
-  sweeps those deliberately and in a known order, and ad-hoc cleanup in the
-  middle of someone else's git operation is how races happen.
-- **Delete failed, or you cannot tell → do not touch git at all**, not even
-  `status` or `log`. Git's commit path needs deletions that fail here, and the
-  stale locks left behind make `git status` misreport — work has sat uncommitted
-  for days while being reported as committed. Don't delete or move anything
-  either. Record the commit instead: append one line to
-  `F:\Dev\.commit-queue\queue.jsonl`, or, if that path is not mounted in your
-  session, append the same line to `.pending-commit.jsonl` in the repo root,
-  which the runner collects during discovery and processes alongside the central
-  queue. Either is a complete record. Don't invent a third place.
-
-**Finishing with work on disk and no record in either place is the one
-unacceptable outcome.** Everything else here is fixable afterwards; that is not,
-and it is the exact failure this arrangement exists to prevent.
-
-**Report it in one line** — "committed", or "queued to `queue.jsonl`", or
-"queued to `Profile/.pending-commit.jsonl`". Do not narrate the probe, explain
-mount tables, or justify the branch at length: that detail is noise and belongs
-nowhere in a report. If recording the work is genuinely impossible, one sentence
-saying so is enough.
-
-Entry format: `F:\Dev\.commit-queue\README.md`. **Prefer explicit `paths` over
-whole-repo scope.** Entries run in queue order, and a whole-repo entry stages
-everything pending at the moment it runs — so a later entry for the same repo
-finds nothing, is skipped, and its commit message never reaches history at all.
-One entry per logical commit, carrying the paths that commit should contain.
+  All six fields are required. `repo` is an absolute path.
+- Report in one line: "committed" or "queued".
 
 ---
 
-## TL;DR
+## Project
 
-React 18 SPA (Vite 6, Tailwind v4, shadcn/ui, React Router v7, Dexie.js).
-No backend — all data in IndexedDB.
+Artemis Quiver — job hunting automation: analyze job postings against a user's master profile, then refine CVs and cover letters via a local or cloud LLM. **Primary deliverable is the Chrome extension**; the standalone web app (`npm run dev`) is a secondary/dev/fallback surface. Pure client-side — no backend, all data in IndexedDB (Dexie.js). **Public on GitHub** — nothing from `F:\Dev\Profile\` or `F:\Dev\dispatch\` belongs in this repo, including in fixtures and examples.
 
-**The Chrome MV3 extension is the primary deliverable**; the standalone web app
-(`npm run dev`) is the secondary/dev/fallback surface. An older line here called the
-extension optional — it isn't, and `README.md` and `CLAUDE.md` both say so.
-
-**Public on GitHub.** Nothing from `F:\Dev\Profile\` or `F:\Dev\dispatch\` goes in
-this repo, in any form, including in examples and test fixtures.
-
-⚠️ **Known defect, disclosed in `README.md` and `PRIVACY.md`:** the generator
-overrides supplied context with priors about what a CV should look like —
-qualifications and titles come out different from the ones that went in. There is no
-validation of generated output against source facts anywhere in `src/`. A
-deny-list validator exists, but it lives at `F:\Dev\Profile\scripts\validate_claims.py`,
-outside this repo. Do not close this as fixed on the strength of the disclosure; the
-disclosure is a warning, not a fix.
+⚠️ **Known, reproduced, disclosed defect: the generator fabricates credentials.** It overrides supplied context with priors about what a CV should look like — correct qualifications and titles go in, different ones come out. Disclosed in `README.md` and `PRIVACY.md`; **not fixed**. Nothing in `src/` validates generated output against source facts. The intended fix is a deterministic deny-list check over generated output; an implementation exists at `F:\Dev\Profile\scripts\validate_claims.py`, outside this repo. Do not treat the disclosure as the fix, and do not weaken it.
 
 ## Commands
 
-| Command | What |
-|---------|------|
-| `npm run dev` | Vite dev server (localhost:5173) |
-| `npm run build` | Production build |
-| `npm run build:ext` | Chrome extension → `Artemis_Quiver_extension/` (zip in `release/` only when `CI` is set) |
-| `npm run test` | vitest — 144 tests across 12 files (counted 2026-09-25; `npm run test` is the authority, not this number) |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run qa:all` | Full auto-QA → `qa-reports/` |
+```bash
+npm run dev          # Vite dev server, localhost:5173 (web app)
+npm run build         # Production build of the web app
+npm run build:ext     # Build Chrome extension -> Artemis_Quiver_extension/ (zip in release/ only when CI is set)
+npm run test          # vitest run (all tests)
+npm run test:watch    # vitest watch mode
+npm run typecheck     # tsc --noEmit
+npm run release:ext   # Bruno only: tags + pushes. Agents never run it
+```
+
+Run a single test file: `npx vitest run src/app/services/__tests__/<file>.test.ts`
+Run tests matching a name: `npx vitest run -t "<test name>"`
+
+### QA (Playwright, local LLM-driven agent)
+
+```bash
+npm run qa:all        # all suites -> qa-reports/
+npm run qa:hub        # Analysis Hub
+npm run qa:profile    # Profile
+npm run qa:cv         # CV Builder
+npm run qa:cl         # CL Builder
+npm run qa:config     # Settings
+npm run qa:ext        # Extension (build:ext first)
+```
+Requires `@playwright/mcp` + `npx playwright install chromium`. See `QA_AGENT.md` for the full flow (drives `scripts/qa.ps1` -> `opencode run --agent qa` -> `qa_prompts/<suite>.md` -> `qa-reports/`).
+
+### Releasing the extension
+
+**Bruno runs this by hand; agents never do (it pushes).** `npm run release:ext` tags `main` with `v<manifest version>` (from `src/extension/manifest.json`, the single source of truth) and pushes. `.github/workflows/release.yml` picks up the tag, verifies it matches the manifest version, runs typecheck/test, builds the extension, and publishes the zip as a GitHub Release on this repo. There is no separate release repo — `Artemis-Quiver-Releases` is archived.
 
 ## Architecture
 
@@ -94,7 +64,7 @@ src/
   app/
     types/          -- llm.ts, workspace.ts, analysis.ts, cv.ts
     config/         -- defaults.ts
-    services/       -- services + provider/ (ProviderAdapter, 3 adapters, shared.ts, registry)
+    services/       -- stateless services + provider/ (ProviderAdapter, 3 adapters, shared.ts, registry)
       __tests__/    -- per-service tests
     context/        -- Config, Analysis, Profile, WorkspaceProfile, BuilderHandoff, ExtensionBridge, ErrorLog, Onboarding
     pages/          -- Config, AnalysisHub, Profile, CVBuilder, CLBuilder, Flow
@@ -102,42 +72,48 @@ src/
     providers/      -- AppProviders.tsx
     db/             -- schema.ts, profileRepo.ts, sessionRepo.ts, errorLogRepo.ts, migrations.ts
     hooks/          -- useExtensionImport.ts
+    i18n/           -- init + locales/{en,es}.json
     routes.tsx      -- createHashRouter
   extension/        -- background.ts, overlay.ts, nano-inject.ts, popup.html, popup.tsx, manifest.json
   components/cv/    -- renderingEngine.ts (canonical CV HTML renderer)
 ```
 
-## Key Deviations
+### Key deviations from a default Vite/React setup
 
-- **Hash routing** (`createHashRouter`) — required by Chrome extension
-- **Dual Vite configs**: `vite.config.ts` (app) + `vite.ext.config.ts` (extension → `Artemis_Quiver_extension/`)
-- **Import aliases**: `@/` → `./src`
-- **Virtual module**: `figma:asset/<file>` → `src/assets/<file>`
-- **Tailwind v4** via `@tailwindcss/vite` plugin
-- **Vite proxy**: `/api/lmstudio` → `http://<your-lm-studio-host>:1234`, `/api/ollama` → `http://localhost:11434`
-- **TypeScript strict** with `noUncheckedIndexedAccess`
-- **React 18** (`^18.3.1`) is a real entry in `dependencies`, not an optional peer dep — deliberately pinned rather than moving to React 19
+- **Hash routing** (`createHashRouter`) — required for the Chrome extension to work without a server.
+- **Dual Vite configs**: `vite.config.ts` (web app) vs `vite.ext.config.ts` (extension, outputs to `Artemis_Quiver_extension/`). Extension changes require both a rebuild (`npm run build:ext`) and a reload at `chrome://extensions`.
+- **Import aliases**: `@/` → `./src`; `types` → `./src/app/types`.
+- **Virtual module**: `figma:asset/<file>` → `src/assets/<file>` (Figma Make origin compatibility).
+- **Tailwind v4** via `@tailwindcss/vite` plugin (no `tailwind.config.js`).
+- **Vite dev proxy** (dev-only, doesn't exist in the built extension): `/api/lmstudio` → `http://<your-lm-studio-host>:1234`, `/api/ollama` → `http://localhost:11434`. In the extension, real LLM URLs must be configured directly.
+- **TypeScript strict**, including `noUncheckedIndexedAccess`.
+- **React 18** (`^18.3.1`) is a real, declared entry in `dependencies` — not an optional peer dependency, whatever older notes say. The repo pinned it deliberately rather than moving to React 19.
 
-## LLM Provider Layer
+### LLM provider layer
 
-Two independently configured `ModelEndpoint` slots (primary + secondary). `SecondaryUse` controls routing: `never | fallback | quick-tasks | always`. Adapter factory in `src/app/services/provider/registry.ts`.
+Two independently configured `ModelEndpoint` slots — primary and secondary. `SecondaryUse` controls routing: `never | fallback | quick-tasks | always`. Adapter factory lives in `src/app/services/provider/registry.ts`.
 
 ```typescript
 type ProviderType = "openai-compatible" | "anthropic" | "google-gemini" | "webllm";
 ```
 
-Two UI modes: **Cloud** (primary + secondary, any provider except webllm) and **Local** (single webllm endpoint, secondary forced to "never").
+Two UI modes in Settings: **Cloud** (primary + secondary, any provider except webllm) and **Local** (single webllm endpoint, secondary forced to `"never"`).
 
-### WebLLM GPU Device-Lost
-`WebLLMAdapter.ts` catches `requestDevice` / `DXGI_ERROR` failures in `init()`, `ensureEngine()`, `chatCompletion()`. Sets `_deviceLost` flag (page refresh resets). No retry on device loss. Config.tsx has `formatTestError()` fallback: `"WebGPU device crashed. Close other GPU-heavy tabs, restart Chrome, try smaller model."`
+`WebLLMAdapter.ts` catches `requestDevice`/`DXGI_ERROR` GPU device-lost failures in `init()`, `ensureEngine()`, `chatCompletion()`; sets an internal `_deviceLost` flag (only a page refresh resets it — no automatic retry). `Config.tsx` has a `formatTestError()` fallback message for this case.
 
-## Testing
+### Extension overlay (Chrome MV3)
 
-- vitest + jsdom + `fake-indexeddb`
-- Test files colocated: `src/**/*.test.{ts,tsx}`
-- No setup files; globals enabled
+- `overlay.ts` is a content script running in the **ISOLATED** world (uses `chrome.*` APIs for storage + messaging).
+- `nano-inject.ts` is injected as a `<script>` into the **MAIN** world; communicates with the isolated world via `window.postMessage`.
+- `popup.tsx` is a separate React entry (built by `vite.ext.config.ts`) — an **action surface only** (import current page, overlay status, links to Settings). Actual LLM/extension config lives in the web app's Settings, `ExtensionSettingsCard`.
+- `background.ts` is the message router: runtime content-script registration (no static `content_scripts` in the manifest), LLM fallback scoring, error relay, import/extract.
+- **Overlay registration** is per-site via `chrome.scripting.registerContentScripts` inside `syncSiteContentScripts()`, gated on host permission. Auto-reconciles on `chrome.storage.onChanged` for `artemis:overlayConfig`; newly registered sites auto-inject into already-open tabs via `injectOverlayIntoTabs`.
+- **Fingerprint flow**: generated from the app's Settings (`ExtensionSettingsCard`, uses the app's configured LLM including WebLLM) and written to `artemis:overlayConfig`. The background service worker can also read the active profile directly from IndexedDB (`ArtemisQuiverDB`, same extension origin — `idbProfile.ts`), with an app-tab fallback.
+- An open app tab is required only for error relay + job import — not for fingerprint generation.
 
-## i18n (Internationalization)
+Debugging: background logs via `chrome://extensions` → Inspect service worker; popup logs via right-click popup → Inspect; overlay logs via F12 on the job page; app error log via Settings → Developer Mode.
+
+### i18n
 
 **Rule: the UI is localized — no hard-coded user-visible text.** Every string a user
 sees (app, side panel, popup, toasts, errors shown in the UI) goes through `t()`, and every
@@ -147,51 +123,32 @@ missing key renders as the raw key (`sidepanel.cv.title`); `src/extension/__test
 catches that and en/es drift, so run the tests. The overlay content script is the one
 exception: it keeps its own inline `ot()` map.
 
-**Stack**: `react-i18next` + `i18next-browser-languagedetector`. Init in `src/app/i18n/index.ts`.
+Stack: `react-i18next` + `i18next-browser-languagedetector`, initialized in `src/app/i18n/index.ts`. Locale files `src/app/i18n/locales/{en,es}.json` are auto-discovered via `import.meta.glob` — add a new language by dropping in a `xx.json` file, no manual imports needed. `src/app/i18n/i18next.d.ts` augments `CustomTypeOptions` so mistyped translation keys fail `tsc --noEmit`. Key convention: `page.component.element` (e.g. `analysis.analyze`, `profile.saveChanges`, `config.llmProvider`).
 
-**Locale files**: `src/app/i18n/locales/{en,es}.json` auto-discovered via `import.meta.glob`. Add new language → drop a `xx.json` file, no manual imports.
+The extension can't import the React i18n stack, so the side panel, popup and service worker use a lightweight loader (`src/extension/i18n.ts`) that fetches the locale JSON copied to `Artemis_Quiver_extension/locales/` during `build:ext` — uncached, falling back to English for an unsupported browser language. The overlay content script uses its own inline `ot()` map.
 
-**Type safety**: `src/app/i18n/i18next.d.ts` augments `react-i18next` `CustomTypeOptions`. Mistyped keys fail at `tsc --noEmit`.
+The CV/CL rendering engine (`renderCVToHTML()` / `renderCLToHTML()` in `src/components/cv/renderingEngine.ts`) accepts an optional `lang` param; section headings use a locale-keyed map there.
 
-**Key convention**: `page.component.element` — e.g., `analysis.analyze`, `profile.saveChanges`, `config.llmProvider`.
+### Testing
 
-**Extension**: Lightweight `src/extension/i18n.ts` loader for the side panel, popup and service worker (no React). Locale JSON copied to `Artemis_Quiver_extension/locales/` during `build:ext` and fetched at runtime, uncached; an unsupported browser language falls back to English.
-
-**Rendering Engine**: `renderCVToHTML()` / `renderCLToHTML()` accept optional `lang` param. Section headings use locale-keyed map in `renderingEngine.ts`.
-
-The overlay uses the inline `ot()` helper because an MV3 content script cannot import the React i18n stack. For what is and isn't translated, read the locale files and grep for `t(` — don't rely on a phase label here.
-
-## Common Pitfalls
-
-- **CORS**: Local LLM servers lack CORS. Use Vite proxy paths or enable CORS
-- **IndexedDB wipe**: Clearing browser data destroys profiles. Re-created from defaults on next load
-- **Extension**: Always hash routing. Reload at `chrome://extensions` after rebuild
-- **LLM timeout**: 120s generation, 30s test connection. Override via `timeoutMs`
-- **TS errors**: none tolerated. `npm run typecheck` must be clean; treat any output as a regression. (The old "pre-existing errors" list — `clParser.ts`, `migrations.ts`, `WorkspaceProfileContext.tsx` — was resolved and removed.)
-
-## Extension Overlay
-
-- Content script (`overlay.ts`) runs in ISOLATED world. `chrome.*` APIs for storage + messaging.
-- `nano-inject.ts` injected as `<script>` into MAIN world, `window.postMessage` communication.
-- Popup (`popup.tsx`) — separate React entry, built by `vite.ext.config.ts`. It's an **action surface** (import current page, overlay status, links to Settings) — config lives in the app's Settings `ExtensionSettingsCard`.
-- Background (`background.ts`) — message router: **runtime content-script registration** (no static `content_scripts` in manifest), LLM fallback scoring, error relay, import/extract.
-- **Overlay registration**: per-site via `chrome.scripting.registerContentScripts` in `syncSiteContentScripts()`, gated on host permission. Auto-reconciles on `chrome.storage.onChanged` for `artemis:overlayConfig`; newly registered sites auto-inject into already-open tabs (`injectOverlayIntoTabs`).
-- **Fingerprint flow**: generated from the **app Settings** (`ExtensionSettingsCard`, uses the app's configured LLM incl. WebLLM) and written to `artemis:overlayConfig`. The background can also read the active profile **directly from IndexedDB** (`ArtemisQuiverDB`, same extension origin — see `idbProfile.ts`) with an app-tab fallback.
-- **App tab required only for** error relay + job import (not fingerprint gen).
-- **Rebuild always**: `npm run build:ext && chrome://extensions → reload` after extension changes.
-
-### Debugging
-
-| What | Where |
-|------|-------|
-| Background logs | `chrome://extensions` → Inspect service worker |
-| Popup logs | Right-click popup → Inspect |
-| Overlay logs | F12 on job page |
-| App error log | Settings → Developer Mode |
+vitest + jsdom + `fake-indexeddb`. Test files are colocated as `src/**/*.test.{ts,tsx}` (often under `__tests__/` subfolders). No global setup files; `globals: true`.
 
 ## Conventions
 
-- No root planning files (`TODO.md`, `PLAN.md`, `NOTES.md`)
-- Context providers own global state; components never access localStorage
-- Services stateless; prompts + LLM fetch in `src/app/services/`
-- Strict TypeScript (no `any`)
+- No planning files in repo root (`TODO.md`, `PLAN.md`, `NOTES.md`, etc.) — keep the root clean. Any new documentation/design specs/test plans go inside `artemis_quiver_docs/` (an Obsidian vault), in the appropriate folder, with YAML frontmatter (`tags`, `status`, `last_updated`) and Obsidian-style wikilinks/callouts where applicable.
+- Global state always routes through context providers (`WorkspaceProfileContext`, `ProfileContext`, `ConfigContext`, `AnalysisContext`, `BuilderHandoffContext`, etc.) — components never touch `localStorage` directly.
+- Services are stateless; prompt assembly and LLM fetch calls live in `src/app/services/`.
+- Strict TypeScript — avoid `any`; define interfaces for data transfer models.
+- Style with Tailwind + shadcn/ui, using CSS variables so components support light/dark themes.
+- `npm run typecheck` is expected to be **clean**. There is no known-good list of tolerated TS errors — the previously documented ones (`clParser.ts`, `migrations.ts`, `WorkspaceProfileContext.tsx`) were resolved, and the list is no longer maintained. Treat any `tsc --noEmit` output as a regression.
+
+## Common pitfalls
+
+- **CORS**: local LLM servers lack CORS. Use the Vite proxy paths or enable CORS.
+- **IndexedDB wipe**: clearing browser data destroys profiles; they are re-created from defaults.
+- **LLM timeout**: 120s generation, 30s test connection. Override via `timeoutMs`.
+- **Extension**: rebuild (`npm run build:ext`) and reload at `chrome://extensions` after every change.
+
+## Docs
+
+`artemis_quiver_docs/` is the source-of-truth Obsidian vault for architecture, features, roadmap, and bugs — start at `00-Index/MOC.md`. Roadmap/backlog: `60-Roadmap/Plan.md`. Architecture/coding standards: `40-Development/Guidelines.md` and `40-Development/Coding Standards.md`.
