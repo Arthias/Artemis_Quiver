@@ -1,7 +1,7 @@
 ---
 tags: [api, llm, prompt-engineering, fabrication, defect, analysis, proposals]
 status: in-progress
-last_updated: 2026-10-03
+last_updated: 2026-10-14
 ---
 
 # Fabrication Surface Analysis
@@ -233,16 +233,15 @@ which fixes are worth making:
    channel, or mark it explicitly as unverified draft text whose claims must be
    re-derived from the profile. Dropping it is the honest option; the draft's
    value was convenience.
-5. **Wire `validate_claims.py` into the output path as a deterministic flag,
-   not a gate.** An implementation already exists at
-   `F:\Dev\Profile\scripts\validate_claims.py`, outside this repo, and already
-   enforces the two mechanically checkable rules that matter most
-   (`degree-conferred`, `bachiller-mistranslation`). A flag surfaces a suspect
-   claim next to the generated text and leaves the decision with the user; a
-   gate that blocks generation would make a false positive cost an entire
-   output. **Note the repo boundary: the script lives outside this public repo
-   and the wiring has to respect that** — this is an integration question, not a
-   copy-the-file question, and it is unresolved.
+5. **Flag claims that are not in the user's own profile.** A deterministic,
+   provider-independent check over the generated text: extract job titles,
+   qualifications, employer names, dates and numbers, and flag any that do not
+   appear in the profile the user supplied. A flag sits next to the generated
+   text and leaves the decision with the user; it never blocks generation, so a
+   false positive costs a glance, not an output. **It must be driven by the
+   user's own data only.** An earlier version of this item proposed wiring in a
+   deny-list of one person's struck claims kept outside this repo; that suits
+   one person's CVs, not a product used by anyone, and was dropped 2026-10-14.
 
 ### Considered and rejected
 
