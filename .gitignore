@@ -61,6 +61,9 @@ test-results/
 
 # Chrome DevTools snapshot artifacts
 snapshot.txt
+profile_*.png
+profile_snapshot.yml
+profile-accessibility-snapshot.md
 
 # Temp files
 tmp/
