@@ -1,7 +1,7 @@
 ---
 tags: [index, MOC]
 status: completed
-last_updated: 2026-10-03
+last_updated: 2026-10-16
 ---
 
 # Artemis Quiver — Map of Content
@@ -43,6 +43,8 @@ last_updated: 2026-10-03
 - [[../60-Roadmap/Plan|Development Plan & Backlog]]
 - [[../60-Roadmap/Public Beta Release|Public Beta Release]] — store-readiness checklist (R1–R5 blockers, CI flow). ⚠️ **stale: describes the archived `Artemis-Quiver-Releases` repo as live and this repo as private; both are wrong**
 - [[../60-Roadmap/UI-Restructure-Proposals|UI Restructure Proposals]] — open discussion: Flow as its own page, overlay → sidebar (not decided, not scoped)
+- [[../60-Roadmap/Application-Assist|Application Assist]]: side panel help for filling application forms. **Built 2026-10-08, not browser-tested**
+- [[../60-Roadmap/Assisted Application Flow|Assisted Application Flow]]: Quiver-side proposal for the Flow-to-Quiver apply queue, covering the shared-origin handoff, per-ATS adapters, hard gates, and the validator as a runtime gate. **Proposal only; nothing implemented**
 
 ## Project Metadata
 - [[../90-Meta/CHANGELOG|CHANGELOG]]
