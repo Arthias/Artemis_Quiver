@@ -6,6 +6,11 @@ last_updated: 2026-10-16
 
 # Assisted Application Flow: the Quiver-side proposal
 
+> [!WARNING] Architecture superseded 2026-10-17 by [[Assisted Apply - Build Plan]]
+> The record moves to Flow's database, the validator becomes a generic check against
+> the user's own profile, and the queue lives in the existing `metadata` store. The
+> background and UX reasoning below still stand where the plan does not override them.
+
 > [!WARNING] Nothing here is implemented, and this is a proposal rather than a plan
 > No code in `src/` was changed for this document. Every statement about current
 > behaviour was read out of this repository on **2026-10-16**. Where a section
