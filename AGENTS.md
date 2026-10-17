@@ -1,21 +1,28 @@
 # Agent Context — Artemis Quiver
 
-<!-- COMMIT-RULE: revised 2026-10-14. Canonical text: F:\Dev\.commit-queue\_rule.md -->
+<!-- COMMIT-RULE: revised 2026-10-17. Canonical text: F:\Dev\.commit-queue\_rule.md -->
 
 ## Git: commit your work, never push
 
 - Commit your own changes with git as normal. Stage explicit paths, not `git add -A`:
   other sessions' work may be pending in the same repo.
 - **Never push.** **Never delete a file that is untracked or has uncommitted changes.**
-- If git fails (a sandbox that can't delete files leaves `index.lock` / `tmp_obj_*`
-  behind), stop: don't retry and don't clean up the locks. Append one line to
-  `F:\Dev\.commit-queue\queue.jsonl` — or to `.pending-commit.jsonl` in the repo root
-  if `F:\Dev` isn't mounted — and Bruno commits it and prunes the leftovers by hand:
+- If git fails on a stale lock (`index.lock`, `HEAD.lock`, `objects/maintenance.lock`,
+  `tmp_obj_*`, left behind by a sandbox that can't delete files):
+  - **On Windows** (PowerShell, `F:\Dev` local): run
+    `pwsh -NoProfile -File F:\Dev\.commit-queue\run-queue.ps1 -SweepOnly -Apply`.
+    It removes only locks older than 5 minutes and orphaned temp objects. Then retry
+    the git command once. Never delete a lock by hand.
+  - **On a Linux sandbox, or if the sweep or the retry fails:** stop. Don't retry and
+    don't clean up the locks. Append one line to `F:\Dev\.commit-queue\queue.jsonl`
+    — or to `.pending-commit.jsonl` in the repo root if `F:\Dev` isn't mounted — and
+    Bruno commits it and runs the sweep:
 
-  `{"ts":"2026-10-14T09:00:00Z","source":"session:<id>","repo":"F:\\Dev\\<Repo>","action":"commit","paths":["docs/a.md"],"message":"..."}`
+    `{"ts":"2026-10-14T09:00:00Z","source":"session:<id>","repo":"F:\\Dev\\<Repo>","action":"commit","paths":["docs/a.md"],"message":"..."}`
 
-  All six fields are required. `repo` is an absolute path.
-- Report in one line: "committed" or "queued".
+    All six fields are required. `repo` is an absolute Windows path; it is JSON, so
+    each backslash is written `\\`.
+- Report in one line: "committed", "swept and committed", or "queued".
 
 ---
 

@@ -29,8 +29,8 @@ try {
     Write-Warning "Tag $tag already exists locally - skipping tag creation"
   }
 
-  Invoke-Checked "git push main" { git push Main main }
-  Invoke-Checked "git push tag" { git push Main $tag }
+  Invoke-Checked "git push main" { git push origin main }
+  Invoke-Checked "git push tag" { git push origin $tag }
 } finally { Pop-Location }
 
 Write-Host "`nPushed. Watch the release run: gh run watch (or the Actions tab on GitHub)."
