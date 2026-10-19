@@ -68,7 +68,7 @@ EXAMPLE:
     { "type": "contact", "email": "user@example.com", "phone": "+1 234 567 890", "linkedin": "https://linkedin.com/in/user", "website": "https://user.com", "location": "San Francisco, CA" },
     { "type": "skills", "skills": ["JavaScript", "Python", "React"], "categories": [{"name": "Languages", "items": ["JavaScript", "Python"]}, {"name": "Frameworks", "items": ["React", "Node.js"]}] },
     { "type": "experience", "experience": [{"role": "Senior Dev", "company": "Acme", "period": "2020-2023", "location": "Remote", "bullets": ["Led a team of 5 engineers, delivering 12 features on schedule", "Reduced deployment time by 40% with CI/CD automation", "Architected microservices serving 2M+ users"]}] },
-    { "type": "education", "education": [{"degree": "BSc Computer Science", "institution": "MIT", "period": "2012-2016", "location": "Cambridge, MA"}] },
+    { "type": "education", "education": [{"degree": "<exactly as in the profile>", "institution": "<exactly as in the profile>", "period": "<as in the profile>", "location": "<as in the profile>"}] },
     { "type": "certifications", "certifications": ["AWS Solutions Architect"] }
   ]
 }
