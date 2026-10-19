@@ -537,3 +537,54 @@ export function searchJobs(baseUrl: string, params: FlowJobSearchParams = {}): P
   qs.set("offset", String(params.offset ?? 0));
   return flowGet(baseUrl, `/api/jobs?${qs.toString()}`, "searchJobs");
 }
+
+// --- User preferences (who the user is, what they accept) ------------------
+
+/** null = no opinion; true = accepted wherever reachable; false = never;
+ * a list = accepted only in these places (cities or country codes). */
+export type FlowModeSetting = boolean | string[] | null;
+
+/** Flow's GET/PUT /api/settings/preferences. Every field unset = no filtering
+ * and no demotion. Place lists take ISO country codes or region codes. */
+export interface FlowPreferences {
+  home_country: string | null;
+  work_authorisation: string[];
+  remote_from: string[];
+  relocation_countries: string[];
+  work_modes: { remote: FlowModeSetting; hybrid: FlowModeSetting; onsite: FlowModeSetting };
+  /** Language names, e.g. "English", "Italian". */
+  languages: string[];
+  has_degree: boolean | null;
+  review_by: string | null;
+}
+
+export interface FlowGeo {
+  countries: { code: string; name: string; regions: string[]; languages: string[] }[];
+  regions: { code: string; name: string }[];
+}
+
+export function getPreferences(baseUrl: string): Promise<FlowPreferences> {
+  return flowGet(baseUrl, "/api/settings/preferences", "getPreferences");
+}
+
+/** Flow re-judges every job on save; a 422 means an unknown place code. */
+export async function updatePreferences(baseUrl: string, prefs: FlowPreferences): Promise<FlowPreferences> {
+  const res = await fetch(`${baseUrl}/api/settings/preferences`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(prefs),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    const msg = Array.isArray(detail?.detail) ? detail.detail.map((d: { msg: string }) => d.msg).join("; ") : res.statusText;
+    const err = new Error(`updatePreferences failed: ${msg}`);
+    logFlowError(err, baseUrl, "updatePreferences");
+    throw err;
+  }
+  return res.json();
+}
+
+export function getGeo(baseUrl: string): Promise<FlowGeo> {
+  return flowGet(baseUrl, "/api/geo/countries", "getGeo");
+}

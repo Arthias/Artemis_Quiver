@@ -51,6 +51,7 @@ import { LanguageSelector } from "../components/ui/LanguageSelector";
 import { toast } from "sonner";
 import { AppError } from "../utils/errors";
 import { ApplicationSettingsCard } from "../components/apply/ApplicationSettingsCard";
+import { PreferencesSection } from "../components/flow/PreferencesSection";
 
 function ExtensionSettingsCard() {
   const { t } = useTranslation();
@@ -762,6 +763,10 @@ function FlowSettingsCard() {
             </Button>
           </div>
           {startError && <p className="text-xs text-destructive">{startError}</p>}
+
+          <hr className="border-t border-border" />
+
+          <PreferencesSection flowBaseUrl={config.flowBaseUrl!} />
 
           <hr className="border-t border-border" />
 
