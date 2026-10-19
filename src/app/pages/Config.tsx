@@ -52,6 +52,7 @@ import { toast } from "sonner";
 import { AppError } from "../utils/errors";
 import { ApplicationSettingsCard } from "../components/apply/ApplicationSettingsCard";
 import { PreferencesSection } from "../components/flow/PreferencesSection";
+import { CompanyRulesSection } from "../components/flow/CompanyRulesSection";
 
 function ExtensionSettingsCard() {
   const { t } = useTranslation();
@@ -630,6 +631,16 @@ function FlowSettingsCard() {
   const canStart = Boolean(config.flowConfiguredAt) || (profilePushed && (primaryPushed || secondaryPushed));
 
   async function handleConnect() {
+    // The extension's pages and side panel call Flow cross-origin; localhost
+    // is in the manifest, any other host needs a grant. Must run first, inside the click.
+    if (typeof chrome !== "undefined" && chrome.permissions) {
+      try {
+        const u = new URL(flowBaseUrlInput); // match patterns take no port
+        await chrome.permissions.request({ origins: [`${u.protocol}//${u.hostname}/*`] });
+      } catch {
+        // invalid URL or no grant: the health check below reports it
+      }
+    }
     setConnecting(true);
     setConnectError(null);
     updateConfig({ flowBaseUrl: flowBaseUrlInput });
@@ -767,6 +778,10 @@ function FlowSettingsCard() {
           <hr className="border-t border-border" />
 
           <PreferencesSection flowBaseUrl={config.flowBaseUrl!} />
+
+          <hr className="border-t border-border" />
+
+          <CompanyRulesSection flowBaseUrl={config.flowBaseUrl!} />
 
           <hr className="border-t border-border" />
 

@@ -3,6 +3,7 @@ import { AppError, ErrorCodes } from "../app/utils/errors";
 import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry, matchJobSite, DEFAULT_JOB_SITES } from "./job-sites";
 import { extractPageContent } from "./pageExtract";
 import { readActiveProfile } from "./idbProfile";
+import { outbox, drainOutbox, refreshBadge } from "../app/services/applyQueue";
 import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatibleAdapter";
 import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
 import { geminiAdapter } from "../app/services/provider/GeminiAdapter";
@@ -326,6 +327,20 @@ chrome.action.onClicked.addListener(async (tab) => {
   } catch (err) {
     console.warn("[Artemis] Failed to open side panel:", err);
   }
+});
+
+// ── Assisted apply: deliver outcomes recorded while Flow was unreachable ──
+// The outbox lives in IndexedDB, so it survives the worker being killed and
+// Chrome restarting; this tick and the side panel both drain it.
+const APPLY_OUTBOX_ALARM = "artemis:applyOutbox";
+chrome.alarms.create(APPLY_OUTBOX_ALARM, { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== APPLY_OUTBOX_ALARM) return;
+  void (async () => {
+    const ops = await outbox();
+    if (ops.some((o) => !o.failed)) await drainOutbox();
+    else await refreshBadge(ops.length);
+  })().catch(() => {}); // no Quiver database yet: nothing to deliver
 });
 
 // ── Message handlers ──

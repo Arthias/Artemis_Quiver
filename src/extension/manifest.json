@@ -3,7 +3,7 @@
   "name": "Artemis Quiver",
   "version": "3.9.4",
   "description": "Import job postings into Artemis Quiver and get AI-powered match scoring",
-  "permissions": ["scripting", "storage", "activeTab", "sidePanel"],
+  "permissions": ["scripting", "storage", "activeTab", "sidePanel", "alarms"],
   "host_permissions": [
     "http://localhost/*",
     "http://127.0.0.1/*"

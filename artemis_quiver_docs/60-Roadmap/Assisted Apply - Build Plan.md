@@ -1,12 +1,20 @@
 ---
 tags: [roadmap, plan, extension, sidepanel, flow, cross-app]
-status: planned
-last_updated: 2026-10-17
+status: in-progress
+last_updated: 2026-10-19
 ---
 
 # Assisted Apply: build plan (branch `feat/assisted-apply`)
 
-> [!NOTE] Status: planned, nothing built
+> [!NOTE] Status (2026-10-19): Phases 1 and 1.5 built, not yet browser-tested
+> Flow `feat/assisted-apply` @ `553e26f`: tables, endpoints, queue gates (730 tests).
+> Quiver `feat/assisted-apply`: preferences editor and daily cap, company-rules editor
+> and export (Settings → Flow), the *Apply* tab on `/flow`, the side-panel queue,
+> and the outbox drained by the panel and a 1-minute `chrome.alarms` tick (badge = unsynced count).
+> As built, the outbox uses raw IndexedDB in the `metadata` store with one transaction per update,
+> and drains under a Web Lock so the panel and the worker never send an op twice.
+> Not built: the closed-posting detection (it's a manual *Posting closed* tag), and *Did you submit?*
+> is shown for any opened item rather than only after a restart. Phase 0 and Phases 2–3 are not started.
 > This replaces the architecture in [[Assisted Application Flow]] (2026-10-16 proposal)
 > where the two disagree. Branch-only work: it may never reach `main`.
 

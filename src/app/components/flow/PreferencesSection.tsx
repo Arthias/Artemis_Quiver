@@ -218,6 +218,17 @@ export function PreferencesSection({ flowBaseUrl }: { flowBaseUrl: string }) {
         })}
 
         <div>
+          <Label className="text-xs text-muted-foreground">{t("config.flowPrefsDailyCap")}</Label>
+          <Input
+            type="number"
+            min={1}
+            value={prefs.daily_cap ?? ""}
+            placeholder={t("config.flowPrefsUnset")}
+            onChange={(e) => edit({ daily_cap: e.target.value ? Math.max(1, Number(e.target.value)) : null })}
+            className="bg-input-background"
+          />
+        </div>
+        <div>
           <Label className="text-xs text-muted-foreground">{t("config.flowPrefsReviewBy")}</Label>
           <Input
             type="date"

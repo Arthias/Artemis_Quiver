@@ -16,6 +16,7 @@ import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPan
 import { JobCard } from "../components/flow/JobCard";
 import { JobDetailDialog } from "../components/flow/JobDetailDialog";
 import { CaptureBlock, captureAvailable } from "../components/flow/CaptureBlock";
+import { ApplyTab } from "../components/flow/ApplyTab";
 import {
   checkFlowHealth,
   getFlowDigest,
@@ -1134,6 +1135,7 @@ export function Flow() {
                 <TabsTrigger value="search">{t("flow.tabSearch")}</TabsTrigger>
                 <TabsTrigger value="archive">{t("flow.tabArchive")}</TabsTrigger>
                 <TabsTrigger value="stats">{t("flow.tabStats")}</TabsTrigger>
+                <TabsTrigger value="apply">{t("flow.tabApply")}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="digest" className="mt-4">
@@ -1182,6 +1184,12 @@ export function Flow() {
               <TabsContent value="archive" className="mt-4">
                 <Card className="p-6">
                   <ArchiveTab flowBaseUrl={flowBaseUrl} refreshKey={trackingRefreshKey} onSelect={setSelectedJobId} t={t} />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="apply" className="mt-4">
+                <Card className="p-6">
+                  <ApplyTab flowBaseUrl={flowBaseUrl} />
                 </Card>
               </TabsContent>
 

@@ -555,6 +555,8 @@ export interface FlowPreferences {
   /** Language names, e.g. "English", "Italian". */
   languages: string[];
   has_degree: boolean | null;
+  /** Most applications per day the apply queue hands out. null = no cap. */
+  daily_cap: number | null;
   review_by: string | null;
 }
 
@@ -588,3 +590,83 @@ export async function updatePreferences(baseUrl: string, prefs: FlowPreferences)
 export function getGeo(baseUrl: string): Promise<FlowGeo> {
   return flowGet(baseUrl, "/api/geo/countries", "getGeo");
 }
+
+// --- Assisted apply ----------------------------------------------------------
+
+export interface FlowVerdict {
+  gate: string;
+  verdict: "pass" | "block" | "ask" | "no_evidence";
+  detail: string;
+  evidence?: string | null;
+}
+
+export interface FlowQueueItem {
+  job_id: string;
+  title: string;
+  company: string;
+  company_key: string;
+  employer_known: boolean;
+  location: string;
+  source: string;
+  score: number;
+  score_spread: number | null;
+  score_passes: number | null;
+  summary: string | null;
+  fit_reasoning: string | null;
+  job_url: string;
+  apply_url: string | null;
+  ats_identity: string | null;
+  work_mode: string | null;
+  office_days: number | null;
+  eligibility: string | null;
+  eligibility_reason: string | null;
+  verdicts: FlowVerdict[];
+}
+
+export interface FlowApplyQueue {
+  queue_id: string;
+  built_at: string;
+  lane: "assisted" | "bulk";
+  daily_cap: number | null;
+  remaining_today: number | null;
+  items: FlowQueueItem[];
+  excluded: FlowQueueItem[];
+}
+
+export function getApplyQueue(
+  baseUrl: string,
+  p: { minScore: number; maxScore: number; limit: number; excludeCompanies?: string[] }
+): Promise<FlowApplyQueue> {
+  const qs = new URLSearchParams({ min_score: String(p.minScore), max_score: String(p.maxScore), limit: String(p.limit) });
+  for (const c of p.excludeCompanies ?? []) qs.append("exclude_company", c);
+  return flowGet(baseUrl, `/api/apply/queue?${qs}`, "getApplyQueue");
+}
+
+export interface FlowCompanyRule {
+  company_key?: string;
+  display_name: string;
+  aliases: string[];
+  kind: "block" | "ask" | "quota";
+  max_applications: number | null;
+  window_days: number | null;
+  role_cooldown_days: number | null;
+  until: string | null;
+  reason: string | null;
+  policy_url: string | null;
+}
+
+export async function getCompanyRules(baseUrl: string): Promise<FlowCompanyRule[]> {
+  return (await flowGet<{ rules: FlowCompanyRule[] }>(baseUrl, "/api/company-rules", "getCompanyRules")).rules;
+}
+
+export function putCompanyRule(baseUrl: string, rule: FlowCompanyRule): Promise<FlowCompanyRule> {
+  return flowPut(baseUrl, "/api/company-rules", rule, "putCompanyRule");
+}
+
+export async function deleteCompanyRule(baseUrl: string, companyKey: string): Promise<void> {
+  const res = await fetch(`${baseUrl}/api/company-rules/${encodeURIComponent(companyKey)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`deleteCompanyRule failed: ${res.statusText}`);
+}
+
+export const applicationsExportUrl = (baseUrl: string, format: "csv" | "json") =>
+  `${baseUrl}/api/applications?format=${format}`;

@@ -10,6 +10,7 @@ import { getActiveEndpoint } from "../app/services/llmService";
 import type { AnalysisResult } from "../app/types/analysis";
 import type { BuilderHandoff } from "../app/types/workspace";
 import { ApplySection, CvSection, companyFromUrl } from "./ApplyAssist";
+import { ApplyQueueSection } from "./ApplyQueuePanel";
 
 function logErrorToApp(message: string, stack?: string, code?: string) {
   try {
@@ -389,6 +390,8 @@ function Panel() {
           {t("sidepanel.openApp")}
         </button>
       </div>
+
+      <ApplyQueueSection tabId={tabId} />
 
       {!currentHost ? (
         <div style={{ fontSize: "13px", color: "#64748b", padding: "24px 4px", textAlign: "center" }}>
