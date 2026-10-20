@@ -1,3 +1,4 @@
+/// <reference types="chrome" />
 // Functions injected into an application page via chrome.scripting.executeScript
 // (one call per frame — Ashby/Greenhouse forms are often a cross-origin iframe
 // on the company's own site). Same rule as pageExtract.ts: each function is
@@ -20,6 +21,7 @@ export interface ScannedField {
 export interface ScannedFileInput {
   id: string;
   label: string;
+  hasFile: boolean;
 }
 
 /**
@@ -106,7 +108,7 @@ export function scanFormFields(): { fields: ScannedField[]; fileInputs: ScannedF
   // File inputs are usually visually hidden behind a styled button, so no visibility check.
   document.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach((el) => {
     if (el.disabled) return;
-    fileInputs.push({ id: nextId(el), label: labelFor(el) });
+    fileInputs.push({ id: nextId(el), label: labelFor(el), hasFile: (el.files?.length ?? 0) > 0 });
   });
 
   return { fields, fileInputs };
@@ -141,7 +143,7 @@ export function readFormField(id: string): string | null {
   return el ? el.value : null;
 }
 
-/** Puts a file (base64) into the tagged file input and fires input/change. */
+/** Puts a file (base64) into the tagged file input, fires input/change, and reads the name back. */
 export function attachFileToInput(id: string, base64: string, filename: string, mime: string): boolean {
   const el = document.querySelector<HTMLInputElement>(`[data-artemis-field="${id}"]`);
   if (!el) return false;
@@ -153,5 +155,47 @@ export function attachFileToInput(id: string, base64: string, filename: string, 
   el.files = dt.files;
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.dispatchEvent(new Event("change", { bubbles: true }));
+  // An ATS can swap or clear the input in its change handler; only a file still there counts.
+  return el.files?.[0]?.name === filename;
+}
+
+export const FORM_ANSWERS_MSG = "ARTEMIS_FORM_ANSWERS";
+
+/**
+ * Installs (once per frame) listeners that remember the latest value of every
+ * tagged field, and send them to the extension when the form looks submitted.
+ * Values stay on the page until then; the side panel decides what to keep.
+ * The message type is inlined: injected functions can't see module constants.
+ */
+export function watchFormAnswers(): boolean {
+  const w = window as unknown as { __artemisWatch?: boolean };
+  if (w.__artemisWatch) return true;
+  w.__artemisWatch = true;
+  const values: Record<string, string> = {};
+  let lastSent = 0;
+  const record = (e: Event) => {
+    const el = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+    const id = el?.getAttribute?.("data-artemis-field");
+    if (id && el && el.type !== "file") values[id] = el.value;
+  };
+  const send = () => {
+    // A submit click and the submit event arrive together; one message is enough.
+    if (Date.now() - lastSent < 1000) return;
+    lastSent = Date.now();
+    chrome.runtime.sendMessage({ type: "ARTEMIS_FORM_ANSWERS", values: { ...values } }).catch(() => {});
+  };
+  document.addEventListener("input", record, true);
+  document.addEventListener("change", record, true);
+  document.addEventListener("submit", send, true);
+  document.addEventListener(
+    "click",
+    (e) => {
+      const b = (e.target as Element | null)?.closest?.('button, input[type="submit"]');
+      if (!b) return;
+      const text = (b.textContent || (b as HTMLInputElement).value || "").trim();
+      if (b.getAttribute("type") === "submit" || /^(submit|send|apply)|submit application|invia|envia|candidat/i.test(text)) send();
+    },
+    true
+  );
   return true;
 }

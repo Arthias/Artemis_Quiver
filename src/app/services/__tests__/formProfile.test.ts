@@ -8,6 +8,8 @@ import {
   upsertAnswer,
   validateFormProfile,
   buildDraftMessages,
+  learnCandidates,
+  applyLearned,
 } from "../formProfile";
 
 function profile() {
@@ -119,5 +121,44 @@ describe("buildDraftMessages", () => {
     expect(system!.content).toMatch(/Do not invent/);
     expect(system!.content).toMatch(/500 characters/);
     expect(user!.content).toMatch(/Needs sponsorship in the US/);
+  });
+});
+
+describe("learning typed answers", () => {
+  it("offers new values, skips unchanged, EEO and known answers", () => {
+    const fp = upsertAnswer(profile(), "Do you need visa sponsorship?", "No", "always");
+    const c = learnCandidates(
+      [
+        { label: "Phone", value: "+39 123", kind: "text", key: "phone", proposed: "" },
+        { label: "First name", value: "Ada", kind: "text", key: "first_name", proposed: "Ada" },
+        { label: "Gender", value: "Female", kind: "text", proposed: "" },
+        { label: "Do you need visa sponsorship?", value: "No", kind: "text", proposed: "" },
+        { label: "Notice period in weeks", value: "4", kind: "text", proposed: "" },
+        { label: "Why us?", value: "Because.", kind: "textarea", proposed: "" },
+        { label: "Email", value: "other@example.com", kind: "text", key: "email", proposed: "ada@example.com" },
+      ],
+      fp,
+      null
+    );
+    expect(c).toEqual([
+      { label: "Phone", value: "+39 123", key: "phone", checked: true },
+      { label: "Notice period in weeks", value: "4", checked: true },
+      { label: "Why us?", value: "Because.", checked: false },
+      { label: "Email", value: "other@example.com", key: "email", checked: false },
+    ]);
+  });
+
+  it("stores fields as values and the rest as region-scoped answers", () => {
+    const next = applyLearned(
+      profile(),
+      [
+        { label: "Mobile phone", value: "+39 123", key: "phone", checked: true },
+        { label: "Notice period in weeks", value: "4", checked: true },
+      ],
+      "EU"
+    );
+    expect(next.fields.phone!.value).toBe("+39 123");
+    expect(next.fields.phone!.aliases).toContain("mobile phone");
+    expect(findAnswer("Notice period in weeks", next, "EU")?.answer).toBe("4");
   });
 });

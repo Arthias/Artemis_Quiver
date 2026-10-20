@@ -566,7 +566,7 @@ function Panel() {
             )}
           </div>
 
-          <ApplySection tabId={tabId} currentUrl={currentUrl} />
+          <ApplySection tabId={tabId} currentUrl={currentUrl} company={entry?.company || companyFromUrl(currentUrl)} />
         </>
       )}
 

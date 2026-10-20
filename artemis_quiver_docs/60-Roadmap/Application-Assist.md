@@ -1,7 +1,7 @@
 ---
 tags: [roadmap, extension, sidepanel, autofill]
 status: in-progress
-last_updated: 2026-10-08
+last_updated: 2026-10-20
 ---
 
 # Application Assist — side panel help for filling job applications
@@ -36,6 +36,26 @@ Deviations from the plan below:
 - **Auto-save dropped** (2026-10-08): generated CVs are saved by hand into `Quiver/`
   from the print dialog; folder access is read-only.
 
+### One-click fill and learning (2026-10-20)
+
+- **Fill form** (primary button) scans every frame, fills every text field with a known
+  value, and attaches the recommended CV: a favourite, or a file named after the company,
+  never just the newest file. The attach is read back; a file that didn't stick is
+  reported. An upload that already holds a file is left alone. The message lists what
+  was filled and how many text fields are left. *Review fields* keeps the old per-row flow.
+- **Empty form profile**: the panel offers *Fill it from my profile* inline; values are
+  shown editable and saved only on *Save and fill*.
+- **Learning**: each scan installs a watcher in every frame (`watchFormAnswers`) that keeps
+  the latest value of each tagged field. On submit (the `submit` event, or a click on a
+  submit-type / "Submit", "Apply", "Send" button) it sends them to the panel, which offers
+  what the form profile doesn't know yet: values for matched fields that were empty, and
+  short answers to unmatched questions, scoped to the panel's region. Long answers and
+  overwritten field values are offered unticked; EEO questions never. *Save my answers*
+  does the same on demand, for a submit the watcher missed. Nothing is stored without
+  *Save selected*. Values never leave the browser.
+- Still text fields only: selects, radios, checkboxes and comboboxes are Phase 2 of
+  [[Assisted Apply - Build Plan]].
+
 ## Browser test checklist
 
 Load the build unpacked (`npm run build:ext`), open the side panel on a job page.
@@ -56,6 +76,12 @@ Load the build unpacked (`npm run build:ext`), open the side panel on a job page
    saved) → Save; invalid JSON shows an error.
 8. **Manual save**: export a CV, save it into `<folder>/Quiver/` → Refresh in the panel
    shows it with the "Quiver" tag (and "for this job" on that company's page).
+9. **Fill form**: on Ashby with an empty form profile → the seed offer appears → Save
+   and fill → text fields fill and a favourite CV attaches. Mark no favourite → the
+   message says to pick one.
+10. **Learning**: type a phone number and a short answer Quiver didn't know → Submit →
+   the panel offers both; save → next form fills them. A "Why us?" textarea is
+   offered unticked.
 
 ## Goal
 
@@ -273,6 +299,9 @@ synthetic data only (this repo is public).
 - 2026-10-08 (Bruno): **drop auto-save for now.** Code removed; manual save into `Quiver/`
   (Chrome's print dialog remembers the folder). Revisit only with a required `debugger`
   permission, which warns every user at install.
+- 2026-10-20 (Bruno): after testing, filling is still too many clicks. Built one-click
+  **Fill form** (fill all + attach CV) and **learning typed answers on submit**. Fixed-choice
+  fields next (Phase 2); batch drafts wait for the Phase 3 claim check.
 - 2026-10-08 r2 (Bruno): skip fixed-choice fields; standard fields + saved
   answers live in one mutable JSON "form profile"; Nano for field identification
   where available, main model for drafts on request only; a "Review & fill"

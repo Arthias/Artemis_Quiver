@@ -219,6 +219,63 @@ export function upsertAnswer(fp: FormProfile, question: string, answer: string, 
   return { ...fp, answers: [...rest, { question, answer, scope }] };
 }
 
+export function hasAnyValue(fp: FormProfile): boolean {
+  return Object.values(fp.fields).some((f) => f.value.trim()) || fp.answers.length > 0;
+}
+
+// ── Learning from what the user typed ───────────────────────────────────
+
+export interface TypedEntry {
+  label: string;
+  value: string;
+  kind: "text" | "textarea";
+  /** Form-profile key the field was matched to, if any. */
+  key?: string;
+  /** What Quiver proposed for it; an unchanged value teaches nothing. */
+  proposed: string;
+}
+
+export interface LearnCandidate {
+  label: string;
+  value: string;
+  /** Set: store as that field's value. Unset: store as a saved answer to `label`. */
+  key?: string;
+  checked: boolean;
+}
+
+/**
+ * What the user typed that the form profile doesn't know yet. Long answers and
+ * overwritten field values are offered unticked: they're often specific to one job.
+ */
+export function learnCandidates(entries: TypedEntry[], fp: FormProfile, region: string | null): LearnCandidate[] {
+  const out: LearnCandidate[] = [];
+  for (const e of entries) {
+    const value = e.value.trim();
+    if (!value || !e.label.trim() || isEeoQuestion(e.label) || value === e.proposed.trim()) continue;
+    if (e.key && fp.fields[e.key]) {
+      const current = fp.fields[e.key]!.value.trim();
+      if (current !== value) out.push({ label: e.label, value, key: e.key, checked: !current });
+      continue;
+    }
+    if (findAnswer(e.label, fp, region)?.answer.trim() === value) continue;
+    out.push({ label: e.label, value, checked: e.kind === "text" });
+  }
+  return out;
+}
+
+export function applyLearned(fp: FormProfile, picked: LearnCandidate[], region: string | null): FormProfile {
+  let next = fp;
+  for (const c of picked) {
+    if (c.key && next.fields[c.key]) {
+      next = { ...next, fields: { ...next.fields, [c.key]: { ...next.fields[c.key]!, value: c.value } } };
+      next = addAlias(next, c.key, c.label);
+    } else {
+      next = upsertAnswer(next, c.label, c.value, region || "always");
+    }
+  }
+  return next;
+}
+
 // ── Model-assisted label → key matching ─────────────────────────────────
 
 function classifyPrompt(labels: string[], keys: string[]): string {

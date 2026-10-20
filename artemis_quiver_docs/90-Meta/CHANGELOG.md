@@ -1,12 +1,23 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-10-08
+last_updated: 2026-10-20
 ---
 
 # Changelog
 
 ## [Unreleased]
+
+**Assisted apply (branch `feat/assisted-apply`, 2026-10-20)**
+
+- Flow page, Apply tab: **Build queue** and **Start applying** are separate; Start applying
+  opens the first job without an outcome in a new tab, with the side panel.
+- Side panel, Apply: **Fill form** fills every known text field and attaches the
+  recommended CV in one click; an empty form profile can be filled from the profile
+  inline. Answers typed into a form are offered for saving on submit (or via *Save my
+  answers*). `learnCandidates` / `applyLearned` in `formProfile.ts`, `watchFormAnswers`
+  in `formPageScripts.ts`.
+- Verified: `tsc --noEmit`, vitest (171 passing), `build:ext`. **Not tested in a browser.**
 
 **Side panel: Application Assist — CV folder, form filling, drafts**
 
