@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Play, RefreshCw, Trash2 } from "lucide-react";
+import { ListOrdered, Loader2, Play, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -9,6 +9,7 @@ import { Badge } from "../ui/badge";
 import { getActiveProfileId } from "../../db";
 import { getApplyQueue, type FlowQueueItem, type FlowVerdict } from "../../services/flowBridge";
 import {
+  currentItem,
   discardOp,
   drainOutbox,
   loadQueue,
@@ -17,6 +18,7 @@ import {
   overrideExcluded,
   pendingCompanies,
   saveQueue,
+  updateItem,
   type OutboxOp,
   type StoredQueue,
 } from "../../services/applyQueue";
@@ -86,10 +88,8 @@ export function ApplyTab({ flowBaseUrl }: { flowBaseUrl: string }) {
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, [reload]);
 
-  async function start() {
+  async function build() {
     if (!profileId) return;
-    // Open the side panel first: it needs this click's user gesture.
-    if (windowId != null) chrome.sidePanel.open({ windowId }).catch(() => {});
     setBusy(true);
     setError(null);
     try {
@@ -101,6 +101,19 @@ export function ApplyTab({ flowBaseUrl }: { flowBaseUrl: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  const next = currentItem(queue);
+
+  async function start() {
+    if (!profileId || !next) return;
+    // Open the side panel first: it needs this click's user gesture.
+    if (windowId != null) chrome.sidePanel.open({ windowId }).catch(() => {});
+    const url = next.apply_url || next.job_url;
+    if (typeof chrome !== "undefined" && chrome.tabs) await chrome.tabs.create({ url });
+    else window.open(url, "_blank");
+    setQueue(await updateItem(profileId, next.job_id, { state: "open", openedAt: new Date().toISOString() }));
+    notifyPanel();
   }
 
   async function override(item: FlowQueueItem) {
@@ -152,8 +165,12 @@ export function ApplyTab({ flowBaseUrl }: { flowBaseUrl: string }) {
             <Label className="text-xs text-muted-foreground">{t("flow.applyLimit")}</Label>
             <Input type="number" min={1} max={200} value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="w-24" />
           </div>
-          <Button onClick={start} disabled={busy || !profileId}>
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+          <Button variant="outline" onClick={build} disabled={busy || !profileId}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListOrdered className="w-4 h-4" />}
+            {t("flow.applyBuild")}
+          </Button>
+          <Button onClick={start} disabled={busy || !next}>
+            <Play className="w-4 h-4" />
             {t("flow.applyStart")}
           </Button>
         </div>
