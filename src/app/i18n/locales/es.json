@@ -9,7 +9,9 @@
     "newAnalysis": "Nuevo Análisis",
     "dismiss": "Descartar",
     "openMenu": "Abrir menú",
-    "mainNavigation": "Navegación principal"
+    "mainNavigation": "Navegación principal",
+    "collapseSidebar": "Contraer barra lateral",
+    "expandSidebar": "Expandir barra lateral"
   },
   "nav": {
     "analysisHub": "Centro de Análisis",
@@ -555,6 +557,8 @@
   "builder": {
     "aiAssistant": "Asistente IA",
     "assistantDesc": "Solicita modificaciones a tu documento",
+    "collapseAssistant": "Ocultar asistente",
+    "expandAssistant": "Mostrar asistente",
     "chatPlaceholder": "Solicitar cambios...",
     "applying": "Aplicando...",
     "applyChanges": "Aplicar Cambios",

@@ -9,7 +9,9 @@
     "newAnalysis": "New Analysis",
     "dismiss": "Dismiss",
     "openMenu": "Open menu",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
   },
   "nav": {
     "analysisHub": "Analysis Hub",
@@ -555,6 +557,8 @@
   "builder": {
     "aiAssistant": "AI Assistant",
     "assistantDesc": "Request modifications to your document",
+    "collapseAssistant": "Hide assistant",
+    "expandAssistant": "Show assistant",
     "chatPlaceholder": "Request changes...",
     "applying": "Applying...",
     "applyChanges": "Apply Changes",

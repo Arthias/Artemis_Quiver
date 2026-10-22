@@ -1315,23 +1315,22 @@ export function Flow() {
         </div>
       </div>
 
-      <div className="flex flex-col">
-        <BuilderAssistantPanel
-          suggestions={chatSuggestions}
-          chatMessage={chatMessage}
-          chatLoading={chatLoading}
-          onChatMessageChange={setChatMessage}
-          onSubmit={handleChatSubmit}
-          accentClass="text-teal-500"
-          panelBg="bg-muted/30"
-        />
-        {(chatResult || chatError) && (
-          <div className="px-4 pb-4 bg-muted/30 border-l border-border">
+      <BuilderAssistantPanel
+        suggestions={chatSuggestions}
+        chatMessage={chatMessage}
+        chatLoading={chatLoading}
+        onChatMessageChange={setChatMessage}
+        onSubmit={handleChatSubmit}
+        accentClass="text-teal-500"
+        panelBg="bg-muted/30"
+        footer={(chatResult || chatError) && (
+          <>
             {chatResult && <p className="text-xs text-muted-foreground">{chatResult}</p>}
             {chatError && <p className="text-xs text-destructive">{chatError}</p>}
-          </div>
+          </>
         )}
-      </div>
+      />
+
 
       <JobDetailDialog
         jobId={selectedJobId}

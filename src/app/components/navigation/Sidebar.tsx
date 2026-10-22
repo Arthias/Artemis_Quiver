@@ -10,9 +10,12 @@ import {
   Plus,
   MessageSquare,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Inbox,
   Workflow,
 } from "lucide-react";
+import { usePersistentFlag } from "../../hooks/usePersistentFlag";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
@@ -45,6 +48,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { activeProfile, activeInitials } = useWorkspace();
   const { pendingImports, latestImportId, clearPendingImport, markPendingOpen } = useExtensionBridge();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [storedCollapsed, setCollapsed] = usePersistentFlag("artemis:sidebarCollapsed");
+  // The mobile drawer (onNavigate set) already hides itself; collapse is desktop only.
+  const collapsible = !onNavigate;
+  const collapsed = collapsible && storedCollapsed;
 
   const handleNewAnalysis = () => {
     clearCurrent();
@@ -73,6 +80,55 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     if (p) handleRunPending(p);
   }, [latestImportId]);
 
+  if (collapsed) {
+    // A rail: expand arrow on top, then the logo and the page icons so
+    // navigation still works without reopening the panel.
+    return (
+      <aside className="w-14 border-r border-border bg-sidebar flex flex-col items-center gap-2 py-3 print:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setCollapsed(false)}
+          aria-label={t("app.expandSidebar")}
+          title={t("app.expandSidebar")}
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </Button>
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          title={t("app.name")}
+          aria-label={t("app.expandSidebar")}
+          className="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"
+        >
+          <Target className="w-5 h-5 text-white" />
+        </button>
+        <Separator className="my-1 w-8" />
+        <nav className="flex flex-col items-center gap-1">
+          {navigation.map((item) => (
+            <NavLink
+              key={item.href}
+              to={item.href}
+              end={item.href === "/"}
+              title={t(item.nameKey)}
+              aria-label={t(item.nameKey)}
+              className={({ isActive }) =>
+                `p-2 rounded-md transition-colors ${
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                }`
+              }
+            >
+              <item.icon className="w-4 h-4" />
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+    );
+  }
+
   return (
     <>
       <aside className="w-72 border-r border-border bg-sidebar flex flex-col print:hidden">
@@ -81,10 +137,22 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
             <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
               <Target className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="font-semibold text-sidebar-foreground">{t("app.name")}</h1>
               <p className="text-xs text-muted-foreground">{t("app.tagline")}</p>
             </div>
+            {collapsible && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 -mr-2 self-start"
+                onClick={() => setCollapsed(true)}
+                aria-label={t("app.collapseSidebar")}
+                title={t("app.collapseSidebar")}
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </Button>
+            )}
           </div>
           <Button
             className="w-full justify-start gap-2"

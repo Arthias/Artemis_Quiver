@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "../ui/textarea";
 import { Card } from "../ui/card";
-import { Sparkles } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Sparkles } from "lucide-react";
 import { Button } from "../ui/button";
+import { usePersistentFlag } from "../../hooks/usePersistentFlag";
 
 interface Suggestion {
   title: string;
@@ -18,6 +20,8 @@ interface BuilderAssistantPanelProps {
   onSubmit: (message?: string) => void;
   accentClass?: string;
   panelBg?: string;
+  /** Rendered under the input, e.g. the result of the last request. */
+  footer?: ReactNode;
 }
 
 export function BuilderAssistantPanel({
@@ -28,14 +32,54 @@ export function BuilderAssistantPanel({
   onSubmit,
   accentClass = "text-purple-500",
   panelBg = "bg-muted/30",
+  footer,
 }: BuilderAssistantPanelProps) {
   const { t } = useTranslation();
+  // One preference for every page that shows the assistant.
+  const [collapsed, setCollapsed] = usePersistentFlag("artemis:assistantCollapsed");
+
+  if (collapsed) {
+    return (
+      <div className={`h-full w-12 flex flex-col items-center gap-3 py-3 ${panelBg} border-l border-border`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setCollapsed(false)}
+          aria-label={t("builder.expandAssistant")}
+          title={t("builder.expandAssistant")}
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </Button>
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label={t("builder.aiAssistant")}
+          title={t("builder.aiAssistant")}
+          className="p-1 rounded hover:bg-accent/50"
+        >
+          <Sparkles className={`w-5 h-5 ${accentClass}`} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className={`w-96 flex flex-col ${panelBg} border-l border-border`}>
+    <div className={`h-full w-96 flex flex-col ${panelBg} border-l border-border`}>
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-2">
           <Sparkles className={`w-5 h-5 ${accentClass}`} />
-          <h3 className="font-semibold">{t("builder.aiAssistant")}</h3>
+          <h3 className="font-semibold flex-1">{t("builder.aiAssistant")}</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 -my-1 -mr-2"
+            onClick={() => setCollapsed(true)}
+            aria-label={t("builder.collapseAssistant")}
+            title={t("builder.collapseAssistant")}
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           {t("builder.assistantDesc")}
@@ -78,6 +122,7 @@ export function BuilderAssistantPanel({
         >
           {chatLoading ? t("builder.applying") : t("builder.applyChanges")}
         </Button>
+        {footer && <div className="mt-2">{footer}</div>}
       </div>
     </div>
   );
