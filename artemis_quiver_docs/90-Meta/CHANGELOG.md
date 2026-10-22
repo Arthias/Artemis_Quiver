@@ -1,12 +1,29 @@
 ---
 tags: [meta, changelog, history]
 status: completed
-last_updated: 2026-10-20
+last_updated: 2026-10-22
 ---
 
 # Changelog
 
 ## [Unreleased]
+
+**Collapsible panels (2026-10-22, `da5017f`)**
+
+- Main sidebar and the AI assistant panel (CV builder, CL builder, Flow) collapse
+  with an arrow at their top-right; the choice is kept in localStorage
+  (`artemis:sidebarCollapsed`, `artemis:assistantCollapsed`, one flag for every
+  assistant). Collapsed sidebar = a rail with the page icons; collapsed assistant =
+  a strip with its icon. Desktop only. `hooks/usePersistentFlag.ts`.
+- Flow's chat result renders in the assistant panel's new `footer` prop.
+
+**Flow queue lists (2026-10-22, `6123d59`)**
+
+- Flow page: each queue counter and archive-reason badge opens a paged list under the
+  grid (20 per page, newest capture first, capture date on each card). Needs Flow
+  `6c168c1` (`/api/jobs?queue=`, `archive_reason=`). `getQueueJobs` in `flowBridge.ts`.
+- Verified for both: `tsc --noEmit`, vitest (171 passing), `vite build`.
+  **Not tested in a browser.**
 
 **Assisted apply (branch `feat/assisted-apply`, 2026-10-20)**
 
