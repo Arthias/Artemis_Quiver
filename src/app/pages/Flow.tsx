@@ -38,7 +38,10 @@ import {
   generateStrategy,
   getStrategyHistory,
   getQueueSummary,
+  getQueueJobs,
   startBoardSweep,
+  type FlowQueueKey,
+  type FlowJobListResponse,
   type FlowQueueSummary,
   type FlowStatus,
   type FlowJobSummary,
@@ -138,27 +141,113 @@ function ControlBlock({
   );
 }
 
-function QueueStat({ label, value, tone }: { label: string; value: number; tone?: string }) {
+function QueueStat({
+  label, value, tone, active, onClick,
+}: { label: string; value: number; tone?: string; active: boolean; onClick: () => void }) {
   return (
-    <div className="rounded border border-border p-2">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded border p-2 text-left transition-colors hover:bg-accent/50 ${active ? "border-teal-500 bg-teal-500/5" : "border-border"}`}
+    >
       <div className={`text-lg font-semibold ${tone ?? ""}`}>{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
+    </button>
+  );
+}
+
+type QueueSelection = { queue: FlowQueueKey } | { archiveReason: string };
+const QUEUE_PAGE_SIZE = 20;
+
+/** One counter's jobs, newest capture first, a page at a time — a backlog can
+ * run to thousands of rows and only one page is ever fetched. */
+function QueueJobList({
+  flowBaseUrl,
+  filter,
+  onSelect,
+  t,
+}: {
+  flowBaseUrl: string;
+  filter: QueueSelection;
+  onSelect: (id: string) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [page, setPage] = useState(0);
+  const [data, setData] = useState<FlowJobListResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getQueueJobs(flowBaseUrl, filter, page * QUEUE_PAGE_SIZE, QUEUE_PAGE_SIZE)
+      .then((d) => !cancelled && setData(d))
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [flowBaseUrl, filter, page]);
+
+  const total = data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / QUEUE_PAGE_SIZE));
+  return (
+    <div className="space-y-2 mt-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {total > 0 && t("flow.queueListRange", {
+            from: page * QUEUE_PAGE_SIZE + 1,
+            to: Math.min(total, (page + 1) * QUEUE_PAGE_SIZE),
+            total,
+          })}
+        </p>
+        {pages > 1 && (
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="outline" disabled={loading || page === 0} onClick={() => setPage((p) => p - 1)}>
+              {t("flow.queueListPrev")}
+            </Button>
+            <span className="text-xs text-muted-foreground px-1">{page + 1} / {pages}</span>
+            <Button size="sm" variant="outline" disabled={loading || page + 1 >= pages} onClick={() => setPage((p) => p + 1)}>
+              {t("flow.queueListNext")}
+            </Button>
+          </div>
+        )}
+      </div>
+      <JobCardList
+        jobs={data?.jobs ?? []}
+        loading={loading}
+        error={error}
+        emptyMessage={t("flow.queueListEmpty")}
+        onSelect={onSelect}
+        showSummary
+        showCaptured
+      />
     </div>
   );
 }
 
 function QueueBlock({
   queue,
+  flowBaseUrl,
   sweepBusy,
   onSweep,
+  onSelect,
   t,
 }: {
   queue: FlowQueueSummary;
+  flowBaseUrl: string;
   sweepBusy: boolean;
   onSweep: (importLists: boolean) => void;
+  onSelect: (id: string) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   const [importLists, setImportLists] = useState(false);
+  const [selected, setSelected] = useState<QueueSelection | null>(null);
+  const selectedKey = selected ? ("queue" in selected ? selected.queue : `archived:${selected.archiveReason}`) : null;
+  const toggle = (key: string, next: QueueSelection) => setSelected(selectedKey === key ? null : next);
+  const stat = (key: FlowQueueKey, label: string, value: number, tone?: string) => (
+    <QueueStat label={label} value={value} tone={tone} active={selectedKey === key} onClick={() => toggle(key, { queue: key })} />
+  );
   const archived = Object.entries(queue.archived_by_reason).sort((a, b) => b[1] - a[1]);
   const boards = Object.entries(queue.boards);
   const sweep = queue.sweep;
@@ -167,21 +256,34 @@ function QueueBlock({
       <div>
         <p className="text-sm font-medium mb-2">{t("flow.queue")}</p>
         <div className="grid grid-cols-5 gap-2">
-          <QueueStat label={t("flow.queueToScore")} value={queue.to_score} tone="text-amber-600 dark:text-amber-400" />
-          <QueueStat label={t("flow.queueStrong")} value={queue.strong} tone="text-teal-600 dark:text-teal-400" />
-          <QueueStat label={t("flow.queueScored")} value={queue.scored} />
-          <QueueStat label={t("flow.queueParked")} value={queue.parked_no_description} />
-          <QueueStat label={t("flow.queueIneligible")} value={queue.ineligible} />
+          {stat("to_score", t("flow.queueToScore"), queue.to_score, "text-amber-600 dark:text-amber-400")}
+          {stat("strong", t("flow.queueStrong"), queue.strong, "text-teal-600 dark:text-teal-400")}
+          {stat("scored", t("flow.queueScored"), queue.scored)}
+          {stat("parked", t("flow.queueParked"), queue.parked_no_description)}
+          {stat("ineligible", t("flow.queueIneligible"), queue.ineligible)}
         </div>
         {archived.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2 items-center">
             <span className="text-xs text-muted-foreground mr-1">{t("flow.queueArchived")}:</span>
             {archived.map(([reason, n]) => (
-              <Badge key={reason} variant="outline" className="text-xs">
-                {reason.replace(/_/g, " ")} {n}
-              </Badge>
+              <button
+                key={reason}
+                type="button"
+                aria-pressed={selectedKey === `archived:${reason}`}
+                onClick={() => toggle(`archived:${reason}`, { archiveReason: reason })}
+              >
+                <Badge
+                  variant={selectedKey === `archived:${reason}` ? "default" : "outline"}
+                  className="text-xs cursor-pointer"
+                >
+                  {reason.replace(/_/g, " ")} {n}
+                </Badge>
+              </button>
             ))}
           </div>
+        )}
+        {selected && (
+          <QueueJobList key={selectedKey} flowBaseUrl={flowBaseUrl} filter={selected} onSelect={onSelect} t={t} />
         )}
       </div>
       <div>
@@ -281,6 +383,7 @@ function JobCardList({
   emptyMessage,
   onSelect,
   showSummary = false,
+  showCaptured = false,
   newIds,
 }: {
   jobs: FlowJobSummary[];
@@ -289,6 +392,7 @@ function JobCardList({
   emptyMessage: string;
   onSelect: (id: string) => void;
   showSummary?: boolean;
+  showCaptured?: boolean;
   newIds?: Set<string>;
 }) {
   if (loading) {
@@ -308,6 +412,7 @@ function JobCardList({
           job={job}
           onClick={() => onSelect(job.id)}
           showSummary={showSummary}
+          showCaptured={showCaptured}
           isNew={newIds?.has(job.id) ?? false}
         />
       ))}
@@ -1121,7 +1226,14 @@ export function Flow() {
               {queue && (
                 <>
                   <Separator />
-                  <QueueBlock queue={queue} sweepBusy={sweepBusy} onSweep={handleSweep} t={t} />
+                  <QueueBlock
+                    queue={queue}
+                    flowBaseUrl={flowBaseUrl}
+                    sweepBusy={sweepBusy}
+                    onSweep={handleSweep}
+                    onSelect={setSelectedJobId}
+                    t={t}
+                  />
                 </>
               )}
               {captureAvailable && <CaptureBlock flowBaseUrl={flowBaseUrl} />}

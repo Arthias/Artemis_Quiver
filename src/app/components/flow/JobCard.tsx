@@ -20,9 +20,11 @@ interface JobCardProps {
   showSummary?: boolean;
   /** Highlights the card as new since the viewer's last visit to this list. */
   isNew?: boolean;
+  /** Append when Flow captured the job, for lists ordered by capture date. */
+  showCaptured?: boolean;
 }
 
-export function JobCard({ job, onClick, compact = false, showSummary = false, isNew = false }: JobCardProps) {
+export function JobCard({ job, onClick, compact = false, showSummary = false, isNew = false, showCaptured = false }: JobCardProps) {
   const { t } = useTranslation();
   const reviewed = job.label === "reviewed";
 
@@ -89,6 +91,7 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
             <p className="text-xs text-muted-foreground truncate">
               {job.company} · {job.location}
               {job.is_remote ? ` · ${t("flow.remote")}` : ""}
+              {showCaptured && job.ingested_at ? ` · ${new Date(job.ingested_at).toLocaleDateString()}` : ""}
             </p>
           </div>
         </div>

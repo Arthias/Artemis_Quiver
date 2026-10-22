@@ -383,6 +383,23 @@ export function getArchivedJobs(baseUrl: string, limit = 100): Promise<FlowJobLi
   return flowGet(baseUrl, `/api/jobs?status=archived&show_archived=true&sort_by=ingested_at&sort_dir=desc&limit=${limit}`, "getArchivedJobs");
 }
 
+export type FlowQueueKey = "to_score" | "strong" | "scored" | "parked" | "ineligible";
+
+/** The jobs behind one queue counter (or one archive-reason badge), newest
+ * capture first, one page at a time. Flow derives the list and the counter
+ * from the same predicate, so `total` matches the number on the button. */
+export function getQueueJobs(
+  baseUrl: string,
+  filter: { queue: FlowQueueKey } | { archiveReason: string },
+  offset: number,
+  limit: number,
+): Promise<FlowJobListResponse> {
+  const qs = new URLSearchParams({ sort_by: "ingested_at", sort_dir: "desc", offset: String(offset), limit: String(limit) });
+  if ("queue" in filter) qs.set("queue", filter.queue);
+  else qs.set("archive_reason", filter.archiveReason);
+  return flowGet(baseUrl, `/api/jobs?${qs}`, "getQueueJobs");
+}
+
 // --- Search strategy visibility and control ---------------------------------
 
 export interface FlowStrategy {
