@@ -18,6 +18,15 @@ last_updated: 2026-10-19
 > This replaces the architecture in [[Assisted Application Flow]] (2026-10-16 proposal)
 > where the two disagree. Branch-only work: it may never reach `main`.
 
+> [!WARNING] Superseded in part (2026-10-26): company gating
+> Per [[Profile-Management-Spec]] P11 and §3a, Flow no longer blocks or holds back jobs because of
+> earlier applications or company rules. Removed when that lands: the company gate (default block on
+> any prior application, `ask` on an active process), `company_rules` (block / ask / quota) and its
+> editor, `block_company` on the *Blocked* tag, `skip_applied_companies`, and the one-job-per-company
+> queue rule. Replaced by `company_history` on each job ("Applied on <date>", linked to the job).
+> The `applications` and `disqualifications` tables stay in Flow. Sections below that describe
+> the company gate are kept as the record of what was built.
+
 ## Principles
 - **Flow is a service at a URL.** Nothing may assume where it runs or who operates it, or that it shares a filesystem with the browser.
 - **No personal constraints in code.** Work mode, relocation, authorisation, languages and degree are user preferences. Unset means flag only, never filter.
