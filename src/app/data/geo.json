@@ -1,0 +1,990 @@
+{
+"countries": [
+{
+"code": "AR",
+"name": "Argentina",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "AU",
+"name": "Australia",
+"regions": [
+"APAC"
+],
+"languages": [
+"en"
+]
+},
+{
+"code": "AT",
+"name": "Austria",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"de"
+]
+},
+{
+"code": "BE",
+"name": "Belgium",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"nl",
+"fr",
+"de"
+]
+},
+{
+"code": "BO",
+"name": "Bolivia",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "BR",
+"name": "Brazil",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"pt"
+]
+},
+{
+"code": "BG",
+"name": "Bulgaria",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"bg"
+]
+},
+{
+"code": "CA",
+"name": "Canada",
+"regions": [
+"NORTH_AMERICA",
+"AMERICAS"
+],
+"languages": [
+"en",
+"fr"
+]
+},
+{
+"code": "CL",
+"name": "Chile",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "CN",
+"name": "China",
+"regions": [
+"APAC"
+],
+"languages": [
+"zh"
+]
+},
+{
+"code": "CO",
+"name": "Colombia",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "CR",
+"name": "Costa Rica",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "HR",
+"name": "Croatia",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"hr"
+]
+},
+{
+"code": "CU",
+"name": "Cuba",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "CY",
+"name": "Cyprus",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"el",
+"tr"
+]
+},
+{
+"code": "CZ",
+"name": "Czechia",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"cs"
+]
+},
+{
+"code": "DK",
+"name": "Denmark",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"da"
+]
+},
+{
+"code": "DO",
+"name": "Dominican Republic",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "EC",
+"name": "Ecuador",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "EG",
+"name": "Egypt",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"ar"
+]
+},
+{
+"code": "SV",
+"name": "El Salvador",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "GQ",
+"name": "Equatorial Guinea",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"es",
+"fr",
+"pt"
+]
+},
+{
+"code": "EE",
+"name": "Estonia",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"et"
+]
+},
+{
+"code": "FI",
+"name": "Finland",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"fi",
+"sv"
+]
+},
+{
+"code": "FR",
+"name": "France",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"fr"
+]
+},
+{
+"code": "DE",
+"name": "Germany",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"de"
+]
+},
+{
+"code": "GR",
+"name": "Greece",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"el"
+]
+},
+{
+"code": "GT",
+"name": "Guatemala",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "HN",
+"name": "Honduras",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "HK",
+"name": "Hong Kong",
+"regions": [
+"APAC"
+],
+"languages": [
+"zh",
+"en"
+]
+},
+{
+"code": "HU",
+"name": "Hungary",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"hu"
+]
+},
+{
+"code": "IS",
+"name": "Iceland",
+"regions": [
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"is"
+]
+},
+{
+"code": "IN",
+"name": "India",
+"regions": [
+"APAC"
+],
+"languages": [
+"hi",
+"en"
+]
+},
+{
+"code": "ID",
+"name": "Indonesia",
+"regions": [
+"APAC"
+],
+"languages": [
+"id"
+]
+},
+{
+"code": "IE",
+"name": "Ireland",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"en",
+"ga"
+]
+},
+{
+"code": "IL",
+"name": "Israel",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"he"
+]
+},
+{
+"code": "IT",
+"name": "Italy",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"it"
+]
+},
+{
+"code": "JP",
+"name": "Japan",
+"regions": [
+"APAC"
+],
+"languages": [
+"ja"
+]
+},
+{
+"code": "KE",
+"name": "Kenya",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"en",
+"sw"
+]
+},
+{
+"code": "LV",
+"name": "Latvia",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"lv"
+]
+},
+{
+"code": "LI",
+"name": "Liechtenstein",
+"regions": [
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"de"
+]
+},
+{
+"code": "LT",
+"name": "Lithuania",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"lt"
+]
+},
+{
+"code": "LU",
+"name": "Luxembourg",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"lb",
+"fr",
+"de"
+]
+},
+{
+"code": "MY",
+"name": "Malaysia",
+"regions": [
+"APAC"
+],
+"languages": [
+"ms",
+"en"
+]
+},
+{
+"code": "MT",
+"name": "Malta",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"mt",
+"en"
+]
+},
+{
+"code": "MX",
+"name": "Mexico",
+"regions": [
+"NORTH_AMERICA",
+"AMERICAS",
+"LATAM"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "MA",
+"name": "Morocco",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"ar",
+"fr"
+]
+},
+{
+"code": "NL",
+"name": "Netherlands",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"nl"
+]
+},
+{
+"code": "NZ",
+"name": "New Zealand",
+"regions": [
+"APAC"
+],
+"languages": [
+"en"
+]
+},
+{
+"code": "NI",
+"name": "Nicaragua",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "NG",
+"name": "Nigeria",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"en"
+]
+},
+{
+"code": "NO",
+"name": "Norway",
+"regions": [
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"no"
+]
+},
+{
+"code": "PK",
+"name": "Pakistan",
+"regions": [
+"APAC"
+],
+"languages": [
+"ur",
+"en"
+]
+},
+{
+"code": "PA",
+"name": "Panama",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "PY",
+"name": "Paraguay",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "PE",
+"name": "Peru",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "PH",
+"name": "Philippines",
+"regions": [
+"APAC"
+],
+"languages": [
+"en",
+"tl"
+]
+},
+{
+"code": "PL",
+"name": "Poland",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"pl"
+]
+},
+{
+"code": "PT",
+"name": "Portugal",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"pt"
+]
+},
+{
+"code": "RO",
+"name": "Romania",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"ro"
+]
+},
+{
+"code": "SA",
+"name": "Saudi Arabia",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"ar"
+]
+},
+{
+"code": "RS",
+"name": "Serbia",
+"regions": [
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"sr"
+]
+},
+{
+"code": "SG",
+"name": "Singapore",
+"regions": [
+"APAC"
+],
+"languages": [
+"en",
+"zh",
+"ms",
+"ta"
+]
+},
+{
+"code": "SK",
+"name": "Slovakia",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"sk"
+]
+},
+{
+"code": "SI",
+"name": "Slovenia",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"sl"
+]
+},
+{
+"code": "ZA",
+"name": "South Africa",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"en",
+"af",
+"zu"
+]
+},
+{
+"code": "KR",
+"name": "South Korea",
+"regions": [
+"APAC"
+],
+"languages": [
+"ko"
+]
+},
+{
+"code": "ES",
+"name": "Spain",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "SE",
+"name": "Sweden",
+"regions": [
+"EU",
+"EEA",
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"sv"
+]
+},
+{
+"code": "CH",
+"name": "Switzerland",
+"regions": [
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"de",
+"fr",
+"it"
+]
+},
+{
+"code": "TW",
+"name": "Taiwan",
+"regions": [
+"APAC"
+],
+"languages": [
+"zh"
+]
+},
+{
+"code": "TH",
+"name": "Thailand",
+"regions": [
+"APAC"
+],
+"languages": [
+"th"
+]
+},
+{
+"code": "TR",
+"name": "Turkey",
+"regions": [
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"tr"
+]
+},
+{
+"code": "UA",
+"name": "Ukraine",
+"regions": [
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"uk"
+]
+},
+{
+"code": "AE",
+"name": "United Arab Emirates",
+"regions": [
+"EMEA",
+"MEA"
+],
+"languages": [
+"ar"
+]
+},
+{
+"code": "GB",
+"name": "United Kingdom",
+"regions": [
+"EUROPE",
+"EMEA"
+],
+"languages": [
+"en"
+]
+},
+{
+"code": "US",
+"name": "United States",
+"regions": [
+"NORTH_AMERICA",
+"AMERICAS"
+],
+"languages": [
+"en"
+]
+},
+{
+"code": "UY",
+"name": "Uruguay",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "VE",
+"name": "Venezuela",
+"regions": [
+"LATAM",
+"AMERICAS"
+],
+"languages": [
+"es"
+]
+},
+{
+"code": "VN",
+"name": "Vietnam",
+"regions": [
+"APAC"
+],
+"languages": [
+"vi"
+]
+}
+],
+"regions": [
+{
+"code": "EU",
+"name": "European Union"
+},
+{
+"code": "EEA",
+"name": "EEA"
+},
+{
+"code": "EUROPE",
+"name": "European"
+},
+{
+"code": "EMEA",
+"name": "EMEA"
+},
+{
+"code": "MEA",
+"name": "Middle East"
+},
+{
+"code": "NORTH_AMERICA",
+"name": "North America"
+},
+{
+"code": "AMERICAS",
+"name": "Americas"
+},
+{
+"code": "LATAM",
+"name": "South America"
+},
+{
+"code": "APAC",
+"name": "Asia-Pacific"
+}
+]
+}

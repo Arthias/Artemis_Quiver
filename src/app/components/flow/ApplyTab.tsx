@@ -16,12 +16,12 @@ import {
   logOutsideApplication,
   outbox,
   overrideExcluded,
-  pendingCompanies,
   saveQueue,
   updateItem,
   type OutboxOp,
   type StoredQueue,
 } from "../../services/applyQueue";
+import { CompanyHistory } from "./CompanyHistory";
 
 export const QUEUE_UPDATED = "ARTEMIS_APPLY_QUEUE_UPDATED";
 
@@ -93,7 +93,7 @@ export function ApplyTab({ flowBaseUrl }: { flowBaseUrl: string }) {
     setBusy(true);
     setError(null);
     try {
-      const q = await getApplyQueue(flowBaseUrl, { minScore, maxScore, limit, excludeCompanies: await pendingCompanies() });
+      const q = await getApplyQueue(flowBaseUrl, { minScore, maxScore, limit });
       setQueue(await saveQueue(profileId, flowBaseUrl, q));
       notifyPanel();
     } catch (err) {
@@ -212,6 +212,7 @@ export function ApplyTab({ flowBaseUrl }: { flowBaseUrl: string }) {
                   <Badge variant="outline" className="ml-auto">{Math.round(i.score)}</Badge>
                   <Badge variant={i.state === "done" ? "secondary" : "outline"}>{i.tag ? t(`flow.applyTag_${i.tag}`) : t(`flow.applyState_${i.state}`)}</Badge>
                 </div>
+                <CompanyHistory company={i.company} history={i.company_history} />
                 <Verdicts verdicts={i.verdicts} />
                 {i.override && <p className="text-xs text-amber-600">{t("flow.applyOverridden")}: {i.override}</p>}
               </li>
@@ -230,6 +231,7 @@ export function ApplyTab({ flowBaseUrl }: { flowBaseUrl: string }) {
                       <Badge variant="outline" className="ml-auto">{Math.round(e.score)}</Badge>
                       <Button size="sm" variant="ghost" onClick={() => override(e)}>{t("flow.applyAnyway")}</Button>
                     </div>
+                    <CompanyHistory company={e.company} history={e.company_history} />
                     <Verdicts verdicts={e.verdicts.filter((v) => v.verdict !== "pass")} />
                   </li>
                 ))}

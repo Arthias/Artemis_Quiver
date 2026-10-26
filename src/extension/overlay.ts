@@ -13,7 +13,7 @@ const _ot: Record<string, string> = {
   "overlay.clickToExpand": "Click to expand",
   "overlay.close": "Close",
   "overlay.noFingerprint": "No profile fingerprint.",
-  "overlay.noFingerprintDesc": "Open the Artemis Quiver popup and generate a fingerprint to get AI match scores.",
+  "overlay.noFingerprintDesc": "Open Quiver's Profile page, Fingerprint tab, to build a fingerprint and get AI match scores.",
   "overlay.scoringFailed": "Match scoring failed.",
   "overlay.nanUnavailable": "Gemini Nano is unavailable. Switch the fallback mode in the extension popup to enable AI scoring.",
   "overlay.checkEndpoint": "Check that your LLM endpoint is configured in settings and the server is running.",

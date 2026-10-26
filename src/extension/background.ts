@@ -2,7 +2,6 @@ import { loadTranslations, t } from "./i18n";
 import { AppError, ErrorCodes } from "../app/utils/errors";
 import { parseSiteEntry, siteToMatchPatterns, siteToOriginPatterns, normalizeSiteEntry, matchJobSite, DEFAULT_JOB_SITES } from "./job-sites";
 import { extractPageContent } from "./pageExtract";
-import { readActiveProfile } from "./idbProfile";
 import { outbox, drainOutbox, refreshBadge } from "../app/services/applyQueue";
 import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatibleAdapter";
 import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
@@ -346,10 +345,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // ── Message handlers ──
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   switch (msg.type) {
-    case "ARTEMIS_GENERATE_FINGERPRINT":
-      void handleGenerateFingerprint(sendResponse);
-      return true; // keep channel open for async
-
     case "ARTEMIS_LLM_SCORE":
       void handleLLMScore(msg.payload, sendResponse);
       return true;
@@ -399,80 +394,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-// ── Fingerprint generation ──
-interface FingerprintSource {
-  profileMarkdown: string;
-  primaryEndpoint?: ModelEndpoint;
-  secondaryEndpoint?: ModelEndpoint;
-}
-
-async function handleGenerateFingerprint(sendResponse: (resp: any) => void) {
-  try {
-    // Preferred path: read the active profile straight from IndexedDB (same
-    // origin as the app), so no app tab needs to be open.
-    const source = await getFingerprintSource(sendResponse);
-    if (!source) return;
-
-    const overlayCfg = await getConfig();
-    const fingerprint = await generateFingerprintFromProfile(source, overlayCfg);
-
-    if (fingerprint) {
-      await saveFingerprint(fingerprint, source);
-      console.log("[Artemis] Fingerprint generated:", fingerprint.slice(0, 60) + "...");
-      sendResponse({ fingerprint });
-    } else {
-      console.log("[Artemis] LLM returned null fingerprint");
-      sendResponse({ error: t("background.fingerprintFailed") });
-    }
-  } catch (err) {
-    const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    console.error("[Artemis] generate_fingerprint:", appError);
-    sendResponse({ error: appError.message });
-  }
-}
-
-// Resolves profile data from IndexedDB first; falls back to asking an open app
-// tab (e.g. when the app hasn't written its database yet). Returns null after
-// sending an error response when neither path yields profile data.
-async function getFingerprintSource(sendResponse?: (resp: any) => void): Promise<FingerprintSource | null> {
-  const idbProfile = await readActiveProfile();
-  if (idbProfile) {
-    return {
-      profileMarkdown: idbProfile.profileMarkdown,
-      primaryEndpoint: idbProfile.primary,
-      secondaryEndpoint: idbProfile.secondary,
-    };
-  }
-
-  const appUrl = chrome.runtime.getURL("index.html");
-  const existingTabs = await chrome.tabs.query({ url: appUrl + "*" });
-  if (existingTabs.length === 0) {
-    sendResponse?.({ error: t("background.noProfile") });
-    return null;
-  }
-  const tabId = existingTabs[0]!.id!;
-  const profileResp = await chrome.tabs.sendMessage(tabId, { type: "ARTEMIS_REQUEST_PROFILE" });
-  const markdown: string | undefined = (profileResp as any)?.profileMarkdown;
-  if (!markdown) {
-    sendResponse?.({ error: t("background.noProfileData") });
-    return null;
-  }
-  return { profileMarkdown: markdown, ...(profileResp as any) };
-}
-
-async function generateFingerprintFromProfile(source: FingerprintSource, overlayCfg: any): Promise<string | null> {
-  const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${source.profileMarkdown.slice(0, 4000)}`;
-  const endpoints: any = {};
-  if (source.primaryEndpoint) endpoints.primaryEndpoint = source.primaryEndpoint;
-  if (source.secondaryEndpoint) endpoints.secondaryEndpoint = source.secondaryEndpoint;
-
-  const effectiveConfig = overlayCfg.fallbackMode === "primary" || overlayCfg.fallbackMode === "secondary"
-    ? { ...overlayCfg, ...endpoints }
-    : { ...endpoints, fallbackMode: "primary" };
-
-  return callRemoteLLM(prompt, effectiveConfig, { temperature: 0.3 });
-}
-
+// The fingerprint is built on Quiver's Profile page and mirrored into
+// overlayConfig by the app (hooks/useFingerprintMirror.ts); nothing here generates it.
 
 function adapterFor(provider?: string): ProviderAdapter {
   switch (provider) {
@@ -532,19 +455,6 @@ function resolveEndpoint(config: any): ModelEndpoint | null {
     model: "google/gemma-4-e2b",
     temperature: 0.7,
   });
-}
-
-async function saveFingerprint(fingerprint: string, appResp?: any) {
-  const config = await getConfig();
-  config.fingerprint = fingerprint;
-  config.lastFingerprintUpdate = new Date().toISOString();
-  if (appResp?.primaryEndpoint) {
-    config.primaryEndpoint = { ...appResp.primaryEndpoint, baseUrl: fixExtensionBaseUrl(appResp.primaryEndpoint.baseUrl) };
-  }
-  if (appResp?.secondaryEndpoint) {
-    config.secondaryEndpoint = { ...appResp.secondaryEndpoint, baseUrl: fixExtensionBaseUrl(appResp.secondaryEndpoint.baseUrl) };
-  }
-  await chrome.storage.local.set({ [STORAGE_KEY]: config });
 }
 
 async function getConfig(): Promise<any> {

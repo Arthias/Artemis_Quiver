@@ -118,6 +118,13 @@ export function ApplyQueueSection({ tabId }: { tabId: number | null }) {
           <div style={{ fontSize: "12px", color: "#94a3b8" }}>
             {[item.company, item.location, item.work_mode].filter(Boolean).join(" · ")}
           </div>
+          {item.company_history?.map((h, i) => (
+            <div key={i} style={{ fontSize: "11px", color: "#d97706" }}>
+              {t("flow.appliedOn", { company: item.company, date: new Date(h.applied_at).toLocaleDateString() })}
+              {" · "}
+              {h.job_url ? <a href={h.job_url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{h.title}</a> : h.title}
+            </div>
+          ))}
           <div style={{ fontSize: "12px", marginTop: "6px" }}>
             {t("sidepanel.queue.score", { score: Math.round(item.score) })}
             {item.score_passes != null && ` · ${t("sidepanel.queue.passes", { n: item.score_passes, spread: Math.round(item.score_spread ?? 0) })}`}
@@ -155,7 +162,7 @@ export function ApplyQueueSection({ tabId }: { tabId: number | null }) {
               <div style={row}>
                 <button onClick={() => tag(item, "closed")} style={btn}>{t("sidepanel.queue.tag_closed")}</button>
                 <button onClick={() => tag(item, "archived")} style={btn}>{t("sidepanel.queue.tag_archived")}</button>
-                <button onClick={() => setBlocking({ kind: "other", evidence: "", blockCompany: false })} style={btn}>
+                <button onClick={() => setBlocking({ kind: "other", evidence: "" })} style={btn}>
                   {t("sidepanel.queue.tag_blocked")}
                 </button>
                 <button onClick={() => open(item)} style={btn}>{t("sidepanel.queue.reopen")}</button>
@@ -175,10 +182,6 @@ export function ApplyQueueSection({ tabId }: { tabId: number | null }) {
                 onChange={(e) => setBlocking({ ...blocking, evidence: e.target.value })}
                 style={input}
               />
-              <label style={{ fontSize: "11px", display: "flex", gap: "6px", alignItems: "center" }}>
-                <input type="checkbox" checked={blocking.blockCompany} onChange={(e) => setBlocking({ ...blocking, blockCompany: e.target.checked })} />
-                {t("sidepanel.queue.blockCompany", { company: item.company })}
-              </label>
               <div style={row}>
                 <button onClick={() => tag(item, "blocked", blocking)} disabled={!blocking.evidence.trim()} style={primary}>
                   {t("sidepanel.queue.confirmBlocked")}

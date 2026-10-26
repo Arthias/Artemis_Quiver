@@ -51,6 +51,21 @@ interface WorkspaceProfileContextValue {
 
 const WorkspaceProfileContext = createContext<WorkspaceProfileContextValue | null>(null);
 
+type StoredData = Omit<ProfileWorkspaceData, "analysisSessions">;
+
+/** The fields of a profile that live on its record. Every save and load goes
+ * through this, so a new field cannot be dropped by one hand-copied list. */
+function storedFields(d: StoredData): StoredData {
+  return {
+    profileMarkdown: d.profileMarkdown,
+    settings: d.settings,
+    draftJobPosting: d.draftJobPosting,
+    profileChat: d.profileChat,
+    preferences: d.preferences,
+    fingerprint: d.fingerprint,
+  };
+}
+
 export function WorkspaceProfileProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [manifest, setManifest] = useState<WorkspaceManifest | null>(null);
@@ -97,13 +112,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
           })),
         });
 
-        setProfileData({
-          profileMarkdown: loadedData.profileMarkdown,
-          settings: loadedData.settings,
-          analysisSessions: [],
-          draftJobPosting: loadedData.draftJobPosting,
-          profileChat: loadedData.profileChat,
-        });
+        setProfileData({ ...storedFields(loadedData), analysisSessions: [] });
 
         applyTheme(loadedData.settings.theme);
       } catch (err) {
@@ -147,10 +156,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
       createdAt: activeProfile.createdAt,
       lastUsedAt: activeProfile.lastUsedAt,
       lastModifiedAt: activeProfile.lastModifiedAt,
-      profileMarkdown: profileData.profileMarkdown,
-      settings: profileData.settings,
-      draftJobPosting: profileData.draftJobPosting,
-      profileChat: profileData.profileChat,
+      ...storedFields(profileData),
     });
   }, [manifest, profileData, activeProfile]);
 
@@ -168,10 +174,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
       createdAt: activeProfile.createdAt,
       lastUsedAt: now,
       lastModifiedAt: activeProfile.lastModifiedAt,
-      profileMarkdown: profileData.profileMarkdown,
-      settings: profileData.settings,
-      draftJobPosting: profileData.draftJobPosting,
-      profileChat: profileData.profileChat,
+      ...storedFields(profileData),
     });
   }, [manifest, profileData, activeProfile]);
 
@@ -186,10 +189,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         createdAt: activeProfile.createdAt,
         lastUsedAt: activeProfile.lastUsedAt,
         lastModifiedAt: activeProfile.lastModifiedAt,
-        profileMarkdown: profileData.profileMarkdown,
-        settings: profileData.settings,
-        draftJobPosting: profileData.draftJobPosting,
-        profileChat: profileData.profileChat,
+        ...storedFields(profileData),
       });
 
       const target = await getProfile(id);
@@ -213,13 +213,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         })),
       });
 
-      setProfileData({
-        profileMarkdown: updatedTarget.profileMarkdown,
-        settings: updatedTarget.settings,
-        analysisSessions: [], // Decoupled/handled in AnalysisContext
-        draftJobPosting: updatedTarget.draftJobPosting,
-        profileChat: updatedTarget.profileChat,
-      });
+      setProfileData({ ...storedFields(updatedTarget), analysisSessions: [] });
 
       applyTheme(updatedTarget.settings.theme);
     },
@@ -239,10 +233,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         createdAt: activeProfile.createdAt,
         lastUsedAt: activeProfile.lastUsedAt,
         lastModifiedAt: activeProfile.lastModifiedAt,
-        profileMarkdown: profileData.profileMarkdown,
-        settings: profileData.settings,
-        draftJobPosting: profileData.draftJobPosting,
-        profileChat: profileData.profileChat,
+        ...storedFields(profileData),
       });
 
       const now = new Date().toISOString();
@@ -269,10 +260,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         createdAt: now,
         lastUsedAt: now,
         lastModifiedAt: now,
-        profileMarkdown: emptyData.profileMarkdown,
-        settings: emptyData.settings,
-        draftJobPosting: emptyData.draftJobPosting,
-        profileChat: emptyData.profileChat,
+        ...storedFields(emptyData),
       });
       await setActiveProfileId(newId);
 
@@ -289,13 +277,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
         })),
       });
 
-      setProfileData({
-        profileMarkdown: emptyData.profileMarkdown,
-        settings: emptyData.settings,
-        analysisSessions: [],
-        draftJobPosting: emptyData.draftJobPosting,
-        profileChat: emptyData.profileChat,
-      });
+      setProfileData({ ...storedFields(emptyData), analysisSessions: [] });
 
       applyTheme(emptyData.settings.theme);
       return newId;
@@ -321,13 +303,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
           const updatedTarget = { ...target, lastUsedAt: now };
           await saveProfile(updatedTarget);
           await setActiveProfileId(nextActiveId);
-          setProfileData({
-            profileMarkdown: updatedTarget.profileMarkdown,
-            settings: updatedTarget.settings,
-            analysisSessions: [],
-            draftJobPosting: updatedTarget.draftJobPosting,
-            profileChat: updatedTarget.profileChat,
-          });
+          setProfileData({ ...storedFields(updatedTarget), analysisSessions: [] });
           applyTheme(updatedTarget.settings.theme);
         }
       }
@@ -372,10 +348,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
             createdAt: activeProfile.createdAt,
             lastUsedAt: activeProfile.lastUsedAt,
             lastModifiedAt: now,
-            profileMarkdown: next.profileMarkdown,
-            settings: next.settings,
-            draftJobPosting: next.draftJobPosting,
-            profileChat: next.profileChat,
+            ...storedFields(next),
           });
         }
 
@@ -408,10 +381,7 @@ export function WorkspaceProfileProvider({ children }: { children: ReactNode }) 
       createdAt: activeProfile.createdAt,
       lastUsedAt: activeProfile.lastUsedAt,
       lastModifiedAt: activeProfile.lastModifiedAt,
-      profileMarkdown: profileData.profileMarkdown,
-      settings: profileData.settings,
-      draftJobPosting: profileData.draftJobPosting,
-      profileChat: profileData.profileChat,
+      ...storedFields(profileData),
     });
   }, [profileData?.settings]);
 

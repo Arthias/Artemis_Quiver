@@ -221,7 +221,6 @@ export async function refreshBadge(count?: number): Promise<void> {
 export interface BlockDetails {
   kind: "degree" | "location" | "work_mode" | "sponsorship" | "language" | "clearance" | "other";
   evidence: string;
-  blockCompany: boolean;
 }
 
 /** Record a tag: the outbox write happens before the caller updates its UI. */
@@ -256,7 +255,7 @@ export async function tagItem(
       ...base, method: "POST", path: "/api/disqualifications",
       body: {
         id: crypto.randomUUID(), job_id: item.job_id, company: item.company, kind: block.kind, evidence: block.evidence.trim(),
-        found_where: "posting", verdicts_at_time: verdicts, block_company: block.blockCompany,
+        found_where: "posting", verdicts_at_time: verdicts,
       },
     }]);
   }
@@ -275,7 +274,3 @@ export async function undoApplied(profileId: string, q: StoredQueue, item: Queue
   return updated;
 }
 
-/** Companies applied to locally but not yet recorded in Flow. */
-export async function pendingCompanies(): Promise<string[]> {
-  return (await outbox()).flatMap((op) => (op.company ? [op.company] : []));
-}

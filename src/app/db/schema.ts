@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import type { ProfileSettings } from "../types/workspace";
 import type { AnalysisSession } from "../types/analysis";
 import type { ChatMessage } from "../types/llm";
+import type { Layer, ProfilePreferences } from "../types/preferences";
 
 export interface ProfileRecord {
   id: string;
@@ -13,6 +14,9 @@ export interface ProfileRecord {
   settings: ProfileSettings;
   draftJobPosting: string;
   profileChat: ChatMessage[];
+  // Not indexed, so no Dexie version bump (Profile-Management-Spec §3).
+  preferences?: Layer<ProfilePreferences>;
+  fingerprint?: Layer<string>;
 }
 
 export interface AnalysisSessionRecord {

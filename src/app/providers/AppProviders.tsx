@@ -9,6 +9,8 @@ import { WorkspaceProfileProvider } from "../context/WorkspaceProfileContext";
 import { ExtensionBridgeProvider } from "../context/ExtensionBridgeContext";
 import { ErrorLogProvider } from "../context/ErrorLogContext";
 import { OnboardingProvider } from "../context/OnboardingContext";
+import { FlowAutoSync } from "../hooks/useFlowSync";
+import { FingerprintMirror } from "../hooks/useFingerprintMirror";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
@@ -18,6 +20,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <OnboardingProvider>
             <ConfigProvider>
               <ProfileProvider>
+                <FlowAutoSync />
+                <FingerprintMirror />
                 <AnalysisProvider>
                   <BuilderHandoffProvider>
                     <ExtensionBridgeProvider>{children}</ExtensionBridgeProvider>

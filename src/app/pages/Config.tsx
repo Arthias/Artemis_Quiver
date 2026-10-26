@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint, Workflow, Send, CheckCircle2, XCircle, Cloud, Laptop } from "lucide-react";
+import { Settings, Zap, ChevronDown, ChevronRight, Loader2, List, Globe, Plus, X, Bug, Trash2, Pencil, Check, AlertTriangle, Fingerprint, Workflow, CheckCircle2, XCircle, Cloud, Laptop } from "lucide-react";
 import { useErrorLog } from "../context/ErrorLogContext";
 import {
   Select,
@@ -15,19 +15,16 @@ import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
-import { useProfile } from "../context/ProfileContext";
-import { useWorkspace } from "../context/WorkspaceProfileContext";
-import { chatCompletion, listModels as listModelsApi, testConnection } from "../services/llmService";
+import { listModels as listModelsApi, testConnection } from "../services/llmService";
 import {
   checkFlowHealth,
-  sendProfileToFlow,
-  sendConfigToFlow,
+  startSearch,
   testEndpointFromFlow,
-  getBacklogConfig,
-  updateBacklogConfig,
   type FlowStatus,
-  type FlowBacklogConfig,
 } from "../services/flowBridge";
+import { useFlowSync } from "../hooks/useFlowSync";
+import { defaultFlowRunConfig, type FlowRunConfig } from "../types/preferences";
+import { Link } from "react-router";
 import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import { PROVIDER_DEFAULT_BASE_URLS } from "../config/defaults";
@@ -50,14 +47,11 @@ import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "../components/ui/LanguageSelector";
 import { toast } from "sonner";
 import { AppError } from "../utils/errors";
-import { ApplicationSettingsCard } from "../components/apply/ApplicationSettingsCard";
-import { PreferencesSection } from "../components/flow/PreferencesSection";
-import { CompanyRulesSection } from "../components/flow/CompanyRulesSection";
+
 
 function ExtensionSettingsCard() {
   const { t } = useTranslation();
   const configCtx = useConfig();
-  const workspace = useWorkspace();
   const [customSites, setCustomSites] = useState<string[]>([]);
   const [excludedSites, setExcludedSites] = useState<string[]>([]);
   const [newSite, setNewSite] = useState("");
@@ -67,10 +61,6 @@ function ExtensionSettingsCard() {
   const [permError, setPermError] = useState<string | null>(null);
   const [editingSite, setEditingSite] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [fingerprint, setFingerprint] = useState<string | null>(null);
-  const [fpLoading, setFpLoading] = useState(false);
-  const [fpError, setFpError] = useState<string | null>(null);
-  const [fpStorageKey, setFpStorageKey] = useState<string | null>(null);
   // Whether the extension actually holds the optional host permission for
   // each configured site — being in jobSites/DEFAULT_JOB_SITES does NOT mean
   // the overlay will show up there. chrome.scripting.registerContentScripts()
@@ -80,51 +70,6 @@ function ExtensionSettingsCard() {
   // out of the box but never actually had permission requested for them.
   const [sitePermissions, setSitePermissions] = useState<Record<string, boolean>>({});
   const [grantingSite, setGrantingSite] = useState<string | null>(null);
-
-  useEffect(() => {
-    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
-    if (!isExt) return;
-    chrome.storage.local.get("artemis:overlayConfig").then((result) => {
-      const cfg = (result as any)["artemis:overlayConfig"] || {};
-      setFingerprint(cfg.fingerprint ?? null);
-      setFpStorageKey(cfg.lastFingerprintUpdate ?? null);
-    });
-  }, []);
-
-  async function generateFingerprint() {
-    setFpLoading(true);
-    setFpError(null);
-    const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
-
-    try {
-      const markdown = workspace.profileData?.profileMarkdown;
-      const endpoint = configCtx.config.primary;
-      if (!markdown) { setFpError(t("config.fingerprintNoProfile")); return; }
-      if (!endpoint.baseUrl || !endpoint.model) { setFpError(t("config.fingerprintNoEndpoint")); return; }
-
-      const prompt = `Produce a single-line fingerprint of this profile for matching against job postings. Format: Role | Skills (pipe-separated, max 5) | YoE | Industries. Keep under 300 chars. No preamble, no explanation, no markdown.\n\nProfile:\n${markdown.slice(0, 4000)}`;
-      const result = await chatCompletion([{ role: "user", content: prompt }], endpoint, { timeoutMs: 120000 });
-
-      setFingerprint(result);
-
-      if (isExt) {
-        const stored = await chrome.storage.local.get("artemis:overlayConfig");
-        const cfg: any = stored["artemis:overlayConfig"] || {};
-        cfg.fingerprint = result;
-        cfg.lastFingerprintUpdate = new Date().toISOString();
-        cfg.primaryEndpoint = { ...endpoint };
-        if (configCtx.config.secondary?.baseUrl) {
-          cfg.secondaryEndpoint = { ...configCtx.config.secondary };
-        }
-        await chrome.storage.local.set({ "artemis:overlayConfig": cfg });
-        setFpStorageKey(cfg.lastFingerprintUpdate);
-      }
-    } catch (err) {
-      setFpError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setFpLoading(false);
-    }
-  }
 
   useEffect(() => {
     const isExt = typeof chrome !== "undefined" && chrome.storage?.local;
@@ -412,41 +357,15 @@ function ExtensionSettingsCard() {
 
       <hr className="border-t border-border" />
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Fingerprint className="w-5 h-5 text-purple-500" />
           <h3 className="text-base font-semibold">{t("config.profileFingerprint")}</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          {t("config.fingerprintDesc")}
+          {t("config.fingerprintMoved")}{" "}
+          <Link to="/profile" state={{ tab: "fingerprint" }} className="underline">{t("config.fingerprintMovedLink")}</Link>
         </p>
-
-        {fingerprint && (
-          <div className="bg-muted rounded p-3 text-xs font-mono break-all">
-            {fingerprint}
-          </div>
-        )}
-        {fpError && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded p-3 text-xs text-destructive">
-            {fpError}
-          </div>
-        )}
-
-        <div className="flex items-center gap-3">
-          <Button
-            size="sm"
-            onClick={generateFingerprint}
-            disabled={fpLoading}
-          >
-            {fpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
-            {fpLoading ? t("config.generating") : t("config.generateFingerprint")}
-          </Button>
-          {fingerprint && fpStorageKey && (
-            <span className="text-xs text-muted-foreground">
-              {t("config.updated")} {new Date(fpStorageKey).toLocaleDateString()}
-            </span>
-          )}
-        </div>
       </div>
 
       <hr className="border-t border-border" />
@@ -496,38 +415,19 @@ function FlowEndpointRow({
   label,
   flowBaseUrl,
   connected,
-  onSent,
 }: {
   endpoint: ModelEndpoint;
   label: string;
   flowBaseUrl: string;
   connected: boolean;
-  onSent: () => void;
 }) {
   const { t } = useTranslation();
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
   const [testingQuiver, setTestingQuiver] = useState(false);
   const [testingFlow, setTestingFlow] = useState(false);
   const [quiverResult, setQuiverResult] = useState<"ok" | "fail" | null>(null);
   const [flowResult, setFlowResult] = useState<"ok" | "fail" | null>(null);
 
   const supported = endpoint.provider === "anthropic" || endpoint.provider === "openai-compatible";
-
-  async function handleSend() {
-    setSending(true);
-    setSendError(null);
-    try {
-      await sendConfigToFlow(flowBaseUrl, endpoint);
-      setSent(true);
-      onSent();
-    } catch (err) {
-      setSendError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSending(false);
-    }
-  }
 
   async function handleTestQuiver() {
     setTestingQuiver(true);
@@ -559,21 +459,10 @@ function FlowEndpointRow({
             {endpoint.provider} · {endpoint.model || t("config.flowNoModel")}
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!connected || !supported || sending}
-          onClick={handleSend}
-          title={!supported ? t("config.flowProviderUnsupported") : undefined}
-        >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          {sent ? t("config.flowSent") : t("config.flowSend")}
-        </Button>
       </div>
       {!supported && (
         <p className="text-xs text-muted-foreground">{t("config.flowProviderUnsupported")}</p>
       )}
-      {sendError && <p className="text-xs text-destructive">{sendError}</p>}
       <div className="flex items-center gap-4 text-xs">
         <button
           type="button"
@@ -613,22 +502,31 @@ function FlowEndpointRow({
 function FlowSettingsCard() {
   const { t } = useTranslation();
   const { config, updateConfig } = useConfig();
-  const { profile } = useProfile();
+  const sync = useFlowSync();
   const [flowBaseUrlInput, setFlowBaseUrlInput] = useState(config.flowBaseUrl || "http://localhost:8000");
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState<FlowStatus | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [profilePushed, setProfilePushed] = useState(false);
-  const [primaryPushed, setPrimaryPushed] = useState(false);
-  const [secondaryPushed, setSecondaryPushed] = useState(false);
-  const [pushingProfile, setPushingProfile] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
 
   const connected = status?.connected ?? false;
-  const canStart = Boolean(config.flowConfiguredAt) || (profilePushed && (primaryPushed || secondaryPushed));
+  const flow = config.flow ?? defaultFlowRunConfig();
+  const canStart = Boolean(config.flowConfiguredAt) && !sync.problem;
+  const editFlow = (patch: Partial<FlowRunConfig>) => updateConfig({ flow: { ...flow, ...patch } });
+
+  useEffect(() => {
+    if (!config.flowBaseUrl) return;
+    let live = true;
+    void checkFlowHealth(config.flowBaseUrl).then((r) => live && setStatus(r));
+    return () => { live = false; };
+  }, [config.flowBaseUrl]);
+
+  useEffect(() => {
+    if (connected) void sync.syncNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected]);
 
   async function handleConnect() {
     // The extension's pages and side panel call Flow cross-origin; localhost
@@ -650,34 +548,12 @@ function FlowSettingsCard() {
     setConnecting(false);
   }
 
-  async function handleSendProfile() {
-    if (!config.flowBaseUrl) return;
-    setPushingProfile(true);
-    setProfileError(null);
-    try {
-      await sendProfileToFlow(config.flowBaseUrl, profile);
-      setProfilePushed(true);
-    } catch (err) {
-      setProfileError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setPushingProfile(false);
-    }
-  }
-
-  useEffect(() => {
-    if (profilePushed && (primaryPushed || secondaryPushed) && !config.flowConfiguredAt) {
-      updateConfig({ flowConfiguredAt: new Date().toISOString() });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profilePushed, primaryPushed, secondaryPushed]);
-
   async function handleStart() {
     if (!config.flowBaseUrl) return;
     setStarting(true);
     setStartError(null);
     try {
-      const res = await fetch(`${config.flowBaseUrl}/api/pipeline/search`, { method: "POST" });
-      if (!res.ok) throw new Error(`Failed to start Flow: ${res.statusText}`);
+      await startSearch(config.flowBaseUrl);
       setStarted(true);
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
@@ -685,6 +561,8 @@ function FlowSettingsCard() {
       setStarting(false);
     }
   }
+
+  const endpoint = flow.llmEndpoint === "secondary" ? config.secondary : config.primary;
 
   return (
     <Card className="p-6 space-y-4">
@@ -711,11 +589,7 @@ function FlowSettingsCard() {
 
       {status && (
         <div className="flex items-center gap-2 text-sm">
-          {connected ? (
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
-          ) : (
-            <XCircle className="w-4 h-4 text-destructive" />
-          )}
+          {connected ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-destructive" />}
           <span>{connected ? t("config.flowConnected") : t("config.flowDisconnected")}</span>
           {connected && typeof status.totalJobs === "number" && (
             <span className="text-muted-foreground">· {t("config.flowTotalJobs", { n: status.totalJobs })}</span>
@@ -726,37 +600,37 @@ function FlowSettingsCard() {
       {connected && (
         <>
           <hr className="border-t border-border" />
+          <FlowSyncStatus sync={sync} />
 
+          <hr className="border-t border-border" />
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <Label>{t("config.flowSendProfile")}</Label>
-                <p className="text-xs text-muted-foreground">{t("config.flowSendProfileDesc")}</p>
-              </div>
-              <Button size="sm" variant="outline" onClick={handleSendProfile} disabled={pushingProfile}>
-                {pushingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {profilePushed ? t("config.flowSent") : t("config.flowSend")}
-              </Button>
+            <div>
+              <Label>{t("config.flowModelTitle")}</Label>
+              <p className="text-xs text-muted-foreground">{t("config.flowModelDesc")}</p>
             </div>
-            {profileError && <p className="text-xs text-destructive">{profileError}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label className="mb-1 block">{t("config.flowSendConfig")}</Label>
-            <FlowEndpointRow
-              endpoint={config.primary}
-              label={t("config.primaryModel")}
-              flowBaseUrl={config.flowBaseUrl!}
-              connected={connected}
-              onSent={() => setPrimaryPushed(true)}
-            />
-            <FlowEndpointRow
-              endpoint={config.secondary}
-              label={t("config.secondaryModel")}
-              flowBaseUrl={config.flowBaseUrl!}
-              connected={connected}
-              onSent={() => setSecondaryPushed(true)}
-            />
+            <select
+              className="h-9 rounded-md border border-input bg-input-background px-2 text-sm"
+              value={flow.llmEndpoint}
+              onChange={(e) => editFlow({ llmEndpoint: e.target.value as FlowRunConfig["llmEndpoint"] })}
+            >
+              <option value="primary">{t("config.primaryModel")}</option>
+              <option value="secondary">{t("config.secondaryModel")}</option>
+            </select>
+            <FlowEndpointRow endpoint={endpoint} label={flow.llmEndpoint === "secondary" ? t("config.secondaryModel") : t("config.primaryModel")} flowBaseUrl={config.flowBaseUrl!} connected={connected} />
+            <div className="grid grid-cols-2 gap-3">
+              {(["softModel", "hardModel"] as const).map((key) => (
+                <div key={key}>
+                  <Label className="text-xs text-muted-foreground">{t(`config.flow_${key}`)}</Label>
+                  <Input
+                    value={flow[key]}
+                    placeholder={endpoint.model || ""}
+                    onChange={(e) => editFlow({ [key]: e.target.value.trim() })}
+                    className="bg-input-background"
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">{t("config.flowSoftHardHint")}</p>
           </div>
 
           <hr className="border-t border-border" />
@@ -776,196 +650,174 @@ function FlowSettingsCard() {
           {startError && <p className="text-xs text-destructive">{startError}</p>}
 
           <hr className="border-t border-border" />
-
-          <PreferencesSection flowBaseUrl={config.flowBaseUrl!} />
-
-          <hr className="border-t border-border" />
-
-          <CompanyRulesSection flowBaseUrl={config.flowBaseUrl!} />
+          <p className="text-xs text-muted-foreground">
+            {t("config.flowPrefsMoved")}{" "}
+            <Link to="/profile" state={{ tab: "preferences" }} className="underline">{t("config.flowPrefsMovedLink")}</Link>
+          </p>
 
           <hr className="border-t border-border" />
-
-          <BacklogSettingsSection flowBaseUrl={config.flowBaseUrl!} />
+          <FlowRunSettingsSection flow={flow} onChange={editFlow} />
         </>
       )}
     </Card>
   );
 }
 
-function BacklogSettingsSection({ flowBaseUrl }: { flowBaseUrl: string }) {
+/** Where Flow stands against this profile, and what to do when sync needs the user. */
+function FlowSyncStatus({ sync }: { sync: ReturnType<typeof useFlowSync> }) {
   const { t } = useTranslation();
-  const [cfg, setCfg] = useState<FlowBacklogConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getBacklogConfig(flowBaseUrl)
-      .then((c) => !cancelled && setCfg(c))
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowBaseUrl]);
-
-  function field(key: keyof FlowBacklogConfig, value: string) {
-    if (!cfg) return;
-    const num = Number(value);
-    setCfg({ ...cfg, [key]: Number.isFinite(num) ? num : cfg[key] });
-    setSaved(false);
-  }
-
-  /** hard_cap and stale_new_days are nullable ("unbounded" / "disabled") —
-   * toggled separately from the numeric field so a user can flip between a
-   * capped run and an open-ended one without losing the last number they had. */
-  function toggleNullable(key: "soft_cap" | "hard_cap" | "stale_new_days", enabled: boolean, fallback: number) {
-    if (!cfg) return;
-    setCfg({ ...cfg, [key]: enabled ? fallback : null });
-    setSaved(false);
-  }
-
-  async function handleSave() {
-    if (!cfg) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const updated = await updateBacklogConfig(flowBaseUrl, cfg);
-      setCfg(updated);
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        {t("config.flowBacklogLoading")}
+  const { state, problem, error, syncing } = sync;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm">
+          <Label>{t("config.flowSyncTitle")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {state?.profile_name
+              ? t("config.flowSyncHas", { name: state.profile_name, time: state.synced_at ? new Date(state.synced_at).toLocaleString() : "—" })
+              : t("config.flowSyncNever")}
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => void sync.syncNow()} disabled={syncing}>
+          {syncing && <Loader2 className="w-4 h-4 animate-spin" />}
+          {t("config.flowSyncNow")}
+        </Button>
       </div>
-    );
-  }
-  if (!cfg) return error ? <p className="text-xs text-destructive">{error}</p> : null;
+      {problem?.problem === "first-sync" && (
+        <div className="rounded-md border border-amber-300 p-3 text-sm space-y-2">
+          <p>{t("config.flowFirstSync")}</p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => void sync.importFromFlow()} disabled={syncing}>{t("config.flowImport")}</Button>
+            <Button size="sm" variant="outline" onClick={sync.keepQuiverSettings} disabled={syncing}>{t("config.flowUseQuiver")}</Button>
+          </div>
+        </div>
+      )}
+      {problem?.problem === "other-profile" && (
+        <div className="rounded-md border border-amber-300 p-3 text-sm space-y-2">
+          <p>{t("config.flowOtherProfile", { name: problem.remoteProfile ?? "" })}</p>
+          <Button size="sm" onClick={() => void sync.replace()} disabled={syncing}>{t("config.flowReplaceProfile")}</Button>
+        </div>
+      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+/** Flow's run settings. Stored on this profile and sent in the sync; Flow keeps only the last copy. */
+function FlowRunSettingsSection({ flow, onChange }: { flow: FlowRunConfig; onChange: (patch: Partial<FlowRunConfig>) => void }) {
+  const { t } = useTranslation();
+  const cfg = flow.backlog;
+  const setBacklog = (patch: Partial<FlowRunConfig["backlog"]>) => onChange({ backlog: { ...cfg, ...patch } });
+  const num = (value: string, fallback: number) => {
+    const n = Number(value);
+    return value !== "" && Number.isFinite(n) ? n : fallback;
+  };
 
   return (
-    <div className="space-y-3">
-      <div>
-        <Label>{t("config.flowBacklogTitle")}</Label>
-        <p className="text-xs text-muted-foreground">{t("config.flowBacklogDesc")}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-6">
+      <div className="space-y-3">
         <div>
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">{t("config.flowSoftCap")}</Label>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-muted-foreground">{t("config.flowUnbounded")}</span>
-              <Switch
-                checked={cfg.soft_cap == null}
-                onCheckedChange={(checked) => toggleNullable("soft_cap", !checked, cfg.soft_cap ?? 50)}
+          <Label>{t("config.flowBacklogTitle")}</Label>
+          <p className="text-xs text-muted-foreground">{t("config.flowBacklogDesc")}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {(["soft_cap", "hard_cap"] as const).map((key) => (
+            <div key={key}>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">{t(key === "soft_cap" ? "config.flowSoftCap" : "config.flowHardCap")}</Label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground">{t("config.flowUnbounded")}</span>
+                  <Switch
+                    checked={cfg[key] == null}
+                    onCheckedChange={(checked) => setBacklog({ [key]: checked ? null : key === "soft_cap" ? 50 : 150 })}
+                  />
+                </div>
+              </div>
+              <Input
+                type="number"
+                min={1}
+                value={cfg[key] ?? ""}
+                disabled={cfg[key] == null}
+                placeholder={cfg[key] == null ? t("config.flowUnbounded") : undefined}
+                onChange={(e) => setBacklog({ [key]: num(e.target.value, cfg[key] ?? 1) })}
+                className="bg-input-background"
               />
+              <p className="text-[11px] text-muted-foreground mt-0.5">{t(key === "soft_cap" ? "config.flowSoftCapHint" : "config.flowHardCapHint")}</p>
             </div>
+          ))}
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("config.flowArchiveRetention")}</Label>
+            <Input type="number" min={1} value={cfg.archive_retention_days}
+              onChange={(e) => setBacklog({ archive_retention_days: num(e.target.value, cfg.archive_retention_days) })}
+              className="bg-input-background" />
           </div>
-          <Input
-            type="number"
-            min={1}
-            value={cfg.soft_cap ?? ""}
-            disabled={cfg.soft_cap == null}
-            placeholder={cfg.soft_cap == null ? t("config.flowUnbounded") : undefined}
-            onChange={(e) => field("soft_cap", e.target.value)}
-            className="bg-input-background"
-          />
-          <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowSoftCapHint")}</p>
-        </div>
-        <div>
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">{t("config.flowHardCap")}</Label>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-muted-foreground">{t("config.flowUnbounded")}</span>
-              <Switch
-                checked={cfg.hard_cap == null}
-                onCheckedChange={(checked) => toggleNullable("hard_cap", !checked, cfg.hard_cap ?? 150)}
-              />
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("config.flowArchiveThreshold")}</Label>
+            <Input type="number" min={0} max={100} value={cfg.archive_score_threshold}
+              onChange={(e) => setBacklog({ archive_score_threshold: num(e.target.value, cfg.archive_score_threshold) })}
+              className="bg-input-background" />
+          </div>
+          <div className="col-span-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">{t("config.flowStaleNewDays")}</Label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-muted-foreground">{t("config.flowDisabled")}</span>
+                <Switch checked={cfg.stale_new_days == null}
+                  onCheckedChange={(checked) => setBacklog({ stale_new_days: checked ? null : 21 })} />
+              </div>
             </div>
+            <Input type="number" min={1} value={cfg.stale_new_days ?? ""} disabled={cfg.stale_new_days == null}
+              placeholder={cfg.stale_new_days == null ? t("config.flowDisabled") : undefined}
+              onChange={(e) => setBacklog({ stale_new_days: num(e.target.value, cfg.stale_new_days ?? 21) })}
+              className="bg-input-background" />
+            <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowStaleNewDaysHint")}</p>
           </div>
-          <Input
-            type="number"
-            min={1}
-            value={cfg.hard_cap ?? ""}
-            disabled={cfg.hard_cap == null}
-            placeholder={cfg.hard_cap == null ? t("config.flowUnbounded") : undefined}
-            onChange={(e) => field("hard_cap", e.target.value)}
-            className="bg-input-background"
-          />
-          <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowHardCapHint")}</p>
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">{t("config.flowArchiveRetention")}</Label>
-          <Input
-            type="number"
-            min={1}
-            value={cfg.archive_retention_days}
-            onChange={(e) => field("archive_retention_days", e.target.value)}
-            className="bg-input-background"
-          />
-        </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">{t("config.flowArchiveThreshold")}</Label>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={cfg.archive_score_threshold}
-            onChange={(e) => field("archive_score_threshold", e.target.value)}
-            className="bg-input-background"
-          />
-        </div>
-        <div className="col-span-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">{t("config.flowStaleNewDays")}</Label>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-muted-foreground">{t("config.flowDisabled")}</span>
-              <Switch
-                checked={cfg.stale_new_days == null}
-                onCheckedChange={(checked) => toggleNullable("stale_new_days", !checked, cfg.stale_new_days ?? 21)}
-              />
-            </div>
-          </div>
-          <Input
-            type="number"
-            min={1}
-            value={cfg.stale_new_days ?? ""}
-            disabled={cfg.stale_new_days == null}
-            placeholder={cfg.stale_new_days == null ? t("config.flowDisabled") : undefined}
-            onChange={(e) => field("stale_new_days", e.target.value)}
-            className="bg-input-background"
-          />
-          <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowStaleNewDaysHint")}</p>
-        </div>
-        {(["skip_aggregator_boards", "skip_applied_companies"] as const).map((key) => (
-          <div key={key} className="col-span-2 flex items-center justify-between gap-3">
+          <div className="col-span-2 flex items-center justify-between gap-3">
             <div>
-              <Label className="text-xs text-muted-foreground">{t(`config.flow_${key}`)}</Label>
-              <p className="text-[11px] text-muted-foreground">{t(`config.flow_${key}_hint`)}</p>
+              <Label className="text-xs text-muted-foreground">{t("config.flow_skip_aggregator_boards")}</Label>
+              <p className="text-[11px] text-muted-foreground">{t("config.flow_skip_aggregator_boards_hint")}</p>
             </div>
-            <Switch
-              checked={!!cfg[key]}
-              onCheckedChange={(checked) => { setCfg({ ...cfg, [key]: checked }); setSaved(false); }}
-            />
+            <Switch checked={cfg.skip_aggregator_boards} onCheckedChange={(checked) => setBacklog({ skip_aggregator_boards: checked })} />
           </div>
-        ))}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-          {saved ? t("config.flowBacklogSaved") : t("config.flowBacklogSave")}
-        </Button>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="space-y-3">
+        <div>
+          <Label>{t("config.flowApplyTitle")}</Label>
+          <p className="text-xs text-muted-foreground">{t("config.flowApplyDesc")}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("config.flowPrefsDailyCap")}</Label>
+            <Input type="number" min={1} value={flow.apply.daily_cap ?? ""} placeholder={t("config.flowPrefsUnset")}
+              onChange={(e) => onChange({ apply: { ...flow.apply, daily_cap: e.target.value ? Math.max(1, Number(e.target.value)) : null } })}
+              className="bg-input-background" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">{t("config.flowPrefsReviewBy")}</Label>
+            <Input type="date" value={flow.apply.review_by ?? ""}
+              onChange={(e) => onChange({ apply: { ...flow.apply, review_by: e.target.value || null } })}
+              className="bg-input-background" />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label>{t("config.flowPrescoreTitle")}</Label>
+            <p className="text-xs text-muted-foreground">{t("config.flowPrescoreDesc")}</p>
+          </div>
+          <Switch checked={flow.prescore.enabled}
+            onCheckedChange={(checked) => onChange({ prescore: { ...flow.prescore, enabled: checked } })} />
+        </div>
+        <div className="max-w-[12rem]">
+          <Label className="text-xs text-muted-foreground">{t("config.flowPrescoreThreshold")}</Label>
+          <Input type="number" min={0} max={100} value={flow.prescore.threshold} disabled={!flow.prescore.enabled}
+            onChange={(e) => onChange({ prescore: { ...flow.prescore, threshold: Math.min(100, Math.max(0, num(e.target.value, flow.prescore.threshold))) } })}
+            className="bg-input-background" />
+        </div>
       </div>
     </div>
   );
@@ -1592,7 +1444,6 @@ export function Config() {
               <TabsTrigger value="ai">{t("config.tabModel")}</TabsTrigger>
               <TabsTrigger value="general">{t("config.tabGeneral")}</TabsTrigger>
               <TabsTrigger value="extension">{t("config.tabExtension")}</TabsTrigger>
-              <TabsTrigger value="apply">{t("config.tabApply")}</TabsTrigger>
               <TabsTrigger value="flow">{t("config.tabFlow")}</TabsTrigger>
             </TabsList>
 
@@ -1842,9 +1693,6 @@ export function Config() {
               <ExtensionSettingsCard />
             </TabsContent>
 
-            <TabsContent value="apply" className="space-y-6">
-              <ApplicationSettingsCard />
-            </TabsContent>
 
             <TabsContent value="flow" className="space-y-6">
               <FlowSettingsCard />

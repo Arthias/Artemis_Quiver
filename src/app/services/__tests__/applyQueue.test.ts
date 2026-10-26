@@ -8,7 +8,8 @@ const item = (id: string, company: string): FlowQueueItem => ({
   job_id: id, title: `Role ${id}`, company, company_key: company.toLowerCase(), employer_known: true,
   location: "", source: "test", score: 80, score_spread: 4, score_passes: 3, summary: null, fit_reasoning: null,
   job_url: `https://example.com/${id}`, apply_url: null, ats_identity: null, work_mode: null, office_days: null,
-  eligibility: null, eligibility_reason: null, verdicts: [{ gate: "company", verdict: "pass", detail: "" }],
+  eligibility: null, eligibility_reason: null, verdicts: [{ gate: "eligibility", verdict: "pass", detail: "" }],
+  company_history: [],
 });
 
 const queue: FlowApplyQueue = {
@@ -56,7 +57,7 @@ describe("assisted apply outbox", () => {
 
   it("refuses a blocked tag without quoted evidence", async () => {
     const q = await saveQueue("p", "http://flow", queue);
-    await expect(tagItem("p", q, q.items[0]!, "blocked", { kind: "degree", evidence: " ", blockCompany: false }))
+    await expect(tagItem("p", q, q.items[0]!, "blocked", { kind: "degree", evidence: " " }))
       .rejects.toThrow();
     expect(await outbox()).toEqual([]);
   });

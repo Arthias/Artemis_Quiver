@@ -15,6 +15,7 @@ import {
   type FlowJobDetail,
 } from "../../services/flowBridge";
 import { scoreClass } from "./JobCard";
+import { CompanyHistory } from "./CompanyHistory";
 
 const STATUS_OPTIONS = ["new", "applied", "interviewing", "offer", "rejected", "archived"] as const;
 
@@ -172,6 +173,7 @@ export function JobDetailDialog({ jobId, flowBaseUrl, onOpenChange, onChanged }:
               <div>
                 <span className="text-xs text-muted-foreground">{t("flow.company")}</span>
                 <p>{job.company || "—"}</p>
+                <CompanyHistory company={job.company} history={job.company_history} />
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">{t("flow.location")}</span>

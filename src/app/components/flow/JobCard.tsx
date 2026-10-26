@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { CheckCircle2 } from "lucide-react";
 import type { FlowJobSummary } from "../../services/flowBridge";
+import { CompanyHistory } from "./CompanyHistory";
 
 export function scoreClass(score: number): string {
   if (score >= 80) return "text-green-600 dark:text-green-400";
@@ -60,6 +61,7 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
           <p className="text-sm font-medium truncate flex-1 min-w-0">{job.title}</p>
         </div>
         <p className="text-xs text-muted-foreground truncate">{job.company}</p>
+        <CompanyHistory company={job.company} history={job.company_history} compact />
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground truncate min-w-0">
             {job.location}
@@ -93,6 +95,7 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
               {job.is_remote ? ` · ${t("flow.remote")}` : ""}
               {showCaptured && job.ingested_at ? ` · ${new Date(job.ingested_at).toLocaleDateString()}` : ""}
             </p>
+            <CompanyHistory company={job.company} history={job.company_history} compact />
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

@@ -1,4 +1,7 @@
 import type { ModelEndpoint } from "../types/llm";
+import type { ProfileSettings } from "../types/workspace";
+import { defaultFlowRunConfig, type Layer, type ProfilePreferences } from "../types/preferences";
+import { canonicalJson, sha256 } from "./profileLayers";
 
 export interface FlowStatus {
   connected: boolean;
@@ -47,20 +50,6 @@ export async function checkFlowHealth(baseUrl: string): Promise<FlowStatus> {
   }
 }
 
-export async function sendProfileToFlow(baseUrl: string, profileMarkdown: string): Promise<void> {
-  try {
-    const res = await fetch(`${baseUrl}/api/profile`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: profileMarkdown, path: "" }),
-    });
-    if (!res.ok) throw new Error(`Failed to send profile to Flow: ${res.statusText}`);
-  } catch (err) {
-    logFlowError(err, baseUrl, "sendProfileToFlow");
-    throw err;
-  }
-}
-
 /**
  * Quiver's ProviderType and Flow's provider vocabulary don't line up 1:1
  * (Flow's provider.py only accepts "ollama" | "lmstudio" | "anthropic").
@@ -74,27 +63,6 @@ export function mapProviderForFlow(endpoint: ModelEndpoint): { provider: string;
     return { provider: "lmstudio", base_url: endpoint.baseUrl };
   }
   throw new Error(`Flow does not support the "${endpoint.provider}" provider. Choose an Anthropic or OpenAI-compatible endpoint to send to Flow.`);
-}
-
-export async function sendConfigToFlow(baseUrl: string, endpoint: ModelEndpoint): Promise<void> {
-  try {
-    const mapped = mapProviderForFlow(endpoint);
-    const res = await fetch(`${baseUrl}/api/settings/llm`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider: mapped.provider,
-        model: endpoint.model,
-        base_url: mapped.base_url,
-        api_key: endpoint.apiKey,
-        temperature: endpoint.temperature,
-      }),
-    });
-    if (!res.ok) throw new Error(`Failed to send config to Flow: ${res.statusText}`);
-  } catch (err) {
-    logFlowError(err, baseUrl, "sendConfigToFlow");
-    throw err;
-  }
 }
 
 export async function testEndpointFromFlow(
@@ -141,6 +109,8 @@ export interface FlowJobSummary {
   archive_reason: string | null;
   /** LLM-generated 1-2 sentence "why this matched" blurb — only populated for jobs scoring > 70. */
   summary: string | null;
+  /** Earlier applications to this company, newest first. Shown, never a gate. */
+  company_history?: FlowCompanyApplication[];
 }
 
 export interface FlowJobDetail extends FlowJobSummary {
@@ -214,6 +184,7 @@ async function flowGet<T>(baseUrl: string, path: string, action: string): Promis
 }
 
 async function flowPost<T>(baseUrl: string, path: string, action: string): Promise<T> {
+  await ensureFlowSynced(baseUrl);
   try {
     const res = await fetch(`${baseUrl}${path}`, { method: "POST", signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`${action} failed: ${res.statusText}`);
@@ -225,6 +196,7 @@ async function flowPost<T>(baseUrl: string, path: string, action: string): Promi
 }
 
 async function flowPut<T>(baseUrl: string, path: string, body: unknown, action: string): Promise<T> {
+  await ensureFlowSynced(baseUrl);
   try {
     const res = await fetch(`${baseUrl}${path}`, {
       method: "PUT",
@@ -347,6 +319,7 @@ export function getQueueSummary(baseUrl: string): Promise<FlowQueueSummary> {
 /** Check every inactive ATS board once and activate those with matching roles.
  * importLists first refreshes the board lists from the public aggregator. */
 export async function startBoardSweep(baseUrl: string, importLists = false): Promise<{ status: string }> {
+  await ensureFlowSynced(baseUrl);
   const res = await fetch(`${baseUrl}/api/ats/sweep`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -463,8 +436,6 @@ export interface FlowBacklogConfig {
   stale_new_days: number | null;
   /** Skip the boards listed under aggregator_boards in Flow's config/ats.yaml. */
   skip_aggregator_boards?: boolean;
-  /** Archive new jobs from companies already applied to on the board. */
-  skip_applied_companies?: boolean;
 }
 
 export interface FlowCaptureJob {
@@ -507,10 +478,6 @@ export async function postCapture(baseUrl: string, capture: unknown): Promise<Fl
 
 export function getBacklogConfig(baseUrl: string): Promise<FlowBacklogConfig> {
   return flowGet(baseUrl, "/api/settings/backlog", "getBacklogConfig");
-}
-
-export function updateBacklogConfig(baseUrl: string, config: FlowBacklogConfig): Promise<FlowBacklogConfig> {
-  return flowPut(baseUrl, "/api/settings/backlog", config, "updateBacklogConfig");
 }
 
 export async function purgeArchivedJobs(baseUrl: string, retentionDays?: number): Promise<{ status: string; deleted: number }> {
@@ -569,43 +536,12 @@ export interface FlowPreferences {
   remote_from: string[];
   relocation_countries: string[];
   work_modes: { remote: FlowModeSetting; hybrid: FlowModeSetting; onsite: FlowModeSetting };
-  /** Language names, e.g. "English", "Italian". */
-  languages: string[];
+  languages: { name: string; level: string | null }[];
   has_degree: boolean | null;
-  /** Most applications per day the apply queue hands out. null = no cap. */
-  daily_cap: number | null;
-  review_by: string | null;
-}
-
-export interface FlowGeo {
-  countries: { code: string; name: string; regions: string[]; languages: string[] }[];
-  regions: { code: string; name: string }[];
 }
 
 export function getPreferences(baseUrl: string): Promise<FlowPreferences> {
   return flowGet(baseUrl, "/api/settings/preferences", "getPreferences");
-}
-
-/** Flow re-judges every job on save; a 422 means an unknown place code. */
-export async function updatePreferences(baseUrl: string, prefs: FlowPreferences): Promise<FlowPreferences> {
-  const res = await fetch(`${baseUrl}/api/settings/preferences`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(prefs),
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    const msg = Array.isArray(detail?.detail) ? detail.detail.map((d: { msg: string }) => d.msg).join("; ") : res.statusText;
-    const err = new Error(`updatePreferences failed: ${msg}`);
-    logFlowError(err, baseUrl, "updatePreferences");
-    throw err;
-  }
-  return res.json();
-}
-
-export function getGeo(baseUrl: string): Promise<FlowGeo> {
-  return flowGet(baseUrl, "/api/geo/countries", "getGeo");
 }
 
 // --- Assisted apply ----------------------------------------------------------
@@ -638,6 +574,16 @@ export interface FlowQueueItem {
   eligibility: string | null;
   eligibility_reason: string | null;
   verdicts: FlowVerdict[];
+  company_history: FlowCompanyApplication[];
+}
+
+/** An earlier application to the same company. Shown, never a gate (P11). */
+export interface FlowCompanyApplication {
+  applied_at: string;
+  job_id: string | null;
+  title: string;
+  job_url: string | null;
+  outcome: string;
 }
 
 export interface FlowApplyQueue {
@@ -652,38 +598,155 @@ export interface FlowApplyQueue {
 
 export function getApplyQueue(
   baseUrl: string,
-  p: { minScore: number; maxScore: number; limit: number; excludeCompanies?: string[] }
+  p: { minScore: number; maxScore: number; limit: number }
 ): Promise<FlowApplyQueue> {
   const qs = new URLSearchParams({ min_score: String(p.minScore), max_score: String(p.maxScore), limit: String(p.limit) });
-  for (const c of p.excludeCompanies ?? []) qs.append("exclude_company", c);
   return flowGet(baseUrl, `/api/apply/queue?${qs}`, "getApplyQueue");
-}
-
-export interface FlowCompanyRule {
-  company_key?: string;
-  display_name: string;
-  aliases: string[];
-  kind: "block" | "ask" | "quota";
-  max_applications: number | null;
-  window_days: number | null;
-  role_cooldown_days: number | null;
-  until: string | null;
-  reason: string | null;
-  policy_url: string | null;
-}
-
-export async function getCompanyRules(baseUrl: string): Promise<FlowCompanyRule[]> {
-  return (await flowGet<{ rules: FlowCompanyRule[] }>(baseUrl, "/api/company-rules", "getCompanyRules")).rules;
-}
-
-export function putCompanyRule(baseUrl: string, rule: FlowCompanyRule): Promise<FlowCompanyRule> {
-  return flowPut(baseUrl, "/api/company-rules", rule, "putCompanyRule");
-}
-
-export async function deleteCompanyRule(baseUrl: string, companyKey: string): Promise<void> {
-  const res = await fetch(`${baseUrl}/api/company-rules/${encodeURIComponent(companyKey)}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`deleteCompanyRule failed: ${res.statusText}`);
 }
 
 export const applicationsExportUrl = (baseUrl: string, format: "csv" | "json") =>
   `${baseUrl}/api/applications?format=${format}`;
+
+// --- Sync (Profile-Management-Spec §6) ----------------------------------------
+// Quiver owns every user setting. Before it controls Flow, Flow must hold the
+// same bundle; a hash decides whether a PUT is needed.
+
+export interface FlowSyncState {
+  hash: string | null;
+  profile_name: string | null;
+  synced_at: string | null;
+  apply?: { daily_cap: number | null; review_by: string | null };
+  prescore?: { enabled: boolean; threshold: number };
+}
+
+export type FlowSyncProblem = "first-sync" | "other-profile";
+
+/** Sync needs the user: Flow has never been synced and has settings of its
+ * own (import or replace?), or it holds another workspace profile (replace?). */
+export class FlowSyncError extends Error {
+  constructor(public problem: FlowSyncProblem, message: string, public remoteProfile: string | null = null) {
+    super(message);
+    this.name = "FlowSyncError";
+  }
+}
+
+export interface FlowSyncSource {
+  name: string;
+  profileMarkdown: string;
+  settings: ProfileSettings;
+  preferences?: Layer<ProfilePreferences>;
+  fingerprint?: Layer<string>;
+}
+
+/** The bundle PUT /api/sync takes, and its hash. */
+export async function buildFlowBundle(src: FlowSyncSource): Promise<{ bundle: Record<string, unknown>; hash: string }> {
+  const flow = src.settings.flow ?? defaultFlowRunConfig();
+  const ep = flow.llmEndpoint === "secondary" ? src.settings.secondary : src.settings.primary;
+  let llm: Record<string, unknown> | null = null;
+  if (ep?.model && (ep.provider === "anthropic" || ep.provider === "openai-compatible")) {
+    const mapped = mapProviderForFlow(ep);
+    llm = {
+      provider: mapped.provider, model: ep.model, base_url: mapped.base_url,
+      api_key: ep.apiKey || null, temperature: ep.temperature ?? 0,
+      soft_model: flow.softModel || null, hard_model: flow.hardModel || null,
+    };
+  }
+  const body = {
+    profile_name: src.name,
+    master: src.profileMarkdown,
+    preferences: src.preferences?.value ?? null,
+    fingerprint: src.fingerprint?.value ?? null,
+    llm,
+    backlog: flow.backlog,
+    apply: flow.apply,
+    prescore: flow.prescore,
+  };
+  const hash = await sha256(canonicalJson(body));
+  return { bundle: { ...body, hash }, hash };
+}
+
+async function activeSyncSource(): Promise<FlowSyncSource | null> {
+  try {
+    const { db } = await import("../db/schema");
+    const id = (await db.metadata.get("activeProfileId"))?.value;
+    const rec = typeof id === "string" ? await db.profiles.get(id) : undefined;
+    return rec
+      ? { name: rec.name, profileMarkdown: rec.profileMarkdown, settings: rec.settings,
+          preferences: rec.preferences, fingerprint: rec.fingerprint }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** baseUrl → the hash Flow was last seen holding, so an unchanged profile costs nothing. */
+const syncedHash = new Map<string, string>();
+
+export function getFlowSyncState(baseUrl: string): Promise<FlowSyncState> {
+  return flowGet(baseUrl, "/api/sync", "getFlowSyncState");
+}
+
+function syncErrorMessage(detail: unknown, fallback: string): string {
+  const d = (detail as { detail?: unknown } | null)?.detail;
+  if (Array.isArray(d)) {
+    return d.map((x: { loc?: unknown[]; msg: string }) => `${(x.loc ?? []).slice(1).join(".")}: ${x.msg}`).join("; ");
+  }
+  return typeof d === "string" ? d : fallback;
+}
+
+/**
+ * Make Flow hold what Quiver has. Reads the active profile from IndexedDB
+ * unless `source` is given. Throws FlowSyncError when the user must decide
+ * (pass `replace: true` once they have), and a plain Error when the PUT fails;
+ * either way the caller's control call does not run.
+ */
+export async function ensureFlowSynced(
+  baseUrl: string,
+  opts: { source?: FlowSyncSource; replace?: boolean; force?: boolean } = {}
+): Promise<FlowSyncState | null> {
+  const src = opts.source ?? (await activeSyncSource());
+  if (!src) return null;
+  const { bundle, hash } = await buildFlowBundle(src);
+  if (!opts.force && syncedHash.get(baseUrl) === hash) return null;
+
+  const remote = await getFlowSyncState(baseUrl);
+  if (remote.hash === hash) {
+    syncedHash.set(baseUrl, hash);
+    return remote;
+  }
+  if (!opts.replace && !remote.hash && !src.settings.flow) {
+    throw new FlowSyncError("first-sync", "Flow has settings this profile has not seen yet. Open Settings → Flow to import them or replace them.");
+  }
+  if (!opts.replace && remote.profile_name && remote.profile_name !== src.name) {
+    throw new FlowSyncError("other-profile", `Flow holds the profile "${remote.profile_name}". Open Settings → Flow to replace it with this one.`, remote.profile_name);
+  }
+  try {
+    const res = await fetch(`${baseUrl}/api/sync`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bundle),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) {
+      throw new Error(`Sync to Flow failed: ${syncErrorMessage(await res.json().catch(() => null), res.statusText)}`);
+    }
+    const state: FlowSyncState = await res.json();
+    syncedHash.set(baseUrl, hash);
+    return state;
+  } catch (err) {
+    logFlowError(err, baseUrl, "ensureFlowSynced");
+    throw err;
+  }
+}
+
+export interface FlowLlmSettings {
+  provider: string;
+  model: string;
+  base_url: string;
+  soft_model: string | null;
+  hard_model: string | null;
+}
+
+export function getFlowLlm(baseUrl: string): Promise<FlowLlmSettings> {
+  return flowGet(baseUrl, "/api/settings/llm", "getFlowLlm");
+}
