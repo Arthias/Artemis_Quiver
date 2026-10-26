@@ -539,7 +539,10 @@
     "outcome_interviewing": "en entrevistas",
     "outcome_offer": "oferta",
     "outcome_withdrawn": "retirada",
-    "outcome_no_response": "sin respuesta"
+    "outcome_no_response": "sin respuesta",
+    "queuePrescreened": "Descartadas por ficha",
+    "alignScore": "ficha {{n}}",
+    "alignScoreHint": "Puntuación previa por ficha: por debajo del umbral, así que no se puntúa a fondo."
   },
   "cv": {
     "title": "Creador de CV (PDF con Temas)",

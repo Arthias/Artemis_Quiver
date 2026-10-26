@@ -539,7 +539,10 @@
     "outcome_interviewing": "interviewing",
     "outcome_offer": "offer",
     "outcome_withdrawn": "withdrawn",
-    "outcome_no_response": "no response"
+    "outcome_no_response": "no response",
+    "queuePrescreened": "Pre-screened",
+    "alignScore": "card {{n}}",
+    "alignScoreHint": "Card pre-score: below the threshold, so not deep-scored."
   },
   "cv": {
     "title": "CV Builder (Themed PDF)",

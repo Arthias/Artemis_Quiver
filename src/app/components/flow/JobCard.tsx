@@ -29,9 +29,13 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
   const { t } = useTranslation();
   const reviewed = job.label === "reviewed";
 
-  const scoreBadge = job.score > 0 && (
+  const scoreBadge = job.score > 0 ? (
     <span className={`text-sm font-semibold shrink-0 ${scoreClass(job.score)}`}>
       {Math.round(job.score)}%
+    </span>
+  ) : job.align_score != null && (
+    <span className="text-xs text-muted-foreground shrink-0" title={t("flow.alignScoreHint")}>
+      {t("flow.alignScore", { n: Math.round(job.align_score) })}
     </span>
   );
 

@@ -255,12 +255,13 @@ function QueueBlock({
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium mb-2">{t("flow.queue")}</p>
-        <div className="grid grid-cols-5 gap-2">
+        <div className={`grid gap-2 ${queue.prescreened ? "grid-cols-6" : "grid-cols-5"}`}>
           {stat("to_score", t("flow.queueToScore"), queue.to_score, "text-amber-600 dark:text-amber-400")}
           {stat("strong", t("flow.queueStrong"), queue.strong, "text-teal-600 dark:text-teal-400")}
           {stat("scored", t("flow.queueScored"), queue.scored)}
           {stat("parked", t("flow.queueParked"), queue.parked_no_description)}
           {stat("ineligible", t("flow.queueIneligible"), queue.ineligible)}
+          {!!queue.prescreened && stat("prescreened", t("flow.queuePrescreened"), queue.prescreened)}
         </div>
         {archived.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2 items-center">

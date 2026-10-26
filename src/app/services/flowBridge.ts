@@ -111,6 +111,8 @@ export interface FlowJobSummary {
   summary: string | null;
   /** Earlier applications to this company, newest first. Shown, never a gate. */
   company_history?: FlowCompanyApplication[];
+  /** Card pre-score, 0-100; null until pre-scored. */
+  align_score?: number | null;
 }
 
 export interface FlowJobDetail extends FlowJobSummary {
@@ -301,6 +303,8 @@ export interface FlowQueueSummary {
   ineligible: number;
   scored: number;
   strong: number;
+  /** Below the card pre-score threshold: not deep-scored. */
+  prescreened?: number;
   archived_by_reason: Record<string, number>;
   boards: Record<string, { active: number; inactive: number; unchecked: number }>;
   sweep: {
@@ -356,7 +360,7 @@ export function getArchivedJobs(baseUrl: string, limit = 100): Promise<FlowJobLi
   return flowGet(baseUrl, `/api/jobs?status=archived&show_archived=true&sort_by=ingested_at&sort_dir=desc&limit=${limit}`, "getArchivedJobs");
 }
 
-export type FlowQueueKey = "to_score" | "strong" | "scored" | "parked" | "ineligible";
+export type FlowQueueKey = "to_score" | "strong" | "scored" | "parked" | "ineligible" | "prescreened";
 
 /** The jobs behind one queue counter (or one archive-reason badge), newest
  * capture first, one page at a time. Flow derives the list and the counter
