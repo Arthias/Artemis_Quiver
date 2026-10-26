@@ -6,9 +6,9 @@ last_updated: 2026-10-26
 
 # Profile management: master, preferences, fingerprint
 
-> [!NOTE] Status (2026-10-26, r3): spec, nothing built
+> [!NOTE] Status (2026-10-26, r4): spec, nothing built
 > Written against Quiver `feat/assisted-apply` @ `07ad00e` and Flow `feat/assisted-apply` @ `079e059`.
-> r2/r3 take the decisions from the 2026-10-26 review (§0). Remaining open points are marked **(open)**
+> r2–r4 take the decisions from the 2026-10-26 review (§0). Remaining open points are marked **(open)**
 > with the default this spec assumes.
 
 ## 0. Decisions (2026-10-26)
@@ -25,7 +25,7 @@ last_updated: 2026-10-26
 | P8 | Export stays master-only. |
 | P9 | Quiver warns before a different workspace profile replaces the profile Flow holds. |
 | P10 | No re-scoring: jobs Flow already scored keep their scores when the profile changes. |
-| P11 | **Company rules move to Quiver** (Profile → *Applications*), so form filling and its checks work with Quiver alone. Flow receives them in the sync. Supersedes assisted-apply D1 for `company_rules` only. |
+| P11 | **No company gating.** Flow never blocks or holds back a job because of earlier applications or company rules; a user may apply to the same company as often as they like. Instead Flow shows the company's application history ("Applied on <date>", linked to that job). Company rules are dropped, not moved. The applications log stays in Flow's database (assisted-apply D1 holds for `applications`). |
 | P12 | **Flow's standalone frontend is retired** (removed 2026-10-26, Flow `31bfd2f`; last commit with it tagged `archive/flow-frontend-2026-10-26`). Flow's per-setting write endpoints go once Quiver syncs (§6). |
 
 ## 1. Profile layers
@@ -37,8 +37,7 @@ last_updated: 2026-10-26
 | **Fingerprint** | one line, ≤300 chars | by hand, or a template over the preferences | overlay quick score (Gemini Nano or fallback) |
 
 The form profile (applicant fields, saved answers, rules) moves to the Profile page's *Applications*
-tab unchanged; it is applicant data, not a derivative, and is not synced to Flow. Company rules
-join it there (§3a).
+tab unchanged; it is applicant data, not a derivative, and is not synced to Flow.
 
 Nothing about any particular user is hardcoded. Every preference is unset by default, and unset
 means no filtering.
@@ -104,7 +103,7 @@ New `flow?: FlowRunConfig` on `ProfileSettings`, next to the existing `flowBaseU
 | Group | Fields | Today in Flow |
 |---|---|---|
 | `llm` | which Quiver endpoint Flow uses (primary/secondary), `soft_model`, `hard_model` | `config/llm.yaml` via `PUT /api/settings/llm` (provider, model, base_url, api_key, temperature only) |
-| `backlog` | `soft_cap`, `hard_cap`, `archive_retention_days`, `archive_score_threshold`, `stale_new_days`, `skip_aggregator_boards`, `skip_applied_companies` | `backlog_config` via `PUT /api/settings/backlog` |
+| `backlog` | `soft_cap`, `hard_cap`, `archive_retention_days`, `archive_score_threshold`, `stale_new_days`, `skip_aggregator_boards` | `backlog_config` via `PUT /api/settings/backlog` |
 | `apply` | `daily_cap`, `review_by` | inside the preferences JSON |
 | `prescore` | `enabled`, `threshold` (default 60) | new (§8) |
 
@@ -115,21 +114,27 @@ Stays in Flow (service internals, not user settings): scraper and board definiti
 and Flow's working state (jobs, strategy and its history, applications, disqualifications).
 `target_companies.yaml` is user-flavoured data in a service file; out of scope here.
 
-### 3a. Company rules
+### 3a. Company history instead of company gating (Flow)
 
-Moved from Flow's `company_rules` table to a `companyRules` field on `ProfileRecord`, same shape:
-`company_key`, `display_name`, `aliases`, `kind` (block / ask / quota), `max_applications`,
-`window_days`, `role_cooldown_days`, `until`, `reason`, `policy_url`. Edited on Profile →
-*Applications* (`components/flow/CompanyRulesSection.tsx`, moved, reading and writing locally).
+Flow keeps the `applications` log and reports it; it no longer gates on it (P11).
 
-- The side panel reads them from the active record (via `extension/idbProfile.ts`) and shows
-  *blocked* / *ask first* on a matching employer while filling a form, with no Flow needed.
-- **Quota rules need application history**, which stays in Flow (`applications`). Without Flow,
-  Quiver checks block and ask only, and says the quota could not be checked.
-  **(open: move the applications log to Quiver too, so quotas work standalone?)**
-- Flow's *Blocked* tag (`POST /api/disqualifications` with `block_company`) stops writing rules.
-  Quiver adds the rule to the record itself and the next sync carries it.
-- First sync of an existing install imports Flow's current rules once (§6).
+| Today (Flow `feat/assisted-apply`) | After |
+|---|---|
+| `company_verdict` (`app/pipeline/apply.py`): any earlier application to the company = `block`; active process = `ask`; user rules block / ask / quota on top | removed. Each queue item and job carries `company_history`: `[{applied_at, job_id, title, job_url, outcome}]`, newest first, empty when none |
+| Queue gates `"Applied to this company already (not yet synced)"` and `"Another job from this company is earlier in this queue"` | removed; several jobs from one company can sit in the same queue |
+| `skip_applied_companies` (backlog setting): archives new jobs from applied or blocked companies (`rank.py` reapply gate, `blocked_company_keys`) | removed, with its column and its toggle in Quiver |
+| `company_rules` table, `GET/PUT/DELETE /api/company-rules`, Quiver `CompanyRulesSection` and its `flowBridge` calls | removed. The table is left in place, unread, so existing rows are not lost; drop it in a later cleanup |
+| *Blocked* tag with `block_company` (`POST /api/disqualifications`) | the per-job disqualification stays (archives that job, keeps the evidence); `block_company` is removed, in Flow and in `services/applyQueue.ts` |
+| Company aliases (stored on rules) | gone with the rules; `company_key` falls back to `normalize_company` |
+
+Eligibility and stated-requirement verdicts are unchanged: they are about the job, not the company.
+
+**Shown in Quiver** wherever a Flow job appears (the `/flow` lists, job detail, the Apply tab and the
+side-panel queue): *"Applied to <company> on <date>"*, each date linking to that job in Flow, plus
+the outcome when known. Only with Flow connected; standalone Quiver has no application history.
+
+The `GET /api/apply/queue` response changes shape (verdicts lose the `company` and `queue` gates,
+items gain `company_history`), so Quiver and Flow ship this together.
 
 ## 4. Profile page
 
@@ -190,7 +195,6 @@ interface FlowBundle {
   fingerprint: string | null;
   llm: { provider, model, base_url, api_key?, temperature, soft_model?, hard_model? };
   backlog: {...}; apply: {...}; prescore: {...};
-  company_rules: CompanyRule[];
 }
 ```
 
@@ -198,10 +202,9 @@ interface FlowBundle {
 
 - `GET /api/sync` → `{hash, profile_name, synced_at}` (never returns the API key or the content).
 - `PUT /api/sync` → validates the whole bundle, then replaces Flow's stored settings in one
-  transaction: `profile.md`, preferences, LLM settings, backlog, apply, prescore, company rules,
-  hash. Anything previously set by another route is discarded (P5).
-- **Removed** once Quiver syncs: `PUT /api/profile`, `PUT /api/settings/preferences|backlog|llm`,
-  `PUT/DELETE /api/company-rules`. Their only other client was Flow's retired frontend (P12). The
+  transaction: `profile.md`, preferences, LLM settings, backlog, apply, prescore, hash. Anything previously set by another route is discarded (P5).
+- **Removed** once Quiver syncs: `PUT /api/profile`, `PUT /api/settings/preferences|backlog|llm`.
+  Their only other client was Flow's retired frontend (P12). The
   GETs stay, for the first-sync import and for display.
 
 ### Quiver side
@@ -224,7 +227,7 @@ Not covered: the extension's background worker (capture, outbox). It does not ch
 
 ### First sync of an existing install
 
-When Quiver has no `preferences`, `flow` settings or company rules yet but Flow does, Quiver offers once:
+When Quiver has no `preferences` or `flow` settings yet but Flow does, Quiver offers once:
 *"Use the settings Flow has now?"*, reading them through the existing GETs. Without this, the first
 sync would reset a running deployment to defaults. After that, Quiver is the only source.
 
@@ -238,7 +241,7 @@ sync would reset a running deployment to defaults. After that, Quiver is the onl
   record. The score cache stays keyed by fingerprint text, so a new fingerprint invalidates old quick scores.
 - Settings → Flow: *Send Profile*, *Send Primary/Secondary*, `PreferencesSection` (moved).
 - Settings → Apply: `ApplicationSettingsCard` (moved).
-- Settings → Flow: `CompanyRulesSection` (moved to Profile → *Applications*).
+- Settings → Flow: `CompanyRulesSection` and the `skip_applied_companies` toggle (deleted, §3a).
 - Profile page: AI assistant tab and its handlers.
 
 ## 8. Flow: card pre-score
@@ -295,11 +298,12 @@ One small test file each, no new framework:
 ## 10. Order of work
 
 1. **Flow:** `GET/PUT /api/sync`, the extended `Preferences` model, `daily_cap`/`review_by` and
-   company rules read from the synced settings; `block_company` stops writing rules.
+   read from the synced settings.
+1b. **Flow + Quiver together:** company gating out, `company_history` in (§3a).
 2. **Quiver:** data model, Profile page tabs (assistant removed, Applications moved), preferences
    editor working without Flow.
 3. **Quiver:** generate preferences, render the fingerprint, stale badges.
-4. **Quiver:** `FlowRunConfig`, company rules on the record, `ensureFlowSynced`, first-sync import,
+4. **Quiver:** `FlowRunConfig`, `ensureFlowSynced`, first-sync import,
    Settings → Flow status line; remove the Send buttons. Then remove Flow's per-setting PUTs.
 5. **Quiver:** overlay reads the fingerprint from the record; remove the old generators.
 6. **Flow:** card pre-score behind the toggle; measure; switch on.
