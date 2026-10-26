@@ -686,8 +686,16 @@ async function activeSyncSource(): Promise<FlowSyncSource | null> {
 /** baseUrl → the hash Flow was last seen holding, so an unchanged profile costs nothing. */
 const syncedHash = new Map<string, string>();
 
-export function getFlowSyncState(baseUrl: string): Promise<FlowSyncState> {
-  return flowGet(baseUrl, "/api/sync", "getFlowSyncState");
+export async function getFlowSyncState(baseUrl: string): Promise<FlowSyncState> {
+  const res = await fetch(`${baseUrl}/api/sync`, { signal: AbortSignal.timeout(10000) }).catch((err) => {
+    logFlowError(err, baseUrl, "getFlowSyncState");
+    throw err;
+  });
+  if (res.status === 404 || res.status === 405) {
+    throw new Error("This Flow is older than Quiver: it has no /api/sync. Update Flow (feat/assisted-apply 6ec7a7c or later).");
+  }
+  if (!res.ok) throw new Error(`getFlowSyncState failed: ${res.statusText}`);
+  return res.json();
 }
 
 function syncErrorMessage(detail: unknown, fallback: string): string {

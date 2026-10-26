@@ -1,15 +1,15 @@
 ---
 tags: [roadmap, spec, profile, flow, extension, cross-app]
-status: planned
+status: built, not browser-tested
 last_updated: 2026-10-26
 ---
 
 # Profile management: master, preferences, fingerprint
 
-> [!NOTE] Status (2026-10-26, r4): spec, nothing built
-> Written against Quiver `feat/assisted-apply` @ `07ad00e` and Flow `feat/assisted-apply` @ `079e059`.
-> r2–r4 take the decisions from the 2026-10-26 review (§0). Remaining open points are marked **(open)**
-> with the default this spec assumes.
+> [!NOTE] Status (2026-10-26, r4): built, not browser-tested
+> Implemented the same day on `feat/assisted-apply` in both repos (Quiver `0810fdd`, `99b5661`;
+> Flow `2db79e1`, `b802f89`, `6ec7a7c`). How to test it, and where the build differs from this
+> spec: [[Profile-Management-Test-Plan]]. Spec text below is unchanged.
 
 ## 0. Decisions (2026-10-26)
 
