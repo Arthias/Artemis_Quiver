@@ -82,3 +82,7 @@ Temp_Design-analysis/
 # Fallback commit record, used when F:\Dev\.commit-queue\queue.jsonl is not
 # mounted in the session. commit-queue.bat collects and clears these.
 .pending-commit.jsonl
+
+# Local dev/test context (personal profiles, fixtures, notes). Never commit:
+# this repo is public.
+.devlocal/
