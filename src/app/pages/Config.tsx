@@ -427,7 +427,7 @@ function FlowEndpointRow({
   const [quiverResult, setQuiverResult] = useState<"ok" | "fail" | null>(null);
   const [flowResult, setFlowResult] = useState<"ok" | "fail" | null>(null);
 
-  const supported = endpoint.provider === "anthropic" || endpoint.provider === "openai-compatible";
+  const supported = endpoint.provider === "anthropic" || endpoint.provider === "openai-compatible" || endpoint.provider === "ollama";
 
   async function handleTestQuiver() {
     setTestingQuiver(true);
@@ -855,6 +855,7 @@ function setWebLLMCache(modelId: string, val: boolean) {
 
 const PROVIDER_OPTIONS: { value: ProviderType; labelKey: string }[] = [
   { value: "openai-compatible", labelKey: "config.openaiCompatible" },
+  { value: "ollama", labelKey: "config.ollama" },
   { value: "anthropic", labelKey: "config.anthropic" },
   { value: "google-gemini", labelKey: "config.googleGemini" },
   { value: "webllm", labelKey: "config.webllm" },
@@ -1160,6 +1161,19 @@ function ModelEndpointCard({
               className="w-full"
             />
           </div>
+
+          {(endpoint.provider === "openai-compatible" || endpoint.provider === "ollama") && (
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Label>{t("config.thinkingOff")}</Label>
+                <p className="text-xs text-muted-foreground">{t("config.thinkingOffDesc")}</p>
+              </div>
+              <Switch
+                checked={endpoint.reasoningEffort === "none"}
+                onCheckedChange={(v) => onChange({ reasoningEffort: v ? "none" : undefined })}
+              />
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>

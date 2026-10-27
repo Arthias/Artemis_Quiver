@@ -28,6 +28,7 @@ export const openAICompatibleAdapter: ProviderAdapter = {
           messages,
           temperature: endpoint.temperature,
           max_tokens: endpoint.maxTokens,
+          ...(endpoint.reasoningEffort ? { reasoning_effort: endpoint.reasoningEffort } : {}),
           stream: false,
         }),
         signal,

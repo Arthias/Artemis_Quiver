@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Card } from "../ui/card";
 import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
 import {
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ const STEPS = ["Welcome", "AI Setup", "Profile"];
 
 const CLOUD_PROVIDER_OPTIONS: { value: ProviderType; labelKey: string }[] = [
   { value: "openai-compatible", labelKey: "config.openaiCompatible" },
+  { value: "ollama", labelKey: "config.ollama" },
   { value: "anthropic", labelKey: "config.anthropic" },
   { value: "google-gemini", labelKey: "config.googleGemini" },
 ];
@@ -322,6 +324,19 @@ function AiSetupStep() {
               </div>
             )}
           </div>
+
+          {(config.primary.provider === "openai-compatible" || config.primary.provider === "ollama") && (
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Label className="text-xs">{t("config.thinkingOff")}</Label>
+                <p className="text-xs text-muted-foreground">{t("config.thinkingOffDesc")}</p>
+              </div>
+              <Switch
+                checked={config.primary.reasoningEffort === "none"}
+                onCheckedChange={(v) => updateConfig({ primary: { ...config.primary, reasoningEffort: v ? "none" : undefined } })}
+              />
+            </div>
+          )}
         </Card>
       ) : (
         <Card className="p-4 w-full space-y-4">

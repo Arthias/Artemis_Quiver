@@ -63,3 +63,16 @@ describe("ensureFlowSynced", () => {
     expect(calls.some((c) => c.method === "PUT")).toBe(true);
   });
 });
+
+describe("buildFlowBundle llm", () => {
+  it("sends an Ollama endpoint as provider ollama, with thinking off when set", async () => {
+    const primary = { ...DEFAULT_PRIMARY_ENDPOINT, provider: "ollama" as const, baseUrl: "http://s:1234/v1", model: "qwen", reasoningEffort: "none" as const };
+    const { bundle } = await buildFlowBundle(source({ settings: settings({ primary }) }));
+    expect(bundle.llm).toMatchObject({ provider: "ollama", base_url: "http://s:1234/v1", reasoning_effort: "none" });
+  });
+
+  it("sends reasoning_effort null when thinking is left on", async () => {
+    const { bundle } = await buildFlowBundle(source());
+    expect(bundle.llm).toMatchObject({ provider: "lmstudio", reasoning_effort: null });
+  });
+});

@@ -9,6 +9,8 @@ import { WebLLMAdapter } from "./WebLLMAdapter";
 const webllmAdapterInstance = new WebLLMAdapter({ useServiceWorker: true });
 const registry: Record<ProviderType, ProviderAdapter> = {
   "openai-compatible": openAICompatibleAdapter,
+  // Ollama serves the OpenAI API under /v1; a separate type only so Flow keeps its native Ollama path.
+  "ollama": openAICompatibleAdapter,
   "anthropic": anthropicAdapter,
   "google-gemini": geminiAdapter,
   "webllm": webllmAdapterInstance,

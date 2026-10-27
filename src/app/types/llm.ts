@@ -1,4 +1,4 @@
-export type ProviderType = "openai-compatible" | "anthropic" | "google-gemini" | "webllm";
+export type ProviderType = "openai-compatible" | "ollama" | "anthropic" | "google-gemini" | "webllm";
 
 export interface ModelEndpoint {
   label: string;
@@ -8,6 +8,8 @@ export interface ModelEndpoint {
   model: string;
   temperature: number;
   maxTokens?: number;
+  /** "none" turns a thinking model's reasoning off (sent as `reasoning_effort`). Unset = not sent. */
+  reasoningEffort?: "none";
 }
 
 export type SecondaryUse = "never" | "fallback" | "quick-tasks" | "always";

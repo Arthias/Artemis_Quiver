@@ -62,7 +62,11 @@ export function mapProviderForFlow(endpoint: ModelEndpoint): { provider: string;
   if (endpoint.provider === "openai-compatible") {
     return { provider: "lmstudio", base_url: endpoint.baseUrl };
   }
-  throw new Error(`Flow does not support the "${endpoint.provider}" provider. Choose an Anthropic or OpenAI-compatible endpoint to send to Flow.`);
+  if (endpoint.provider === "ollama") {
+    // Flow's native Ollama path forces JSON output, which qwen3.5 needs.
+    return { provider: "ollama", base_url: endpoint.baseUrl };
+  }
+  throw new Error(`Flow does not support the "${endpoint.provider}" provider. Choose an Anthropic, Ollama or OpenAI-compatible endpoint to send to Flow.`);
 }
 
 export async function testEndpointFromFlow(
@@ -647,12 +651,13 @@ export async function buildFlowBundle(src: FlowSyncSource): Promise<{ bundle: Re
   const flow = src.settings.flow ?? defaultFlowRunConfig();
   const ep = flow.llmEndpoint === "secondary" ? src.settings.secondary : src.settings.primary;
   let llm: Record<string, unknown> | null = null;
-  if (ep?.model && (ep.provider === "anthropic" || ep.provider === "openai-compatible")) {
+  if (ep?.model && (ep.provider === "anthropic" || ep.provider === "openai-compatible" || ep.provider === "ollama")) {
     const mapped = mapProviderForFlow(ep);
     llm = {
       provider: mapped.provider, model: ep.model, base_url: mapped.base_url,
       api_key: ep.apiKey || null, temperature: ep.temperature ?? 0,
       soft_model: flow.softModel || null, hard_model: flow.hardModel || null,
+      reasoning_effort: ep.reasoningEffort ?? null,
     };
   }
   const body = {
