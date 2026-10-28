@@ -18,8 +18,11 @@ import { useConfig } from "../context/ConfigContext";
 import { listModels as listModelsApi, testConnection } from "../services/llmService";
 import {
   checkFlowHealth,
+  exportFlowDb,
+  importFlowDb,
   startSearch,
   testEndpointFromFlow,
+  type FlowDbFormat,
   type FlowStatus,
 } from "../services/flowBridge";
 import { useFlowSync } from "../hooks/useFlowSync";
@@ -657,9 +660,96 @@ function FlowSettingsCard() {
 
           <hr className="border-t border-border" />
           <FlowRunSettingsSection flow={flow} onChange={editFlow} />
+
+          <hr className="border-t border-border" />
+          <FlowDataSection flowBaseUrl={config.flowBaseUrl!} />
         </>
       )}
     </Card>
+  );
+}
+
+/** Export Flow's database or jobs, and import one back (Flow backs up first). */
+function FlowDataSection({ flowBaseUrl }: { flowBaseUrl: string }) {
+  const { t } = useTranslation();
+  const [format, setFormat] = useState<FlowDbFormat>("db");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handleExport() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { blob, filename } = await exportFlowDb(flowBaseUrl, format);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleImport(file: File) {
+    if (!window.confirm(t(format === "db" ? "config.flowDataImportDbConfirm" : "config.flowDataImportCsvConfirm"))) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await importFlowDb(flowBaseUrl, format, file);
+      setMessage({
+        ok: true,
+        text: format === "db"
+          ? t("config.flowDataImportedDb", { n: r.jobs ?? 0, backup: r.backup })
+          : t("config.flowDataImportedCsv", { n: r.imported ?? 0, skipped: r.skipped?.length ?? 0, backup: r.backup }),
+      });
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <Label>{t("config.flowDataTitle")}</Label>
+        <p className="text-xs text-muted-foreground">{t("config.flowDataDesc")}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          className="h-9 rounded-md border border-input bg-input-background px-2 text-sm"
+          value={format}
+          onChange={(e) => setFormat(e.target.value as FlowDbFormat)}
+        >
+          <option value="db">{t("config.flowDataFormatDb")}</option>
+          <option value="csv">{t("config.flowDataFormatCsv")}</option>
+        </select>
+        <Button size="sm" variant="outline" onClick={handleExport} disabled={busy}>
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+          {t("config.flowDataExport")}
+        </Button>
+        <Button size="sm" variant="outline" asChild disabled={busy}>
+          <label className="cursor-pointer">
+            {t("config.flowDataImport")}
+            <input
+              type="file"
+              className="hidden"
+              accept={format === "db" ? ".db,.sqlite,.sqlite3" : ".csv,text/csv"}
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void handleImport(file);
+              }}
+            />
+          </label>
+        </Button>
+      </div>
+      {message && <p className={`text-xs ${message.ok ? "text-muted-foreground" : "text-destructive"}`}>{message.text}</p>}
+    </div>
   );
 }
 

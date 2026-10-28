@@ -504,6 +504,41 @@ export async function purgeArchivedJobs(baseUrl: string, retentionDays?: number)
   }
 }
 
+export type FlowDbFormat = "db" | "csv";
+
+/** Flow's whole database (.db) or its jobs table (.csv), as a file to save. */
+export async function exportFlowDb(baseUrl: string, format: FlowDbFormat): Promise<{ blob: Blob; filename: string }> {
+  try {
+    const res = await fetch(`${baseUrl}/api/db/export?format=${format}`, { signal: AbortSignal.timeout(120000) });
+    if (!res.ok) throw new Error(`exportFlowDb failed: ${res.statusText}`);
+    const filename = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? `artemis-flow.${format}`;
+    return { blob: await res.blob(), filename };
+  } catch (err) {
+    logFlowError(err, baseUrl, "exportFlowDb");
+    throw err;
+  }
+}
+
+/** A .db replaces everything Flow holds; a .csv merges rows into its jobs by id.
+ * Flow backs up its current database first and refuses while a runner is active. */
+export async function importFlowDb(
+  baseUrl: string, format: FlowDbFormat, file: Blob
+): Promise<{ backup: string; jobs?: number; imported?: number; skipped?: { id: string; reason: string }[] }> {
+  try {
+    const res = await fetch(`${baseUrl}/api/db/import?format=${format}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+      signal: AbortSignal.timeout(300000),
+    });
+    if (!res.ok) throw new Error(syncErrorMessage(await res.json().catch(() => null), res.statusText));
+    return await res.json();
+  } catch (err) {
+    logFlowError(err, baseUrl, "importFlowDb");
+    throw err;
+  }
+}
+
 export interface FlowJobSearchParams {
   search?: string;
   status?: string;
