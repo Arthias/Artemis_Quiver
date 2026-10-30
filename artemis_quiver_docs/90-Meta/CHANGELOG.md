@@ -8,6 +8,17 @@ last_updated: 2026-10-22
 
 ## [Unreleased]
 
+**Autopilot steps and new caps (2026-10-30, branch `feat/assisted-apply`)**
+
+Needs Flow `feat/assisted-apply` with the 2026-10-30 caps (Flow CHANGELOG).
+
+- Flow page: the Autopilot block shows the current step (search or scoring, with progress or
+  the last message), hard-cap progress ("Found X/N at S+ this run"), and a collapsible list of
+  recent search and scoring log lines.
+- Settings: soft cap now means jobs waiting to be scored; hard cap means good jobs an autopilot
+  run must find before search stops. New field: hard cap minimum score (empty = archive
+  threshold), sent in the sync bundle.
+
 **Profile management (2026-10-26, branch `feat/assisted-apply`: `0810fdd`, `99b5661`)**
 
 Spec: [[Profile-Management-Spec]]. Test plan: [[Profile-Management-Test-Plan]]. Needs Flow

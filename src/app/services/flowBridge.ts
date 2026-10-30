@@ -175,9 +175,9 @@ export interface FlowSearchStatus {
   error: string;
   /** Net-new rows this search batch has inserted so far. */
   inserted?: number;
-  /** Set once a batch stops for a real, non-transient reason — Autopilot
-   * won't restart search on its own until the user intervenes. */
-  hard_cap_reached?: boolean;
+  /** The scoring queue reached soft_cap; search resumes once it drains. */
+  soft_cap_reached?: boolean;
+  /** The last batch found nothing new — Autopilot stops searching. */
   exhausted?: boolean;
   finished_at?: string | null;
   /** Recent "HH:MM:SS message" lines from this runner. */
@@ -289,6 +289,10 @@ export interface FlowAutopilotStatus {
   search: FlowSearchStatus;
   rank: FlowRankStatus;
   rank_backlog_unscored: number;
+  /** Search stopped for this run; scoring finishes its queue. */
+  hard_cap_reached?: boolean;
+  /** Jobs this run found at or above min_score, against cap (null = off). */
+  hard_cap?: { cap: number | null; min_score: number; found: number };
   logs: string[];
 }
 
@@ -431,18 +435,14 @@ export function getStrategyHistory(baseUrl: string, limit = 10): Promise<FlowStr
 // --- Backlog cap settings --------------------------------------------------
 
 export interface FlowBacklogConfig {
-  /** Pauses search (self-recovering — resumes once scoring drains the
-   * backlog back under this) once the total pending "new" backlog reaches
-   * this size. null = no pending-backlog gate at all (2026-09-09) — search
-   * runs every cycle regardless of review-queue size; useful when scoring
-   * (e.g. a slow local model) can't keep pace and an unattended run
-   * shouldn't throttle on that. */
+  /** Jobs queued to score at which search pauses until scoring catches up.
+   * null = never pause search. */
   soft_cap: number | null;
-  /** Caps net-new jobs a single search batch can insert before ending that
-   * batch early — the direct fix for one sweep dumping hundreds of jobs at
-   * once. null = a batch runs to completion however many sources/keywords
-   * that takes (Autopilot still restarts search on its own after). */
+  /** Jobs an autopilot run must find at or above hard_cap_min_score before
+   * search stops for good (scoring then finishes its queue). null = off. */
   hard_cap: number | null;
+  /** null = archive_score_threshold. */
+  hard_cap_min_score?: number | null;
   archive_retention_days: number;
   archive_score_threshold: number;
   /** Days an unscored/unactioned 'new' job can sit before it's archived as

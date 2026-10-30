@@ -103,7 +103,7 @@ New `flow?: FlowRunConfig` on `ProfileSettings`, next to the existing `flowBaseU
 | Group | Fields | Today in Flow |
 |---|---|---|
 | `llm` | which Quiver endpoint Flow uses (primary/secondary), `soft_model`, `hard_model` | `config/llm.yaml` via `PUT /api/settings/llm` (provider, model, base_url, api_key, temperature only) |
-| `backlog` | `soft_cap`, `hard_cap`, `archive_retention_days`, `archive_score_threshold`, `stale_new_days`, `skip_aggregator_boards` | `backlog_config` via `PUT /api/settings/backlog` |
+| `backlog` | `soft_cap`, `hard_cap`, `hard_cap_min_score`, `archive_retention_days`, `archive_score_threshold`, `stale_new_days`, `skip_aggregator_boards` | `backlog_config` via `PUT /api/settings/backlog` |
 | `apply` | `daily_cap`, `review_by` | inside the preferences JSON |
 | `prescore` | `enabled`, `threshold` (default 60) | new (§8) |
 

@@ -60,6 +60,8 @@ export const FINGERPRINT_MAX = 300;
 export interface FlowBacklogSettings {
   soft_cap: number | null;
   hard_cap: number | null;
+  /** Hard cap's score bar; null = archive_score_threshold. */
+  hard_cap_min_score: number | null;
   archive_retention_days: number;
   archive_score_threshold: number;
   stale_new_days: number | null;
@@ -86,6 +88,7 @@ export const defaultFlowRunConfig = (): FlowRunConfig => ({
   backlog: {
     soft_cap: 50,
     hard_cap: 150,
+    hard_cap_min_score: null,
     archive_retention_days: 30,
     archive_score_threshold: 20,
     stale_new_days: null,

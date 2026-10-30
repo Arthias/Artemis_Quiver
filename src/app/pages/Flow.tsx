@@ -377,7 +377,12 @@ function AutopilotBlock({
       {enabled && (
         <p className="text-xs text-muted-foreground">
           {t("flow.autopilotRunning", { ticks: status?.ticks ?? 0, backlog: status?.rank_backlog_unscored ?? 0 })}
+          {status?.hard_cap?.cap != null &&
+            ` ${t("flow.autopilotHardCap", { found: status.hard_cap.found, cap: status.hard_cap.cap, min: status.hard_cap.min_score })}`}
         </p>
+      )}
+      {enabled && status?.hard_cap_reached && (
+        <p className="text-xs text-teal-700 dark:text-teal-400">{t("flow.autopilotHardCapReached")}</p>
       )}
       {enabled && step && (
         <p className="text-xs">

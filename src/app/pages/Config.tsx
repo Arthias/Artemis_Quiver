@@ -848,6 +848,15 @@ function FlowRunSettingsSection({ flow, onChange }: { flow: FlowRunConfig; onCha
               className="bg-input-background" />
           </div>
           <div className="col-span-2">
+            <Label className="text-xs text-muted-foreground">{t("config.flowHardCapMinScore")}</Label>
+            <Input type="number" min={0} max={100} value={cfg.hard_cap_min_score ?? ""}
+              disabled={cfg.hard_cap == null}
+              placeholder={String(cfg.archive_score_threshold)}
+              onChange={(e) => setBacklog({ hard_cap_min_score: e.target.value === "" ? null : num(e.target.value, cfg.archive_score_threshold) })}
+              className="bg-input-background" />
+            <p className="text-[11px] text-muted-foreground mt-0.5">{t("config.flowHardCapMinScoreHint")}</p>
+          </div>
+          <div className="col-span-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">{t("config.flowStaleNewDays")}</Label>
               <div className="flex items-center gap-1.5">
