@@ -161,6 +161,9 @@ export interface FlowRankStatus {
   scored: number;
   failed: number;
   error: string;
+  finished_at?: string | null;
+  /** Recent "HH:MM:SS message" lines from this runner. */
+  logs?: string[];
 }
 
 export interface FlowSearchStatus {
@@ -176,6 +179,9 @@ export interface FlowSearchStatus {
    * won't restart search on its own until the user intervenes. */
   hard_cap_reached?: boolean;
   exhausted?: boolean;
+  finished_at?: string | null;
+  /** Recent "HH:MM:SS message" lines from this runner. */
+  logs?: string[];
 }
 
 async function flowGet<T>(baseUrl: string, path: string, action: string): Promise<T> {

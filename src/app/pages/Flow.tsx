@@ -346,6 +346,15 @@ function AutopilotBlock({
     user: "flow.autopilotStoppedUser",
   };
   const stoppedReason = status?.stopped_reason ? reasonKey[status.stopped_reason] : null;
+  // What the loop is doing right now: the running runner, else the last one
+  // that finished (its message says why autopilot is idle, e.g. soft cap).
+  const active = status?.search.running ? status.search : status?.rank.running ? status.rank : null;
+  const step = active ?? [status?.search, status?.rank]
+    .filter((s) => !!s?.finished_at)
+    .sort((a, b) => (b!.finished_at! > a!.finished_at! ? 1 : -1))[0];
+  const stepLabel = step === status?.search ? t("flow.autopilotStepSearch") : t("flow.autopilotStepRank");
+  // Search and rank log lines are "HH:MM:SS ..." — merge and keep the newest.
+  const recent = [...(status?.search.logs ?? []), ...(status?.rank.logs ?? [])].sort().slice(-40).reverse();
 
   return (
     <div className="rounded border border-teal-500/40 bg-teal-500/5 p-3 space-y-2">
@@ -369,6 +378,21 @@ function AutopilotBlock({
         <p className="text-xs text-muted-foreground">
           {t("flow.autopilotRunning", { ticks: status?.ticks ?? 0, backlog: status?.rank_backlog_unscored ?? 0 })}
         </p>
+      )}
+      {enabled && step && (
+        <p className="text-xs">
+          {active && <Loader2 className="inline w-3 h-3 mr-1 animate-spin" />}
+          <span className="font-medium">{stepLabel}</span>
+          {active && step.total > 0 && ` ${step.current}/${step.total}`}
+          {" — "}
+          {step.error || step.message || step.phase}
+        </p>
+      )}
+      {enabled && recent.length > 0 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground">{t("flow.autopilotSteps")}</summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-muted-foreground">{recent.join("\n")}</pre>
+        </details>
       )}
       {!enabled && stoppedReason && (
         <p className="text-xs text-amber-600 dark:text-amber-400">{t(stoppedReason)}</p>
