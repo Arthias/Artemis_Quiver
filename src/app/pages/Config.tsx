@@ -19,6 +19,7 @@ import { listModels as listModelsApi, testConnection } from "../services/llmServ
 import {
   checkFlowHealth,
   exportFlowDb,
+  clearFlowDb,
   importFlowDb,
   startSearch,
   testEndpointFromFlow,
@@ -712,6 +713,20 @@ function FlowDataSection({ flowBaseUrl }: { flowBaseUrl: string }) {
     }
   }
 
+  async function handleClear() {
+    if (!window.confirm(t("config.flowDataClearConfirm"))) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const r = await clearFlowDb(flowBaseUrl);
+      setMessage({ ok: true, text: t("config.flowDataCleared", { backup: r.backup }) });
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div>
@@ -746,6 +761,9 @@ function FlowDataSection({ flowBaseUrl }: { flowBaseUrl: string }) {
               }}
             />
           </label>
+        </Button>
+        <Button size="sm" variant="outline" className="text-destructive" onClick={handleClear} disabled={busy}>
+          {t("config.flowDataClear")}
         </Button>
       </div>
       {message && <p className={`text-xs ${message.ok ? "text-muted-foreground" : "text-destructive"}`}>{message.text}</p>}

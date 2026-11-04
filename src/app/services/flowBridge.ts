@@ -545,6 +545,19 @@ export async function importFlowDb(
   }
 }
 
+/** Empties Flow's jobs and their history; settings and the board pool stay.
+ * Flow backs up its current database first and refuses while a runner is active. */
+export async function clearFlowDb(baseUrl: string): Promise<{ backup: string }> {
+  try {
+    const res = await fetch(`${baseUrl}/api/db/clear`, { method: "POST", signal: AbortSignal.timeout(120000) });
+    if (!res.ok) throw new Error(syncErrorMessage(await res.json().catch(() => null), res.statusText));
+    return await res.json();
+  } catch (err) {
+    logFlowError(err, baseUrl, "clearFlowDb");
+    throw err;
+  }
+}
+
 export interface FlowJobSearchParams {
   search?: string;
   status?: string;
