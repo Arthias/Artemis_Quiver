@@ -1008,6 +1008,7 @@ export function Flow() {
   const [autopilotStatus, setAutopilotStatus] = useState<FlowAutopilotStatus | null>(null);
   const [autopilotAvailable, setAutopilotAvailable] = useState(true);
   const [autopilotBusy, setAutopilotBusy] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [queue, setQueue] = useState<FlowQueueSummary | null>(null);
   const [sweepBusy, setSweepBusy] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
@@ -1115,10 +1116,13 @@ export function Flow() {
   async function handleToggleRank() {
     if (!flowBaseUrl) return;
     setRankBusy(true);
+    setStartError(null);
     try {
       if (rankStatus?.running) await stopRank(flowBaseUrl);
       else await startRank(flowBaseUrl);
       await refresh();
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
     } finally {
       setRankBusy(false);
     }
@@ -1127,10 +1131,13 @@ export function Flow() {
   async function handleToggleSearch() {
     if (!flowBaseUrl) return;
     setSearchBusy(true);
+    setStartError(null);
     try {
       if (searchStatus?.running) await stopSearch(flowBaseUrl);
       else await startSearch(flowBaseUrl);
       await refresh();
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
     } finally {
       setSearchBusy(false);
     }
@@ -1139,10 +1146,13 @@ export function Flow() {
   async function handleToggleAutopilot() {
     if (!flowBaseUrl) return;
     setAutopilotBusy(true);
+    setStartError(null);
     try {
       if (autopilotStatus?.enabled) await stopAutopilot(flowBaseUrl);
       else await startAutopilot(flowBaseUrl);
       await refresh();
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
     } finally {
       setAutopilotBusy(false);
     }
@@ -1225,6 +1235,7 @@ export function Flow() {
           <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
             <Card className="p-6 space-y-4">
               <h2 className="text-lg font-semibold">{t("flow.controls")}</h2>
+              {startError && <p className="text-sm text-destructive">{startError}</p>}
               {autopilotAvailable && (
                 <AutopilotBlock
                   status={autopilotStatus}

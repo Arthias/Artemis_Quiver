@@ -195,11 +195,14 @@ async function flowGet<T>(baseUrl: string, path: string, action: string): Promis
   }
 }
 
-async function flowPost<T>(baseUrl: string, path: string, action: string): Promise<T> {
+/** Flow's start routes run its preflight first, which probes each LLM for up to 30 s. */
+const PREFLIGHT_TIMEOUT_MS = 90000;
+
+async function flowPost<T>(baseUrl: string, path: string, action: string, timeoutMs = 10000): Promise<T> {
   await ensureFlowSynced(baseUrl);
   try {
-    const res = await fetch(`${baseUrl}${path}`, { method: "POST", signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`${action} failed: ${res.statusText}`);
+    const res = await fetch(`${baseUrl}${path}`, { method: "POST", signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) throw new Error(syncErrorMessage(await res.json().catch(() => null), `${action} failed: ${res.statusText}`));
     return await res.json();
   } catch (err) {
     logFlowError(err, baseUrl, action);
@@ -257,7 +260,7 @@ export function getRankStatus(baseUrl: string): Promise<FlowRankStatus> {
 }
 
 export function startRank(baseUrl: string): Promise<{ status: string; running: boolean }> {
-  return flowPost(baseUrl, "/api/pipeline/rank", "startRank");
+  return flowPost(baseUrl, "/api/pipeline/rank", "startRank", PREFLIGHT_TIMEOUT_MS);
 }
 
 export function stopRank(baseUrl: string): Promise<{ status: string; running: boolean }> {
@@ -270,7 +273,7 @@ export function getSearchStatus(baseUrl: string): Promise<FlowSearchStatus> {
 }
 
 export function startSearch(baseUrl: string): Promise<{ status: string; message: string }> {
-  return flowPost(baseUrl, "/api/pipeline/search", "startSearch");
+  return flowPost(baseUrl, "/api/pipeline/search", "startSearch", PREFLIGHT_TIMEOUT_MS);
 }
 
 export function stopSearch(baseUrl: string): Promise<{ status: string; running: boolean }> {
@@ -301,7 +304,7 @@ export function getAutopilotStatus(baseUrl: string): Promise<FlowAutopilotStatus
 }
 
 export function startAutopilot(baseUrl: string): Promise<{ status: string; enabled: boolean }> {
-  return flowPost(baseUrl, "/api/pipeline/autopilot", "startAutopilot");
+  return flowPost(baseUrl, "/api/pipeline/autopilot", "startAutopilot", PREFLIGHT_TIMEOUT_MS);
 }
 
 export function stopAutopilot(baseUrl: string): Promise<{ status: string; enabled: boolean }> {
