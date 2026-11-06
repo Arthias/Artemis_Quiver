@@ -19,7 +19,7 @@ import { PreferencesEditor } from "../components/profile/PreferencesEditor";
 import { ApplicationSettingsCard } from "../components/apply/ApplicationSettingsCard";
 import { emptyPreferences, FINGERPRINT_MAX, type Layer, type ProfilePreferences } from "../types/preferences";
 import {
-  generatePreferences, isStale, makeLayer, masterHash, preferencesHash, renderFingerprint,
+  generatePreferences, generateTitles, isStale, makeLayer, masterHash, preferencesHash, renderFingerprint,
 } from "../services/profileLayers";
 
 type Draft<T> = { value: T; origin: Layer<T>["origin"] };
@@ -129,6 +129,15 @@ export function Profile() {
       setPrefEditorKey((k) => k + 1);
       if (withFingerprint) setFpDraft({ value: renderFingerprint(prefs), origin: "generated" });
       setActiveTab("preferences");
+      // Titles are later, separate calls; a failure there keeps the card.
+      try {
+        const res = await generateTitles(profileData.profileMarkdown, prefs, config);
+        setPrefDraft({ value: { ...prefs, titles: res.titles, exclude_titles: res.exclude_titles }, origin: "generated" });
+        setPrefEditorKey((k) => k + 1);
+        if (res.failed.length) setPageError(t("profile.titlesTranslateFailed", { langs: res.failed.join(", ") }));
+      } catch (err) {
+        setPageError(t("profile.titlesFailed", { error: err instanceof Error ? err.message : String(err) }));
+      }
     } catch (err) {
       setPageError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : String(err));
     } finally {

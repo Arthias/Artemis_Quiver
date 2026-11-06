@@ -13,7 +13,7 @@ import {
 } from "../types/preferences";
 import { chatCompletionWithFallback } from "./llmService";
 import { extractJsonObject } from "../utils/jsonParse";
-import { placeCode, placeCodes } from "../utils/geo";
+import { COUNTRIES, languageCode, languageName, placeCode, placeCodes } from "../utils/geo";
 
 /** JSON with sorted keys, so equal values always hash alike. */
 export function canonicalJson(value: unknown): string {
@@ -131,4 +131,80 @@ export async function generatePreferences(masterMarkdown: string, llm: LlmConfig
   const raw = extractJsonObject(await chatCompletionWithFallback(messages, llm, { timeoutMs: 180000 }));
   if (!raw || typeof raw !== "object") throw new Error("The model did not return a preferences card.");
   return preferencesFromCard(raw as Record<string, unknown>);
+}
+
+// ── Generate titles ─────────────────────────────────────────────────────────
+// Separate calls after the card, one narrow job each, for small models:
+// English titles first, then one translation call per target language.
+
+const TITLES_PROMPT = `List job titles to search job boards with, for the candidate below.
+Reply with compact JSON only, in this shape. The <...> are placeholders: never copy them.
+{"titles":["<job title>"],"exclude_titles":["<word or phrase>"]}
+Rules:
+- titles: 8 to 15 job titles in English, written the way employers write them in job postings.
+- Include the titles the candidate has held or is aiming for.
+- Also include titles from other job families where the candidate's background is a real asset and no licence or qualification they lack is required. This is the one place you may infer beyond what the profile states.
+- No company names, no duplicates, no seniority words unless the profile targets a level.
+- exclude_titles: up to 10 words or short phrases that mark a job title this candidate would never want, such as a level or kind of work the profile rules out. [] if the profile does not say.`;
+
+const translatePrompt = (lang: string) => `Translate these job titles into ${lang}, the way employers in ${lang}-speaking countries write them in job postings. Keep a title unchanged where that is how it is usually written there.
+Reply with compact JSON only: {"titles":["<title>"]}, one per input title, in the same order.`;
+
+/** Languages to search in: English, plus the official languages of the
+ * user's places that the user speaks (only the home country's when no
+ * languages are set). Regions count as all their countries. */
+export function targetLanguages(p: ProfilePreferences): string[] {
+  const places = [p.home_country, ...p.work_authorisation, ...p.remote_from, ...p.relocation_countries]
+    .filter((x): x is string => !!x);
+  const official = new Set(
+    COUNTRIES.filter((c) => places.some((x) => x === c.code || c.regions.includes(x))).flatMap((c) => c.languages)
+  );
+  const spoken = new Set(p.languages.map((l) => languageCode(l.name)).filter(Boolean));
+  const home = COUNTRIES.find((c) => c.code === p.home_country)?.languages ?? [];
+  const keep = [...official].filter((l) => l !== "en" && (spoken.size ? spoken.has(l) : home.includes(l)));
+  return ["en", ...keep.sort()];
+}
+
+async function askList(system: string, user: string, key: string, llm: LlmConfig): Promise<Record<string, unknown>> {
+  const raw = extractJsonObject(await chatCompletionWithFallback(
+    [{ role: "system", content: system }, { role: "user", content: user }], llm, { timeoutMs: 180000 }));
+  if (!raw || typeof raw !== "object" || !Array.isArray((raw as Record<string, unknown>)[key]))
+    throw new Error(`The model did not return a "${key}" list.`);
+  return raw as Record<string, unknown>;
+}
+
+export interface GeneratedTitles {
+  titles: ProfilePreferences["titles"];
+  exclude_titles: string[];
+  /** Languages whose translation call failed; their titles are missing. */
+  failed: string[];
+}
+
+export async function generateTitles(masterMarkdown: string, prefs: ProfilePreferences, llm: LlmConfig): Promise<GeneratedTitles> {
+  const card = [
+    prefs.fields.length && `Fields of work: ${prefs.fields.join(", ")}`,
+    prefs.levels.length && `Target levels: ${prefs.levels.join(", ")}`,
+    prefs.domains.length && `Industries: ${prefs.domains.join(", ")}`,
+  ].filter(Boolean).join("\n");
+  const raw = await askList(TITLES_PROMPT, `## Profile\n\n${masterMarkdown}${card ? `\n\n## Summary\n\n${card}` : ""}`, "titles", llm);
+  const english = list(raw.titles).slice(0, 15);
+  const titles: GeneratedTitles["titles"] = english.map((title) => ({ title, lang: "en" }));
+  const failed: string[] = [];
+  for (const lang of targetLanguages(prefs).slice(1)) {
+    try {
+      const out = await askList(translatePrompt(languageName(lang)), english.join("\n"), "titles", llm);
+      titles.push(...list(out.titles).slice(0, english.length).map((title) => ({ title, lang })));
+    } catch {
+      failed.push(lang);
+    }
+  }
+  const seen = new Set<string>();
+  return {
+    titles: titles.filter((t) => {
+      const k = `${t.lang}:${t.title.toLowerCase()}`;
+      return !seen.has(k) && !!seen.add(k);
+    }),
+    exclude_titles: list(raw.exclude_titles).slice(0, 10),
+    failed,
+  };
 }

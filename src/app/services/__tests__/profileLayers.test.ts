@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ProfilePreferencesSchema, emptyPreferences, FINGERPRINT_MAX } from "../../types/preferences";
-import { canonicalJson, isStale, makeLayer, preferencesFromCard, preferencesHash, renderFingerprint } from "../profileLayers";
+import {
+  canonicalJson, generateTitles, isStale, makeLayer, preferencesFromCard, preferencesHash, renderFingerprint,
+  targetLanguages,
+} from "../profileLayers";
+import { chatCompletionWithFallback } from "../llmService";
+import type { LlmConfig } from "../../types/llm";
+
+vi.mock("../llmService", () => ({ chatCompletionWithFallback: vi.fn() }));
 
 describe("preferences schema", () => {
   it("reads Flow's shape, plain language names included", () => {
@@ -60,5 +67,52 @@ describe("staleness", () => {
     expect(isStale(layer, "abc")).toBe(false);
     expect(isStale(layer, "def")).toBe(true);
     expect(isStale(undefined, "def")).toBe(false);
+  });
+});
+
+describe("targetLanguages", () => {
+  it("is English plus the spoken languages of the user's places", () => {
+    const p = ProfilePreferencesSchema.parse({
+      home_country: "AR", relocation_countries: ["ES", "SE"], work_authorisation: ["LATAM"],
+      languages: [{ name: "español", level: "native" }, { name: "Portuguese", level: "B1" }, { name: "English" }],
+    });
+    // Swedish is official in SE but not spoken; Portuguese comes from LATAM (BR).
+    expect(targetLanguages(p)).toEqual(["en", "es", "pt"]);
+  });
+
+  it("falls back to the home country's languages when none are set", () => {
+    expect(targetLanguages(ProfilePreferencesSchema.parse({ home_country: "IT", relocation_countries: ["DE"] })))
+      .toEqual(["en", "it"]);
+    expect(targetLanguages(emptyPreferences())).toEqual(["en"]);
+  });
+});
+
+describe("generateTitles", () => {
+  const llm = {} as LlmConfig;
+  const prefs = ProfilePreferencesSchema.parse({ home_country: "AR", languages: ["Spanish"], fields: ["legal advice"] });
+
+  it("asks for English titles, then translates them one language per call", async () => {
+    vi.mocked(chatCompletionWithFallback)
+      .mockResolvedValueOnce('{"titles":["Lawyer","Compliance Analyst","Lawyer"],"exclude_titles":["intern"]}')
+      .mockResolvedValueOnce('{"titles":["Abogado","Analista de Compliance","Abogado"]}');
+    const res = await generateTitles("# CV", prefs, llm);
+    expect(res.titles).toEqual([
+      { title: "Lawyer", lang: "en" }, { title: "Compliance Analyst", lang: "en" },
+      { title: "Abogado", lang: "es" }, { title: "Analista de Compliance", lang: "es" },
+    ]);
+    expect(res.exclude_titles).toEqual(["intern"]);
+    expect(res.failed).toEqual([]);
+    const calls = vi.mocked(chatCompletionWithFallback).mock.calls;
+    expect(calls[0]![0][1]!.content).toContain("Fields of work: legal advice");
+    expect(calls[1]![0][0]!.content).toContain("into Spanish");
+  });
+
+  it("keeps the English titles when a translation fails", async () => {
+    vi.mocked(chatCompletionWithFallback).mockReset()
+      .mockResolvedValueOnce('{"titles":["Lawyer"]}')
+      .mockResolvedValueOnce("not json");
+    const res = await generateTitles("# CV", prefs, llm);
+    expect(res.titles).toEqual([{ title: "Lawyer", lang: "en" }]);
+    expect(res.failed).toEqual(["es"]);
   });
 });

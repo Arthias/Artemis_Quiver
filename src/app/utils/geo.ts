@@ -36,6 +36,20 @@ export function placeCodes(values: string[]): { codes: string[]; unknown: string
 
 export const ALL_LANGUAGES = [...new Set(COUNTRIES.flatMap((c) => c.languages))].sort();
 
+const englishNames = new Intl.DisplayNames(["en"], { type: "language" });
+export const languageName = (code: string) => englishNames.of(code) ?? code;
+
+/** "Spanish", "español", "es" → "es"; a language no country lists → null. */
+export function languageCode(name: string): string | null {
+  const n = name.trim().toLowerCase();
+  if (!n) return null;
+  return ALL_LANGUAGES.find((code) =>
+    n === code ||
+    n === languageName(code).toLowerCase() ||
+    n === new Intl.DisplayNames([code], { type: "language" }).of(code)?.toLowerCase()
+  ) ?? null;
+}
+
 export function countriesSpeaking(lang: string): string[] {
   return COUNTRIES.filter((c) => c.languages.includes(lang)).map((c) => c.code);
 }

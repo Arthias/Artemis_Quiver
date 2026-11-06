@@ -34,6 +34,11 @@ export const ProfilePreferencesSchema = z.object({
   skills: z.array(z.string()).default([]),
   years: z.number().nonnegative().nullable().default(null),
   domains: z.array(z.string()).default([]),
+  /** Job titles Flow searches for, each in one language (ISO 639-1). Flow
+   * pairs each search location with the titles in its languages and English. */
+  titles: z.array(z.object({ title: z.string().min(1), lang: z.string().min(2) })).default([]),
+  /** Words or phrases that mark a title the user never wants; Flow archives those before scoring. */
+  exclude_titles: z.array(z.string()).default([]),
   /** Alignment row weights; null = Flow's defaults. */
   weights: z.record(z.string(), z.number()).nullable().default(null),
   schema_version: z.literal(1).default(1),

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
 import {
   LEVELS,
   ProfilePreferencesSchema,
@@ -13,7 +14,7 @@ import {
 import { ALL_LANGUAGES, COUNTRIES, REGIONS, countriesSpeaking, placeCode, placeCodes } from "../../utils/geo";
 
 type PlaceKey = "work_authorisation" | "remote_from" | "relocation_countries";
-type ListKey = PlaceKey | "languages" | "fields" | "skills" | "domains";
+type ListKey = PlaceKey | "languages" | "fields" | "skills" | "domains" | "titles" | "exclude_titles";
 type ModeKey = "remote" | "hybrid" | "onsite";
 
 const PLACE_KEYS: PlaceKey[] = ["work_authorisation", "remote_from", "relocation_countries"];
@@ -26,6 +27,18 @@ function languagesFromText(s: string): ProfileLanguage[] {
   return toList(s).map((part) => {
     const m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(part);
     return m ? { name: m[1]!.trim(), level: m[2]!.trim() || null } : { name: part, level: null };
+  });
+}
+
+type Title = ProfilePreferences["titles"][number];
+/** One title per line, "Compliance Analyst (en)"; a line without a language is English. */
+const titlesToText = (l: Title[]) => l.map((x) => `${x.title} (${x.lang})`).join("\n");
+function titlesFromText(s: string): Title[] {
+  return s.split("\n").map((x) => x.trim()).filter(Boolean).map((line) => {
+    const m = /^(.*?)\s*\(([a-z]{2,3})\)$/i.exec(line);
+    const lang = m?.[2]?.toLowerCase();
+    // "Analyst (AML)" is a title, not a language.
+    return m?.[1] && lang && ALL_LANGUAGES.includes(lang) ? { title: m[1], lang } : { title: line, lang: "en" };
   });
 }
 
@@ -44,6 +57,8 @@ function initialText(v: ProfilePreferences): Record<ListKey, string> {
     fields: toText(v.fields),
     skills: toText(v.skills),
     domains: toText(v.domains),
+    titles: titlesToText(v.titles),
+    exclude_titles: toText(v.exclude_titles),
   };
 }
 
@@ -75,6 +90,7 @@ export function PreferencesEditor({
   function editText(key: ListKey, raw: string) {
     setText({ ...text, [key]: raw });
     if (key === "languages") emit({ languages: languagesFromText(raw) });
+    else if (key === "titles") emit({ titles: titlesFromText(raw) });
     else if ((PLACE_KEYS as string[]).includes(key)) emit({ [key]: placeCodes(toList(raw)).codes });
     else emit({ [key]: toList(raw) });
   }
@@ -212,6 +228,22 @@ export function PreferencesEditor({
               <p className={hint}>{t(`profile.prefs_${key}_hint`)}</p>
             </div>
           ))}
+          <div className="sm:col-span-2">
+            <Label className="text-xs text-muted-foreground">{t("profile.prefs_titles")}</Label>
+            <Textarea
+              rows={8}
+              value={text.titles}
+              placeholder="Compliance Analyst (en)"
+              onChange={(e) => editText("titles", e.target.value)}
+              className="bg-input-background font-mono text-xs"
+            />
+            <p className={hint}>{t("profile.prefs_titles_hint")}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs text-muted-foreground">{t("profile.prefs_exclude_titles")}</Label>
+            <Input value={text.exclude_titles} onChange={(e) => editText("exclude_titles", e.target.value)} className="bg-input-background" />
+            <p className={hint}>{t("profile.prefs_exclude_titles_hint")}</p>
+          </div>
           <div className="sm:col-span-2">
             <Label className="text-xs text-muted-foreground">{t("profile.prefs_levels")}</Label>
             <div className="flex flex-wrap gap-3 mt-1">
