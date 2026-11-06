@@ -97,6 +97,7 @@
     "structure": "Estructurar con IA",
     "structureHint": "Reescribe el texto del editor en secciones de perfil con tu modelo. No se guarda nada hasta que pulses Guardar.",
     "structureUndo": "Deshacer estructura IA",
+    "structureMissing": "{{count}} datos del original no aparecen en la versión de la IA: {{list}}. Revisa lo que falta, añádelo o deshaz. Esta lista no detecta datos que el modelo haya cambiado.",
     "tabMaster": "Perfil maestro",
     "tabPreferences": "Preferencias",
     "tabFingerprint": "Huella",

@@ -61,12 +61,23 @@ export async function extractCvText(file: File): Promise<string> {
 const STRUCTURE_PROMPT = `Rewrite the CV text below as a Markdown master profile.
 The text was extracted from a PDF or Word file: lines may be broken mid-sentence, columns mixed together, page headers repeated.
 Rules:
-- Keep every fact: roles, employers, dates, education with grades, certifications, licences and where they are valid, languages with levels, publications, talks, skills.
-- Never add, infer or embellish anything that is not in the text.
-- Write in the same language as the CV.
-- Start with the person's name as a level-1 heading, then use only these level-2 sections, leaving out any the CV has nothing for: Summary, Experience, Education, Credentials and licences, Skills, Languages, Publications and other activities.
+- This is reorganisation, not summarising. Keep every fact and every bullet: roles, employers, clients and accounts, dates, promotions, numbers, education with grades, certifications, licences and where they are valid, languages with levels, publications, talks, projects, skills, contact details, location, work authorisation, working preferences.
+- Do not shorten, merge or paraphrase bullets beyond fixing broken lines. If the text has several versions of something (several summaries, several headlines), keep them all.
+- Never add, infer or embellish anything that is not in the text, not even an employment type such as "freelance".
+- Write everything in the same language as the CV, headings included.
+- Start with the person's name as a level-1 heading. Then use these level-2 sections, in this order, leaving out any the CV has nothing for: Details (location, contact, links, work authorisation, citizenship, working preferences), Summary, Experience, Education, Credentials and licences, Skills, Languages, Projects, Publications and other activities, Other.
 - Under Experience, one level-3 heading per role: role, employer, dates. Then the bullets.
+- Anything that fits no section goes under Other. Drop nothing.
 - Reply with the Markdown only.`;
+
+/** Numbers, emails and links that are in `before` but not in `after`: the
+ * cheap sign that the model dropped facts. It cannot see a changed fact. */
+export function missingDetails(before: string, after: string): string[] {
+  const re = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+|(?:https?:\/\/)?[\w-]+(?:\.[\w-]+)*\.(?:com|org|net|io|it|es|dev)\/[^\s)]*|\+\d[\d ()-]{6,}\d|\d[\d.,]*\d|\d/g;
+  const tokens = (s: string) => new Set((s.match(re) ?? []).map((t) => t.replace(/[.,/]+$/, "")));
+  const kept = tokens(after);
+  return [...tokens(before)].filter((t) => !kept.has(t));
+}
 
 /** Strips a wrapping ```markdown fence, which small models often add. */
 export function unfence(s: string): string {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
@@ -22,7 +22,7 @@ import { emptyPreferences, FINGERPRINT_MAX, type Layer, type ProfilePreferences 
 import {
   generatePreferences, generateTitles, isStale, makeLayer, masterHash, preferencesHash, renderFingerprint,
 } from "../services/profileLayers";
-import { CvImportError, extractCvText, IMPORT_EXTENSIONS, structureProfile } from "../services/cvImport";
+import { CvImportError, extractCvText, IMPORT_EXTENSIONS, missingDetails, structureProfile } from "../services/cvImport";
 
 type Draft<T> = { value: T; origin: Layer<T>["origin"] };
 
@@ -43,6 +43,11 @@ export function Profile() {
   const [structuring, setStructuring] = useState(false);
   /** The editor text before "Structure with AI", for Undo. */
   const [beforeStructure, setBeforeStructure] = useState<string | null>(null);
+  // Recomputed as the user edits, so the list shrinks while they restore what the model dropped.
+  const structureMissing = useMemo(
+    () => (beforeStructure == null ? [] : missingDetails(beforeStructure, profile)),
+    [beforeStructure, profile],
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Unsaved edits of the two derived layers. null = showing what is stored.
@@ -291,6 +296,14 @@ export function Profile() {
             </Card>
           )}
 
+          {structureMissing.length > 0 && (
+            <Card className="p-3 mb-4 border-amber-500/50 text-sm text-amber-700 dark:text-amber-400">
+              {t("profile.structureMissing", {
+                count: structureMissing.length,
+                list: structureMissing.slice(0, 15).join(", ") + (structureMissing.length > 15 ? ", …" : ""),
+              })}
+            </Card>
+          )}
           {pageError && (
             <Card className="p-3 mb-4 border-destructive/50 text-sm text-destructive">{pageError}</Card>
           )}

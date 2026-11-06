@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CvImportError, extractCvText, pdfItemsToText, structureProfile, tidyText, unfence } from "../cvImport";
+import { CvImportError, extractCvText, missingDetails, pdfItemsToText, structureProfile, tidyText, unfence } from "../cvImport";
 import { chatCompletionWithFallback } from "../llmService";
 import type { LlmConfig } from "../../types/llm";
 
@@ -47,5 +47,17 @@ describe("structureProfile", () => {
 
   it("leaves an unfenced reply alone", () => {
     expect(unfence("# Ana\n\nText")).toBe("# Ana\n\nText");
+  });
+});
+
+describe("missingDetails", () => {
+  it("lists numbers, emails, links and phones the rewrite dropped", () => {
+    const before = "Ana +39 371 174 3761 ana@x.it linkedin.com/in/ana. Placed 700+ engineers, 2014 to 2019, 99.9% uptime.";
+    const after = "# Ana\n\n- Placed 700+ engineers, 2019, 99.9% uptime";
+    expect(missingDetails(before, after)).toEqual(["+39 371 174 3761", "ana@x.it", "linkedin.com/in/ana", "2014"]);
+  });
+
+  it("is empty when everything was kept", () => {
+    expect(missingDetails("Java 8, 2021.", "- Java 8\n- 2021")).toEqual([]);
   });
 });

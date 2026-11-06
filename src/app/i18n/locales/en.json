@@ -97,6 +97,7 @@
     "structure": "Structure with AI",
     "structureHint": "Rewrite the editor text into profile sections with your model. Nothing is saved until you press Save.",
     "structureUndo": "Undo AI structure",
+    "structureMissing": "{{count}} details from the original are not in the AI version: {{list}}. Check what was dropped, add it back or Undo. This list cannot see facts the model changed.",
     "tabMaster": "Master profile",
     "tabPreferences": "Preferences",
     "tabFingerprint": "Fingerprint",
