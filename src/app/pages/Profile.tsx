@@ -10,6 +10,7 @@ import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   User, Download, Save, FileText, Upload, Loader2, RefreshCw, SlidersHorizontal, Fingerprint, ClipboardList,
+  Sparkles, Undo2,
 } from "lucide-react";
 import { AppError } from "../utils/errors";
 import { useProfile } from "../context/ProfileContext";
@@ -21,6 +22,7 @@ import { emptyPreferences, FINGERPRINT_MAX, type Layer, type ProfilePreferences 
 import {
   generatePreferences, generateTitles, isStale, makeLayer, masterHash, preferencesHash, renderFingerprint,
 } from "../services/profileLayers";
+import { CvImportError, extractCvText, IMPORT_EXTENSIONS, structureProfile } from "../services/cvImport";
 
 type Draft<T> = { value: T; origin: Layer<T>["origin"] };
 
@@ -37,6 +39,10 @@ export function Profile() {
   const [showOnboarding, setShowOnboarding] = useState(!!navState?.isNewProfile);
   const [pageError, setPageError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [structuring, setStructuring] = useState(false);
+  /** The editor text before "Structure with AI", for Undo. */
+  const [beforeStructure, setBeforeStructure] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Unsaved edits of the two derived layers. null = showing what is stored.
@@ -82,35 +88,56 @@ export function Profile() {
 
   const handleSave = () => {
     saveProfile();
+    setBeforeStructure(null);
     setIsEditing(false);
   };
 
-  // Import is a plain file read: the file's text goes straight into the editor.
-  // Nothing is persisted until the user presses Save. A new master profile
-  // makes the preferences stale; they are not regenerated on their own.
+  // Import reads the file's text into the editor (PDF and DOCX parsed locally,
+  // no LLM). Nothing is persisted until the user presses Save. A new master
+  // profile makes the preferences stale; they are not regenerated on their own.
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (ext !== "md" && ext !== "txt") {
-      setPageError(t("profile.onlyMdTxt"));
-      return;
-    }
-    if (file.size > 500_000) {
-      setPageError(t("profile.fileTooLarge"));
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const binary = ext === "pdf" || ext === "docx";
+    if (file.size > (binary ? 10_000_000 : 500_000)) {
+      setPageError(t(binary ? "profile.cvFileTooLarge" : "profile.fileTooLarge"));
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setPageError(null);
+    setImporting(true);
     try {
-      setProfile(await file.text());
+      setProfile(await extractCvText(file));
+      setBeforeStructure(null);
       setIsEditing(true);
       setActiveTab("master");
     } catch (err) {
-      setPageError(err instanceof Error ? err.message : t("profile.readFailed"));
+      setPageError(err instanceof CvImportError ? t(`profile.import_${err.code}`)
+        : err instanceof Error ? err.message : t("profile.readFailed"));
     } finally {
+      setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  /** One LLM call rewrites the editor text into sections; Undo restores it. */
+  async function structureWithAi() {
+    if (!profile.trim()) return setPageError(t("profile.generateNoMaster"));
+    setPageError(null);
+    setStructuring(true);
+    try {
+      const before = profile;
+      setProfile(await structureProfile(profile, config));
+      setBeforeStructure(before);
+      setIsEditing(true);
+      setActiveTab("master");
+    } catch (err) {
+      setPageError(err instanceof AppError ? err.userMessage : err instanceof Error ? err.message : String(err));
+    } finally {
+      setStructuring(false);
+    }
+  }
 
   /** Generated values land as drafts for review; nothing is saved here. */
   async function generate(withFingerprint: boolean) {
@@ -197,14 +224,34 @@ export function Profile() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".md,.txt,text/plain,text/markdown"
+                  accept={IMPORT_EXTENSIONS.map((x) => `.${x}`).join(",")}
                   className="hidden"
                   onChange={handleFileUpload}
                 />
-                <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="w-4 h-4" />
+                <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                  {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   {t("profile.importFile")}
                 </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={structureWithAi}
+                  disabled={structuring || !profile.trim()}
+                  title={t("profile.structureHint")}
+                >
+                  {structuring ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {t("profile.structure")}
+                </Button>
+                {beforeStructure != null && (
+                  <Button
+                    variant="ghost"
+                    className="gap-2"
+                    onClick={() => { setProfile(beforeStructure); setBeforeStructure(null); }}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                    {t("profile.structureUndo")}
+                  </Button>
+                )}
                 <Button variant="outline" className="gap-2" onClick={exportProfile}>
                   <Download className="w-4 h-4" />
                   {t("profile.exportProfile")}
