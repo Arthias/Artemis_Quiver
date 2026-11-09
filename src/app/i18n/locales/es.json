@@ -763,6 +763,7 @@
   },
   "extension": {
     "openApp": "Abrir App →",
+    "openSidePanel": "Abrir panel lateral",
     "showOverlay": "Analizar siempre este sitio",
     "profileFingerprint": "Huella del Perfil",
     "regenerateFingerprint": "Regenerar huella",
@@ -828,6 +829,9 @@
     "permissionDenied": "No se concedió permiso para acceder a este sitio.",
     "deepAnalysis": "Análisis profundo",
     "deepAnalysisRunning": "Ejecutando análisis profundo…",
+    "generateCV": "Generar CV",
+    "generateCL": "Generar carta de presentación",
+    "runDeepAgain": "Repetir el análisis profundo",
     "buildCV": "Crear CV",
     "buildCoverLetter": "Crear carta de presentación",
     "goToFullAnalysis": "Ir al análisis completo",

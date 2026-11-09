@@ -763,6 +763,7 @@
   },
   "extension": {
     "openApp": "Open App →",
+    "openSidePanel": "Open side panel",
     "showOverlay": "Always quick analyze this site",
     "profileFingerprint": "Profile Fingerprint",
     "regenerateFingerprint": "Regenerate fingerprint",
@@ -828,6 +829,9 @@
     "permissionDenied": "Permission to access this site was not granted.",
     "deepAnalysis": "Deep analysis",
     "deepAnalysisRunning": "Running deep analysis…",
+    "generateCV": "Generate CV",
+    "generateCL": "Generate cover letter",
+    "runDeepAgain": "Run deep analysis again",
     "buildCV": "Build CV",
     "buildCoverLetter": "Build Cover Letter",
     "goToFullAnalysis": "Go to full analysis",

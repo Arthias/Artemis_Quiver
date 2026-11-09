@@ -47,6 +47,8 @@ function Popup() {
   const [config, setConfig] = useState<OverlayConfig>(defaultConfig);
   const [currentHost, setCurrentHost] = useState("");
   const [currentUrl, setCurrentUrl] = useState("");
+  // Looked up ahead of time: sidePanel.open must be called synchronously in the click.
+  const [windowId, setWindowId] = useState<number | null>(null);
   const [siteUrlInput, setSiteUrlInput] = useState("");
   const [importState, setImportState] = useState<"idle" | "importing" | "done" | "error">("idle");
   const [importError, setImportError] = useState("");
@@ -89,6 +91,7 @@ function Popup() {
     });
     chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
       const tab = tabs[0];
+      setWindowId(tab?.windowId ?? null);
       if (tab?.url) {
         try {
           const url = new URL(tab.url);
@@ -216,6 +219,11 @@ function Popup() {
     chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
   }, []);
 
+  const openSidePanel = useCallback(() => {
+    if (windowId == null) return;
+    chrome.sidePanel.open({ windowId }).then(() => window.close()).catch((err) => console.error("[Artemis] Could not open the side panel", err));
+  }, [windowId]);
+
   const openSettings = useCallback(() => {
     chrome.tabs.create({ url: chrome.runtime.getURL("index.html#/config") });
   }, []);
@@ -253,6 +261,17 @@ function Popup() {
           {t("extension.openApp")}
         </button>
       </div>
+
+      <button
+        onClick={openSidePanel}
+        disabled={windowId == null}
+        style={{
+          padding: "9px 12px", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px",
+          background: "#1e293b", color: "#e2e8f0", fontSize: "13px", cursor: "pointer", width: "100%", textAlign: "center",
+        }}
+      >
+        {t("extension.openSidePanel")}
+      </button>
 
       {/* Hero: import current page */}
       <button

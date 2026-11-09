@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, type CSSProperties } from "re
 import { parseSiteEntry, siteToOriginPatterns } from "./job-sites";
 import { loadTranslations, t } from "./i18n";
 import { extractPageContent } from "./pageExtract";
-import { getActiveProfileId, getProfile, saveSession } from "../app/db";
+import { getActiveProfileId, getProfile, getSessions, saveSession } from "../app/db";
 import { analyzeJobPosting } from "../app/services/jobAnalysisService";
 import { getActiveEndpoint } from "../app/services/llmService";
 import type { AnalysisResult } from "../app/types/analysis";
@@ -31,6 +31,46 @@ console.error = (...args: any[]) => {
 
 const OVERLAY_CONFIG_KEY = "artemis:overlayConfig";
 const QUICK_CACHE_KEY = "artemis:quickScoreCache";
+const DEEP_SESSIONS_KEY = "artemis:deepSessionByUrl";
+const DEEP_SESSIONS_MAX = 200;
+
+type DeepDone = { state: "done"; sessionId: string; jobPosting: string; result: AnalysisResult };
+type DeepEntry = { state: "running"; startedAt: number } | { state: "error"; error: string } | DeepDone;
+
+interface PageJob {
+  title: string;
+  company: string;
+  text: string;
+  url: string;
+}
+
+async function readJobFromTab(tabId: number): Promise<PageJob> {
+  const [scriptResult] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageContent });
+  const data = scriptResult?.result as PageJob | undefined;
+  if (!data?.text) throw new Error(t("sidepanel.noContent"));
+  return data;
+}
+
+/** Newest last, so the oldest pages drop off first. */
+async function rememberDeepSession(url: string, sessionId: string): Promise<void> {
+  const res = await chrome.storage.local.get(DEEP_SESSIONS_KEY);
+  const map = { ...((res as any)[DEEP_SESSIONS_KEY] as Record<string, string> | undefined) };
+  delete map[url];
+  map[url] = sessionId;
+  const kept = Object.entries(map).slice(-DEEP_SESSIONS_MAX);
+  await chrome.storage.local.set({ [DEEP_SESSIONS_KEY]: Object.fromEntries(kept) });
+}
+
+/** The saved analysis for this page, if the active profile still has it. */
+async function findDeepSession(url: string): Promise<DeepDone | null> {
+  const res = await chrome.storage.local.get(DEEP_SESSIONS_KEY);
+  const sessionId = ((res as any)[DEEP_SESSIONS_KEY] as Record<string, string> | undefined)?.[url];
+  if (!sessionId) return null;
+  const activeId = await getActiveProfileId();
+  if (!activeId) return null;
+  const session = (await getSessions(activeId)).find((s) => s.id === sessionId);
+  return session ? { state: "done", sessionId, jobPosting: session.jobPosting, result: session.result } : null;
+}
 
 interface QuickScoreEntry {
   url: string;
@@ -64,9 +104,16 @@ function Panel() {
   const [alwaysOn, setAlwaysOn] = useState(false);
   const [togglingAlways, setTogglingAlways] = useState(false);
   const [permError, setPermError] = useState<string | null>(null);
-  const [deepState, setDeepState] = useState<"idle" | "running" | "done" | "error">("idle");
-  const [deepError, setDeepError] = useState("");
-  const [deepResult, setDeepResult] = useState<{ sessionId: string; jobPosting: string; result: AnalysisResult } | null>(null);
+  // Keyed by page, so switching tabs neither loses a finished analysis nor
+  // shows a run's result on whichever tab happens to be active when it ends.
+  // A running analysis lives in this panel: closing the panel ends it.
+  const [deepByUrl, setDeepByUrl] = useState<Record<string, DeepEntry>>({});
+  const deep = deepByUrl[currentUrl];
+  const deepResult = deep?.state === "done" ? deep : null;
+  const deepStartedAt = deep?.state === "running" ? deep.startedAt : null;
+  const [deepSeconds, setDeepSeconds] = useState(0);
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [handoffError, setHandoffError] = useState<{ url: string; message: string } | null>(null);
   // Auto-analyze fires exactly once, for whatever tab was active when the
   // panel was opened (that click is what grants activeTab access). Switching
   // tabs or navigating afterward does NOT re-fire it — the whole point of
@@ -89,6 +136,23 @@ function Panel() {
     const iv = setInterval(() => setLoadingSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(iv);
   }, [loading]);
+
+  useEffect(() => {
+    if (deepStartedAt == null) return;
+    const tick = () => setDeepSeconds(Math.floor((Date.now() - deepStartedAt) / 1000));
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [deepStartedAt]);
+
+  useEffect(() => {
+    if (!currentUrl) return;
+    findDeepSession(currentUrl)
+      .then((saved) => {
+        if (saved) setDeepByUrl((prev) => (prev[currentUrl] ? prev : { ...prev, [currentUrl]: saved }));
+      })
+      .catch((err) => console.error("[Artemis] Could not load the saved analysis", err));
+  }, [currentUrl]);
 
   useEffect(() => {
     loadTranslations(navigator.language.split("-")[0] || "en")
@@ -133,16 +197,12 @@ function Panel() {
     const onActivated = () => {
       setEntry(null);
       setError(null);
-      setDeepState("idle");
-      setDeepResult(null);
       void refreshTabInfo();
     };
     const onUpdated = (_id: number, changeInfo: chrome.tabs.OnUpdatedInfo) => {
       if (changeInfo.url) {
         setEntry(null);
         setError(null);
-        setDeepState("idle");
-        setDeepResult(null);
         void refreshTabInfo();
       }
     };
@@ -175,7 +235,6 @@ function Panel() {
     }
     setEntry(null);
     setError(null);
-    setDeepState("idle");
     setCacheChecked(false);
     chrome.storage.local.get([QUICK_CACHE_KEY, OVERLAY_CONFIG_KEY]).then((res) => {
       const cache = (res as any)[QUICK_CACHE_KEY] || {};
@@ -263,13 +322,12 @@ function Panel() {
   }, [alwaysOn, currentHost]);
 
   const runDeepAnalysis = useCallback(async () => {
-    if (!tabId) return;
-    setDeepState("running");
-    setDeepError("");
+    if (!tabId || !currentUrl) return;
+    const url = currentUrl;
+    const setDeep = (next: DeepEntry) => setDeepByUrl((prev) => ({ ...prev, [url]: next }));
+    setDeep({ state: "running", startedAt: Date.now() });
     try {
-      const [scriptResult] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPageContent });
-      const data = scriptResult?.result as { title: string; company: string; text: string; url: string } | undefined;
-      if (!data?.text) throw new Error(t("sidepanel.noContent"));
+      const data = await readJobFromTab(tabId);
 
       const activeId = await getActiveProfileId();
       if (!activeId) throw new Error(t("sidepanel.noProfile"));
@@ -294,14 +352,13 @@ function Panel() {
       // + handoff buttons) instead of jumping to the main tab immediately —
       // the main tab is now only opened when the user picks one of those
       // three actions below.
-      setDeepResult({ sessionId, jobPosting: data.text, result: analysis });
-      setDeepState("done");
+      await rememberDeepSession(url, sessionId);
+      setDeep({ state: "done", sessionId, jobPosting: data.text, result: analysis });
     } catch (err) {
-      setDeepState("error");
-      setDeepError(err instanceof Error ? err.message : String(err));
+      setDeep({ state: "error", error: err instanceof Error ? err.message : String(err) });
       logErrorToApp(err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : undefined, "SIDEPANEL_DEEP_ANALYSIS_FAILED");
     }
-  }, [tabId]);
+  }, [tabId, currentUrl]);
 
   const openApp = useCallback(() => {
     chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
@@ -360,6 +417,27 @@ function Panel() {
       { target: "cl-builder", handoff }
     );
   }, [deepResult, handoffToApp]);
+
+  // No analysis needed: the builder opens with this page's job details filled in.
+  const openBuilderFromPage = useCallback(async (target: "cv-builder" | "cl-builder") => {
+    if (!tabId) return;
+    const url = currentUrl;
+    setHandoffBusy(true);
+    setHandoffError(null);
+    try {
+      const data = await readJobFromTab(tabId);
+      const handoff: BuilderHandoff = { jobPosting: data.text, companyName: data.company, position: data.title };
+      await handoffToApp(
+        { type: "ARTEMIS_LOAD_BUILDER_HANDOFF", payload: { target, handoff } },
+        "artemis:pendingBuilderHandoff",
+        { target, handoff }
+      );
+    } catch (err) {
+      setHandoffError({ url, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setHandoffBusy(false);
+    }
+  }, [tabId, currentUrl, handoffToApp]);
 
   if (!translationsReady) {
     return <div style={{ padding: 16, color: "#64748b", fontSize: 14 }}>{"..."}</div>;
@@ -520,24 +598,39 @@ function Panel() {
           </div>
 
           <div>
-            {deepState !== "done" && (
-              <button
-                onClick={runDeepAnalysis}
-                disabled={deepState === "running"}
-                style={{
-                  width: "100%", padding: "10px 14px", border: "none", borderRadius: "8px",
-                  background: deepState === "running" ? "#2563eb" : "#3b82f6",
-                  color: "#fff", fontSize: "13px", fontWeight: "600",
-                  cursor: deepState === "running" ? "default" : "pointer",
-                }}
-              >
-                {deepState === "running" ? t("sidepanel.deepAnalysisRunning") : t("sidepanel.deepAnalysis")}
-              </button>
+            {!deepResult && (
+              <>
+                <button
+                  onClick={runDeepAnalysis}
+                  disabled={deep?.state === "running"}
+                  style={{
+                    width: "100%", padding: "10px 14px", border: "none", borderRadius: "8px",
+                    background: deep?.state === "running" ? "#2563eb" : "#3b82f6",
+                    color: "#fff", fontSize: "13px", fontWeight: "600",
+                    cursor: deep?.state === "running" ? "default" : "pointer",
+                  }}
+                >
+                  {deep?.state === "running"
+                    ? `${t("sidepanel.deepAnalysisRunning")}${deepSeconds > 0 ? ` (${deepSeconds}s)` : ""}`
+                    : t("sidepanel.deepAnalysis")}
+                </button>
+                <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+                  <button onClick={() => openBuilderFromPage("cv-builder")} disabled={handoffBusy} style={{ ...secBtnStyle, flex: 1 }}>
+                    {t("sidepanel.generateCV")}
+                  </button>
+                  <button onClick={() => openBuilderFromPage("cl-builder")} disabled={handoffBusy} style={{ ...secBtnStyle, flex: 1 }}>
+                    {t("sidepanel.generateCL")}
+                  </button>
+                </div>
+                {handoffError?.url === currentUrl && (
+                  <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>{handoffError.message}</div>
+                )}
+              </>
             )}
-            {deepState === "error" && (
-              <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>{deepError}</div>
+            {deep?.state === "error" && (
+              <div style={{ marginTop: "6px", fontSize: "11px", color: "#ef4444", wordBreak: "break-word" }}>{deep.error}</div>
             )}
-            {deepState === "done" && deepResult && (
+            {deepResult && (
               <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "14px", background: "rgba(255,255,255,0.02)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <div
@@ -561,6 +654,7 @@ function Panel() {
                   <button onClick={buildCV} style={secBtnStyle}>{t("sidepanel.buildCV")}</button>
                   <button onClick={buildCoverLetter} style={secBtnStyle}>{t("sidepanel.buildCoverLetter")}</button>
                   <button onClick={goToFullAnalysis} style={secBtnStyle}>{t("sidepanel.goToFullAnalysis")}</button>
+                  <button onClick={runDeepAnalysis} style={secBtnStyle}>{t("sidepanel.runDeepAgain")}</button>
                 </div>
               </div>
             )}
