@@ -2,13 +2,17 @@
 // saved answers, rules) and the linked CV folder.
 // The side panel reads and writes the same records (see services/formProfile.ts
 // and services/cvFolder.ts).
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ClipboardList, FolderOpen, Loader2, Sparkles } from "lucide-react";
+import { ClipboardList, FolderOpen, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
+import { createRedactor, privateValues } from "../../services/redaction";
 import { useWorkspace } from "../../context/WorkspaceProfileContext";
 import { useConfig } from "../../context/ConfigContext";
 import {
@@ -42,6 +46,29 @@ export function ApplicationSettingsCard() {
     if (!isFolderSupported()) return;
     void getFolderHandle().then((h) => setFolderName(h?.name ?? null));
   }, []);
+
+  // The private-details inputs edit the same JSON as the editor below, so the two can't disagree.
+  const current = useMemo(() => {
+    try {
+      return validateFormProfile(JSON.parse(text));
+    } catch {
+      return null;
+    }
+  }, [text]);
+  const redactor = useMemo(() => (current ? createRedactor(privateValues(current.fields)) : null), [current]);
+  const privateInputs: [string, string][] = [
+    ["first_name", t("apply.privateFirstName")],
+    ["last_name", t("apply.privateLastName")],
+    ["preferred_name", t("apply.privatePreferredName")],
+    ["city", t("apply.privateCity")],
+    ["address", t("apply.privateAddress")],
+    ["postal_code", t("apply.privatePostcode")],
+  ];
+  const setPrivate = (key: string, value: string) => {
+    if (!current) return;
+    const fields = { ...current.fields, [key]: { aliases: [], ...current.fields[key], value } };
+    setText(JSON.stringify({ ...current, fields }, null, 2));
+  };
 
   const parse = () => {
     try {
@@ -126,6 +153,43 @@ export function ApplicationSettingsCard() {
             </div>
           </>
         )}
+      </Card>
+
+      <Card className="p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-green-500" />
+          <h2 className="text-lg font-semibold flex-1">{t("apply.privateTitle")}</h2>
+          <Switch
+            aria-label={t("apply.privateToggle")}
+            checked={current?.redact ?? true}
+            disabled={!current}
+            onCheckedChange={(redact) => current && setText(JSON.stringify({ ...current, redact }, null, 2))}
+          />
+        </div>
+        <p className="text-sm text-muted-foreground">{t("apply.privateDesc")}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {privateInputs.map(([key, label]) => (
+            <div key={key} className="space-y-1">
+              <Label htmlFor={`private-${key}`}>{label}</Label>
+              <Input
+                id={`private-${key}`}
+                value={current?.fields[key]?.value ?? ""}
+                disabled={!current}
+                onChange={(e) => setPrivate(key, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+        {current?.redact && !redactor && <p className="text-sm text-amber-600">{t("apply.privateEmpty")}</p>}
+        {current?.redact && redactor && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium">{t("apply.privatePreview")}</p>
+            <pre className="max-h-48 overflow-auto rounded border bg-input-background p-3 text-xs whitespace-pre-wrap">
+              {redactor.redact(profileData.profileMarkdown)}
+            </pre>
+          </div>
+        )}
+        <Button onClick={save} disabled={!current}>{t("apply.save")}</Button>
       </Card>
 
       <Card className="p-6 space-y-4">

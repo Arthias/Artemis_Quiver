@@ -977,6 +977,18 @@
     "saved": "Form profile saved",
     "seed": "Fill from my profile",
     "seedDesc": "Fills empty values from your profile with the configured model. Nothing is saved until you press Save — check the values first.",
-    "seeded": "Filled {{count}} value(s). Review, then Save."
+    "seeded": "Filled {{count}} value(s). Review, then Save.",
+    "privateTitle": "Hide my identity from cloud models",
+    "privateToggle": "Hide name and home location from cloud models",
+    "privateDesc": "Before anything goes to a cloud model, these details are swapped for tags, and put back in the reply. Emails and links containing your name are hidden too. Local models are not affected. Employers, job titles and dates are still sent and can identify you.",
+    "privateFirstName": "First name",
+    "privateLastName": "Last name",
+    "privatePreferredName": "Preferred name",
+    "privateCity": "City or town",
+    "privateAddress": "Street and number",
+    "privatePostcode": "Postal code",
+    "privateEmpty": "Nothing is being hidden yet. Fill in at least one detail and save.",
+    "privatePreview": "What a cloud model sees of your profile",
+    "privateLeftover": "A generated result still contains a placeholder such as [CANDIDATE_…]. Check it before using it."
   }
 }

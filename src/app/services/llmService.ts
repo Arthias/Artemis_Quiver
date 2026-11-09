@@ -1,5 +1,6 @@
 import type { ChatMessage, LlmConfig, ModelEndpoint } from "../types/llm";
 import { getAdapter } from "./provider";
+import { redactorFor } from "./redaction";
 
 function logLlmError(err: unknown, endpoint: ModelEndpoint) {
   void import("../db/errorLogRepo").then(({ addErrorLog }) => addErrorLog({
@@ -20,7 +21,9 @@ export async function chatCompletion(
 ): Promise<string> {
   const adapter = getAdapter(endpoint.provider);
   try {
-    return await adapter.chatCompletion(messages, endpoint, options);
+    const redactor = await redactorFor(endpoint);
+    if (!redactor) return await adapter.chatCompletion(messages, endpoint, options);
+    return redactor.restore(await adapter.chatCompletion(redactor.redactMessages(messages), endpoint, options));
   } catch (err) {
     logLlmError(err, endpoint);
     throw err;

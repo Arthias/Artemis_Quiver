@@ -29,6 +29,8 @@ export interface FormProfile {
   answers: FormProfileAnswer[];
   /** Free text the drafting model reads verbatim, e.g. sponsorship rules. */
   rules: string;
+  /** Hide name and home location from cloud models (see services/redaction.ts). */
+  redact: boolean;
 }
 
 export const REGIONS = ["US", "EU", "UK", "Other"] as const;
@@ -84,7 +86,7 @@ const EEO_PATTERN = /\b(gender|sex|race|racial|ethnic\w*|hispanic|latin[oax]|vet
 export function emptyFormProfile(): FormProfile {
   const fields: Record<string, FormProfileField> = {};
   for (const [key, aliases] of Object.entries(DEFAULT_ALIASES)) fields[key] = { value: "", aliases: [...aliases] };
-  return { fields, answers: [], rules: "" };
+  return { fields, answers: [], rules: "", redact: true };
 }
 
 export function normalizeLabel(s: string): string {
@@ -120,7 +122,8 @@ export function validateFormProfile(raw: unknown): FormProfile {
     return { question: ans.question, answer: ans.answer, scope: typeof ans.scope === "string" && ans.scope ? ans.scope : "always" };
   });
   if (obj.rules != null && typeof obj.rules !== "string") throw new Error("\"rules\" must be a string.");
-  return { fields, answers, rules: (obj.rules as string | undefined) ?? "" };
+  if (obj.redact != null && typeof obj.redact !== "boolean") throw new Error("\"redact\" must be true or false.");
+  return { fields, answers, rules: (obj.rules as string | undefined) ?? "", redact: obj.redact !== false };
 }
 
 const storageKey = (profileId: string) => `formProfile:${profileId}`;

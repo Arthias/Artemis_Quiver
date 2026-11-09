@@ -977,6 +977,18 @@
     "saved": "Perfil de formulario guardado",
     "seed": "Rellenar desde mi perfil",
     "seedDesc": "Rellena los valores vacíos a partir de tu perfil con el modelo configurado. No se guarda nada hasta que pulses Guardar — revisa los valores antes.",
-    "seeded": "{{count}} valor(es) rellenado(s). Revisa y guarda."
+    "seeded": "{{count}} valor(es) rellenado(s). Revisa y guarda.",
+    "privateTitle": "Ocultar mi identidad a los modelos en la nube",
+    "privateToggle": "Ocultar el nombre y el lugar de residencia a los modelos en la nube",
+    "privateDesc": "Antes de enviar nada a un modelo en la nube, estos datos se sustituyen por etiquetas y se restauran en la respuesta. También se ocultan los correos y enlaces que contienen tu nombre. Los modelos locales no se ven afectados. Las empresas, los puestos y las fechas se siguen enviando y pueden identificarte.",
+    "privateFirstName": "Nombre",
+    "privateLastName": "Apellidos",
+    "privatePreferredName": "Nombre preferido",
+    "privateCity": "Ciudad o localidad",
+    "privateAddress": "Calle y número",
+    "privatePostcode": "Código postal",
+    "privateEmpty": "Todavía no se oculta nada. Rellena al menos un dato y guarda.",
+    "privatePreview": "Lo que un modelo en la nube ve de tu perfil",
+    "privateLeftover": "Un resultado generado aún contiene una etiqueta como [CANDIDATE_…]. Revísalo antes de usarlo."
   }
 }

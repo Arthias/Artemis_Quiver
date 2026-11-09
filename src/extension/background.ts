@@ -7,6 +7,7 @@ import { openAICompatibleAdapter } from "../app/services/provider/OpenAICompatib
 import { anthropicAdapter } from "../app/services/provider/AnthropicAdapter";
 import { geminiAdapter } from "../app/services/provider/GeminiAdapter";
 import type { ProviderAdapter } from "../app/services/provider/ProviderAdapter";
+import { redactorFor } from "../app/services/redaction";
 import type { ModelEndpoint } from "../app/types/llm";
 
 loadTranslations(navigator.language.split("-")[0] || "en").catch(() => {});
@@ -430,7 +431,9 @@ async function callRemoteLLM(prompt: string, config: any, opts?: { temperature?:
 
   try {
     await ensureHostPermission(ep.baseUrl);
-    return await adapterFor(ep.provider).chatCompletion(messages, ep, { timeoutMs: 30000 });
+    const redactor = await redactorFor(ep);
+    const reply = await adapterFor(ep.provider).chatCompletion(redactor ? redactor.redactMessages(messages) : messages, ep, { timeoutMs: 30000 });
+    return redactor ? redactor.restore(reply) : reply;
   } catch (err) {
     const appError = err instanceof AppError ? err : new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
     console.error("[Artemis] LLM call failed for", ep.baseUrl, appError);

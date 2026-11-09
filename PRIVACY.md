@@ -81,6 +81,16 @@ sending it to a provider as equivalent to emailing your CV to that company. What
 provider then does with it — retention, training, logging — is governed by *their* policy,
 not this one. Read it before choosing.
 
+**Optional identity tagging.** The Profile page has a section, on by default, where you can
+enter your name and home location (city, street, postal code). When a request goes to a
+cloud endpoint, those values, and any email or link containing your name, are replaced with
+tags such as `[CANDIDATE_FIRST_NAME]`, and restored in the reply on your device. A Flow
+instance using a cloud model receives the tagged profile. **Only what you enter there is
+hidden, and nothing is hidden until you do.** A spelling you did not enter is not caught.
+Your country, other contact details, employers, job titles, dates and education are still
+sent, and together they can identify you: this removes direct identifiers, it does not make
+you anonymous. Everything above about sending your profile to a provider still applies.
+
 The request goes directly from your browser (or the extension's service worker) to the
 provider. It does not pass through anything belonging to this project.
 

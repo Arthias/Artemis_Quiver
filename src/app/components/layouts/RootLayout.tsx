@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
+import { redactionEvents, UNRESTORED_TAG_EVENT } from "../../services/redaction";
 import { Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "../navigation/Sidebar";
@@ -43,6 +44,12 @@ export function RootLayout() {
   const { setHandoff } = useBuilderHandoff();
   const isDesktopNav = useMediaQuery("(min-width: 768px)");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    const warn = () => toast.warning(t("apply.privateLeftover"));
+    redactionEvents.addEventListener(UNRESTORED_TAG_EVENT, warn);
+    return () => redactionEvents.removeEventListener(UNRESTORED_TAG_EVENT, warn);
+  }, [t]);
 
   // Picks up a "Build CV" / "Build Cover Letter" handoff from the side
   // panel's deep-analysis result card (sidepanel.tsx) — mirrors the

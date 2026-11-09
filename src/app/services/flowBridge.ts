@@ -2,6 +2,7 @@ import type { ModelEndpoint } from "../types/llm";
 import type { ProfileSettings } from "../types/workspace";
 import { defaultFlowRunConfig, type Layer, type ProfilePreferences } from "../types/preferences";
 import { canonicalJson, sha256 } from "./profileLayers";
+import { redactorFor } from "./redaction";
 
 export interface FlowStatus {
   connected: boolean;
@@ -717,11 +718,15 @@ export async function buildFlowBundle(src: FlowSyncSource): Promise<{ bundle: Re
       reasoning_effort: ep.reasoningEffort ?? null,
     };
   }
+  // Flow only hands these to its LLM and never needs the real values back, so a
+  // cloud-backed Flow simply never receives them.
+  const redactor = llm && ep ? await redactorFor(ep) : null;
+  const hide = (text: string) => (redactor ? redactor.redact(text) : text);
   const body = {
     profile_name: src.name,
-    master: src.profileMarkdown,
+    master: hide(src.profileMarkdown),
     preferences: src.preferences?.value ?? null,
-    fingerprint: src.fingerprint?.value ?? null,
+    fingerprint: src.fingerprint ? hide(src.fingerprint.value) : null,
     llm,
     backlog: flow.backlog,
     apply: flow.apply,
