@@ -13,6 +13,8 @@ export interface GenerateCoverLetterOptions {
   companyName?: string;
   position?: string;
   seedDraft?: string;
+  /** Language to write the letter in; defaults to the app's UI language. */
+  locale?: string;
 }
 
 function parseClJson(raw: string): string {
@@ -49,7 +51,7 @@ export async function generateCoverLetter(
     ? `\n\n## Draft to refine (from job analysis)\n\n${options.seedDraft}`
     : "";
 
-  const systemPrompt = clGeneratePrompt(company, role, hasJobDescription, i18n.language);
+  const systemPrompt = clGeneratePrompt(company, role, hasJobDescription, options.locale ?? i18n.language);
 
   let lastRaw = "";
   let lastErrorMessage = "";
@@ -97,9 +99,10 @@ export async function editCoverLetter(
   currentLetterJson: string,
   userRequest: string,
   profileMarkdown: string,
-  endpoint: ModelEndpoint
+  endpoint: ModelEndpoint,
+  locale: string = i18n.language,
 ): Promise<string> {
-  const systemPrompt = clEditPrompt(userRequest, i18n.language);
+  const systemPrompt = clEditPrompt(userRequest, locale);
   let lastRaw = "";
   let lastErrorMessage = "";
 

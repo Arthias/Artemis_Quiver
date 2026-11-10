@@ -61,6 +61,7 @@ const CVContentSchema = z.object({
   name: z.string().describe("Candidate's full name"),
   title: z.string().describe("Professional headline / role title"),
   location: z.string().optional().describe("Primary location"),
+  language: z.string().optional().describe("Language code the CV is written in, e.g. \"es\""),
   sections: z.array(CVSectionSchema).min(1).describe("CV section array")
 });
 

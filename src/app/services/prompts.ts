@@ -42,6 +42,15 @@ const LOCALE_NAMES: Record<string, string> = {
   pt: "Portuguese",
 };
 
+/** Languages a CV or cover letter can be written in, chosen per document. */
+export const OUTPUT_LANGUAGES = Object.keys(LOCALE_NAMES);
+
+/** "es-ES" -> "es"; anything unsupported -> "en". */
+export function outputLanguage(locale?: string): string {
+  const code = ((locale ?? "en").split("-")[0] ?? "en").toLowerCase();
+  return code in LOCALE_NAMES ? code : "en";
+}
+
 export function localeInstruction(locale?: string): string {
   const code = ((locale ?? "en").split("-")[0] ?? "en").toLowerCase();
   if (!code || code === "en") return "";

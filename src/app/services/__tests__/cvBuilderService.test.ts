@@ -147,6 +147,18 @@ describe("generateCv", () => {
     expect(parsed.sections[1]).toEqual({ type: "languages", languages: ["French (A2)"] });
   });
 
+  it("should write in the chosen output language, not the app's", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    await generateCv("# Profile", "Job", [], mockEndpoint, { locale: "it" });
+    const system = vi.mocked(chatCompletion).mock.calls.at(-1)![0].find(m => m.role === "system")!.content;
+    expect(system).toContain("Respond ENTIRELY in Italian");
+
+    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    await editCv(validCvJson, "Shorter", "# Profile", mockEndpoint, "es");
+    const editSystem = vi.mocked(chatCompletion).mock.calls.at(-1)![0].find(m => m.role === "system")!.content;
+    expect(editSystem).toContain("Respond ENTIRELY in Spanish");
+  });
+
   it("should include recommendations in the prompt", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
 

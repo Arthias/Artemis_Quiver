@@ -25,11 +25,13 @@ import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
 import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
 import { buildPdfFilename } from "../utils/pdfFilename";
+import { OutputLanguageSelect } from "../components/builder/OutputLanguageSelect";
+import { outputLanguage } from "../services/prompts";
 
 const CL_THEME_STORAGE_KEY = "artemis:clThemeConfig";
 
 export function CLBuilder() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { config } = useConfig();
   const { profile } = useProfile();
   const { consumeHandoff } = useBuilderHandoff();
@@ -43,6 +45,7 @@ export function CLBuilder() {
   ];
 
   const [jobDescription, setJobDescription] = useState("");
+  const [outputLang, setOutputLang] = useState(() => outputLanguage(i18n.language));
   const [companyName, setCompanyName] = useState("");
   const [position, setPosition] = useState("");
   const [seedDraft, setSeedDraft] = useState<string | undefined>();
@@ -83,12 +86,12 @@ export function CLBuilder() {
     try {
       const content = await generateCoverLetter(
         profile,
-        { jobDescription: jobDescription || undefined, companyName, position, seedDraft },
+        { jobDescription: jobDescription || undefined, companyName, position, seedDraft, locale: outputLang },
         getActiveEndpoint(config)
       );
       const parsed = JSON.parse(content) as CLContent;
       const validated = CLContentSchema.parse(parsed);
-      setClContent(validated);
+      setClContent({ ...validated, language: outputLang });
       setIsGenerated(true);
       window.scrollTo(0, 0);
       toast.success("Cover letter generated");
@@ -113,10 +116,11 @@ export function CLBuilder() {
     setChatMessage("");
     try {
       const currentJson = JSON.stringify(clContent);
-      const updated = await editCoverLetter(currentJson, text, profile, getActiveEndpoint(config));
+      const lang = clContent.language ?? outputLang;
+      const updated = await editCoverLetter(currentJson, text, profile, getActiveEndpoint(config), lang);
       const parsed = JSON.parse(updated) as CLContent;
       const validated = CLContentSchema.parse(parsed);
-      setClContent(validated);
+      setClContent({ ...validated, language: lang });
     } catch (err) {
       setError(err instanceof AppError ? err.userMessage : (err instanceof Error ? err.message : t("cl.applyChangesFailed")));
       setChatMessage(text);
@@ -248,6 +252,8 @@ export function CLBuilder() {
                         />
                       </div>
                     </div>
+
+                    <OutputLanguageSelect value={outputLang} onChange={setOutputLang} />
 
                     <div>
                       <label className="block text-sm font-medium mb-2">{t("cl.jobDescription")}</label>

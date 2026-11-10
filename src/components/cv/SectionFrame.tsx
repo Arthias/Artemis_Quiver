@@ -1,11 +1,11 @@
 import { ChevronDown, ChevronUp, FileDown, GripVertical, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { CVTheme } from "./cvThemes";
-import { SECTION_LABELS } from "./EditComponents";
+import { sectionLabel } from "./EditComponents";
 
 export function SectionFrame({
   sectionType, pageBreakBefore, visualIdx, total, theme, dragVisualIdx, isCollapsed,
-  onDragStart, onDragOver, onDragEnd, onMove, onToggleCollapse, onTogglePageBreak, onRemove, isEmpty,
+  onDragStart, onDragOver, onDragEnd, onMove, onToggleCollapse, onTogglePageBreak, onRemove, isEmpty, lang,
   children,
 }: {
   sectionType: string;
@@ -23,10 +23,12 @@ export function SectionFrame({
   onTogglePageBreak: (type: string) => void;
   onRemove: (type: string) => void;
   isEmpty: boolean;
+  /** Language the CV is written in; headings follow it. */
+  lang?: string;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
-  const label = SECTION_LABELS[sectionType] ?? sectionType;
+  const label = sectionLabel(sectionType, lang);
   const remove = () => {
     if (isEmpty || window.confirm(t("cv.removeSectionConfirm", { section: label }))) onRemove(sectionType);
   };

@@ -43,6 +43,7 @@ export function SingleColumnBase({ spacing, flatCard, props }: { spacing: Spacin
               onTogglePageBreak={props.onTogglePageBreak}
               onRemove={props.onRemoveSection}
               isEmpty={isSectionEmpty(section)}
+              lang={content.language}
             >
               {renderSectionContent(section, {
                 theme, config,

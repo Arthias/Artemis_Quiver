@@ -685,7 +685,8 @@
       "skills": "Habilidades",
       "experience": "Experiencia",
       "education": "Educación",
-      "certifications": "Certificaciones"
+      "certifications": "Certificaciones",
+      "languages": "Idiomas"
     },
     "variant": {
       "paragraph": "Párrafo",
@@ -699,7 +700,9 @@
       "cards": "Tarjetas",
       "timeline": "Línea de tiempo",
       "list": "Lista"
-    }
+    },
+    "outputLanguage": "Idioma del documento",
+    "outputLanguageHint": "El idioma en que se redacta, incluidos los títulos de las secciones. Independiente del idioma de la aplicación."
   },
   "workspace": {
     "profiles": "Perfiles de trabajo",

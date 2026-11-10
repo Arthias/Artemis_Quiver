@@ -685,7 +685,8 @@
       "skills": "Skills",
       "experience": "Experience",
       "education": "Education",
-      "certifications": "Certifications"
+      "certifications": "Certifications",
+      "languages": "Languages"
     },
     "variant": {
       "paragraph": "Paragraph",
@@ -699,7 +700,9 @@
       "cards": "Cards",
       "timeline": "Timeline",
       "list": "List"
-    }
+    },
+    "outputLanguage": "Document language",
+    "outputLanguageHint": "The language it is written in, including section headings. Independent of the app's language."
   },
   "workspace": {
     "profiles": "Workspace profiles",

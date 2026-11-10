@@ -12,6 +12,7 @@ export const CLContentSchema = z.object({
   salutation: z.string().describe("Greeting line, e.g. 'Dear Hiring Manager,'"),
   bodyParagraphs: z.array(z.string()).min(1).describe("Letter body paragraphs"),
   closing: z.string().describe("Sign-off, e.g. 'Sincerely,'"),
+  language: z.string().optional().describe("Language code the letter is written in, e.g. \"es\""),
 });
 
 export type CLContent = z.infer<typeof CLContentSchema>;

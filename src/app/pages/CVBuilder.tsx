@@ -22,6 +22,8 @@ import { useTranslation } from "react-i18next";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
 import { ThemeConfigPanel } from "../components/builder/ThemeConfigPanel";
+import { OutputLanguageSelect } from "../components/builder/OutputLanguageSelect";
+import { outputLanguage } from "../services/prompts";
 import { loadThemeConfig, saveThemeConfig } from "../utils/themeConfigStorage";
 import { buildPdfFilename } from "../utils/pdfFilename";
 import { printWithPagedJs, printWithTitleRestore } from "../utils/pagedExport";
@@ -29,7 +31,7 @@ import { printWithPagedJs, printWithTitleRestore } from "../utils/pagedExport";
 const CV_THEME_STORAGE_KEY = "artemis:cvThemeConfig";
 
 export function CVBuilder() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { config } = useConfig();
   const { profile } = useProfile();
   const { consumeHandoff } = useBuilderHandoff();
@@ -43,6 +45,7 @@ export function CVBuilder() {
   ];
 
   const [jobDescription, setJobDescription] = useState("");
+  const [outputLang, setOutputLang] = useState(() => outputLanguage(i18n.language));
   const [jobDescExpanded, setJobDescExpanded] = useState(true);
   const [cvContent, setCvContent] = useState<CVContent | null>(null);
   const [themeConfig, setThemeConfig] = useState<ThemeConfig>(
@@ -80,6 +83,7 @@ export function CVBuilder() {
       const saved = sessions.find((s) => s.id === handoff.sourceSessionId)?.generatedCv;
       if (saved) {
         setCvContent(saved.content);
+        if (saved.content.language) setOutputLang(saved.content.language);
         setThemeConfig(saved.themeConfig);
         setIsGenerated(true);
         toast.success(t("cv.loadedSaved"));
@@ -98,7 +102,8 @@ export function CVBuilder() {
         profile,
         jobDescription || undefined,
         activeRecs.length > 0 ? activeRecs : undefined,
-        getActiveEndpoint(config)
+        getActiveEndpoint(config),
+        { locale: outputLang },
       );
       let parsedContent: CVContent;
       try {
@@ -106,7 +111,7 @@ export function CVBuilder() {
       } catch (parseError) {
         throw new Error(t("cv.parseError"));
       }
-      setCvContent(parsedContent);
+      setCvContent({ ...parsedContent, language: outputLang });
       setIsGenerated(true);
       window.scrollTo(0, 0);
       toast.success("CV generated");
@@ -132,9 +137,10 @@ export function CVBuilder() {
     setChatMessage("");
     try {
       const currentJson = JSON.stringify(cvContent);
-      const updated = await editCv(currentJson, text, profile, getActiveEndpoint(config));
+      const lang = cvContent.language ?? outputLang;
+      const updated = await editCv(currentJson, text, profile, getActiveEndpoint(config), lang);
       const parsed = extractJsonObject(updated) as CVContent;
-      setCvContent(parsed);
+      setCvContent({ ...parsed, language: lang });
     } catch (err) {
       setError(err instanceof AppError ? err.message : (err instanceof Error ? err.message : t("cv.applyChangesFailed")));
       setChatMessage(text);
@@ -292,6 +298,8 @@ export function CVBuilder() {
                         />
                       )}
                     </div>
+
+                    <OutputLanguageSelect value={outputLang} onChange={setOutputLang} />
 
                     {recs.length > 0 && (
                       <div>

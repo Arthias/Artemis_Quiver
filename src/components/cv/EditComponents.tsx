@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
 import { Pencil, X, Check, Plus } from "lucide-react";
 import type { CVSection } from "../../types/cv";
+import { outputLanguage } from "../../app/services/prompts";
 import type { CVTheme } from "./cvThemes";
 import { EXPERIENCE_COMPONENTS, EDUCATION_COMPONENTS, SKILLS_COMPONENTS, pick } from "./sectionVariants/registry";
 import type { ExperienceItem, EducationItem } from "./sectionVariants/types";
 
-export const SECTION_LABELS: Record<string, string> = {
-  summary: "Professional Summary",
-  experience: "Professional Experience",
-  skills: "Skills",
-  education: "Education",
-  certifications: "Certifications",
-  languages: "Languages",
+// Printed section headings, in the language the CV is written in (not the
+// app's UI language). Keys follow OUTPUT_LANGUAGES in services/prompts.
+const SECTION_HEADINGS: Record<string, Record<string, string>> = {
+  en: { summary: "Professional Summary", experience: "Professional Experience", skills: "Skills", education: "Education", certifications: "Certifications", languages: "Languages" },
+  es: { summary: "Perfil profesional", experience: "Experiencia profesional", skills: "Habilidades", education: "Formación", certifications: "Certificaciones", languages: "Idiomas" },
+  it: { summary: "Profilo professionale", experience: "Esperienza professionale", skills: "Competenze", education: "Formazione", certifications: "Certificazioni", languages: "Lingue" },
+  fr: { summary: "Profil professionnel", experience: "Expérience professionnelle", skills: "Compétences", education: "Formation", certifications: "Certifications", languages: "Langues" },
+  de: { summary: "Profil", experience: "Berufserfahrung", skills: "Kenntnisse", education: "Ausbildung", certifications: "Zertifizierungen", languages: "Sprachen" },
+  pt: { summary: "Perfil profissional", experience: "Experiência profissional", skills: "Competências", education: "Formação", certifications: "Certificações", languages: "Idiomas" },
 };
+
+export function sectionLabel(type: string, lang?: string): string {
+  return SECTION_HEADINGS[outputLanguage(lang)]?.[type] ?? SECTION_HEADINGS.en?.[type] ?? type;
+}
 
 export function ExperienceItemCard({ item, onUpdate, onRemove, variant = "classic", theme }: {
   item: ExperienceItem;

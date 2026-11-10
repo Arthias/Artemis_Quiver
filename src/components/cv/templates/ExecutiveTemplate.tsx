@@ -46,6 +46,7 @@ export function ExecutiveTemplate(props: TemplateShellProps) {
       onTogglePageBreak={props.onTogglePageBreak}
       onRemove={props.onRemoveSection}
       isEmpty={isSectionEmpty(section)}
+      lang={content.language}
     >
       {renderSectionContent(section, deps)}
     </SectionFrame>

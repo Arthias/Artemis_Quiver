@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { SECTION_TYPES, emptySection, type BodySectionType, type CVContent, type CVSection, type StringListSectionType, type ThemeConfig } from "../../types/cv";
-import { SECTION_LABELS } from "./EditComponents";
+import { sectionLabel } from "./EditComponents";
 import type { CVTheme } from "./cvThemes";
 import { ClassicTemplate } from "./templates/ClassicTemplate";
 import { ModernTemplate } from "./templates/ModernTemplate";
@@ -230,7 +230,7 @@ export function InteractiveCVPreview({ content, onContentChange, theme, config }
         {missingSections.map(type => (
           <button key={type} onClick={() => addSection(type)}
             className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs hover:bg-muted">
-            <Plus className="w-3 h-3" /> {SECTION_LABELS[type] ?? type}
+            <Plus className="w-3 h-3" /> {sectionLabel(type, content.language)}
           </button>
         ))}
       </div>

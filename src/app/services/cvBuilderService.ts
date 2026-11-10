@@ -125,6 +125,8 @@ export interface GenerateCvOptions {
   mode?: OptimizationMode;
   targetRole?: string;
   industry?: string;
+  /** Language to write the CV in; defaults to the app's UI language. */
+  locale?: string;
 }
 
 function buildMessages(
@@ -139,7 +141,7 @@ function buildMessages(
     industry: options?.industry,
     jobDescription,
     recommendations: cvRecommendations,
-    locale: i18n.language,
+    locale: options?.locale ?? i18n.language,
   };
 
   const systemPrompt = selectPrompt(mode, undefined, ctx);
@@ -222,12 +224,13 @@ export async function editCv(
   currentCvJson: string,
   userRequest: string,
   profileMarkdown: string,
-  endpoint: ModelEndpoint
+  endpoint: ModelEndpoint,
+  locale: string = i18n.language,
 ): Promise<string> {
   return withJsonRetry(
     (attempt, lastRaw, lastError) => {
       const messages: ChatMessage[] = [
-        { role: "system", content: `${cvEditPrompt(userRequest)}${localeInstruction(i18n.language)}` },
+        { role: "system", content: `${cvEditPrompt(userRequest)}${localeInstruction(locale)}` },
         { role: "user", content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}` },
       ];
       if (attempt >= 2 && lastRaw) {

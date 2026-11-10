@@ -17,3 +17,13 @@ describe("isSectionEmpty", () => {
     expect(isSectionEmpty({ type: "education", education: [{ degree: "BSc", institution: "", period: "" }] })).toBe(false);
   });
 });
+
+describe("sectionLabel", () => {
+  it("follows the CV language and falls back to English", async () => {
+    const { sectionLabel } = await import("../../components/cv/EditComponents");
+    expect(sectionLabel("languages", "es")).toBe("Idiomas");
+    expect(sectionLabel("experience", "it-IT")).toBe("Esperienza professionale");
+    expect(sectionLabel("skills", "ja")).toBe("Skills");
+    expect(sectionLabel("summary")).toBe("Professional Summary");
+  });
+});
