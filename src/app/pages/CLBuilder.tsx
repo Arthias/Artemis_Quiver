@@ -163,7 +163,7 @@ export function CLBuilder() {
     };
     window.addEventListener("afterprint", restoreTitle);
     document.title = buildPdfFilename(
-      ["Cover Letter", companyName || clContent?.companyName, position],
+      ["CL", clContent?.senderName, position || clContent?.position],
       originalTitle
     );
     window.print();

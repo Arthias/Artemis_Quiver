@@ -27,6 +27,11 @@ const validCvJson = JSON.stringify({
   ],
 });
 
+function lastSystemPrompt(): string {
+  const calls = vi.mocked(chatCompletion).mock.calls;
+  return calls[calls.length - 1]![0].find((m) => m.role === "system")!.content ?? "";
+}
+
 describe("generateCv", () => {
   beforeEach(() => {
     vi.mocked(chatCompletion).mockReset();
@@ -150,12 +155,12 @@ describe("generateCv", () => {
   it("should write in the chosen output language, not the app's", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
     await generateCv("# Profile", "Job", [], mockEndpoint, { locale: "it" });
-    const system = vi.mocked(chatCompletion).mock.calls.at(-1)![0].find(m => m.role === "system")!.content;
+    const system = lastSystemPrompt();
     expect(system).toContain("Respond ENTIRELY in Italian");
 
     vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
     await editCv(validCvJson, "Shorter", "# Profile", mockEndpoint, "es");
-    const editSystem = vi.mocked(chatCompletion).mock.calls.at(-1)![0].find(m => m.role === "system")!.content;
+    const editSystem = lastSystemPrompt();
     expect(editSystem).toContain("Respond ENTIRELY in Spanish");
   });
 
