@@ -132,6 +132,21 @@ describe("generateCv", () => {
     expect(education.education[0].location).toBeUndefined();
   });
 
+  it("should turn language objects into 'Language (Level)' strings", async () => {
+    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+      name: "Test User",
+      title: "Engineer",
+      sections: [
+        { type: "languages", languages: ["Italian (B2)", { language: "Spanish", level: "Native" }, { name: "English" }, { level: "C1" }] },
+        { languages: [{ language: "French", proficiency: "A2" }] },
+      ],
+    }));
+
+    const parsed = JSON.parse(await generateCv("# Profile", "Job", [], mockEndpoint));
+    expect(parsed.sections[0].languages).toEqual(["Italian (B2)", "Spanish (Native)", "English"]);
+    expect(parsed.sections[1]).toEqual({ type: "languages", languages: ["French (A2)"] });
+  });
+
   it("should include recommendations in the prompt", async () => {
     vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
 

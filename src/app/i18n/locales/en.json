@@ -618,7 +618,13 @@
     "parseError": "Invalid JSON structure generated. Please check console for details.",
     "generationFailed": "CV generation failed.",
     "applyChangesFailed": "Could not apply changes.",
-    "renderFailed": "Unable to render CV. Please refresh and try again."
+    "renderFailed": "Unable to render CV. Please refresh and try again.",
+    "addSection": "Add section:",
+    "removeSection": "Remove section",
+    "removeSectionConfirm": "Remove the {{section}} section and everything in it?",
+    "sectionEmptyHint": "Empty: not shown in the PDF",
+    "addCertification": "Add certification",
+    "addLanguage": "Add language"
   },
   "cl": {
     "title": "Cover Letter Builder",

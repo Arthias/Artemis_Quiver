@@ -1,10 +1,11 @@
-import { ChevronDown, ChevronUp, FileDown, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronUp, FileDown, GripVertical, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { CVTheme } from "./cvThemes";
 import { SECTION_LABELS } from "./EditComponents";
 
 export function SectionFrame({
   sectionType, pageBreakBefore, visualIdx, total, theme, dragVisualIdx, isCollapsed,
-  onDragStart, onDragOver, onDragEnd, onMove, onToggleCollapse, onTogglePageBreak,
+  onDragStart, onDragOver, onDragEnd, onMove, onToggleCollapse, onTogglePageBreak, onRemove, isEmpty,
   children,
 }: {
   sectionType: string;
@@ -20,9 +21,15 @@ export function SectionFrame({
   onMove: (from: number, to: number) => void;
   onToggleCollapse: (type: string) => void;
   onTogglePageBreak: (type: string) => void;
+  onRemove: (type: string) => void;
+  isEmpty: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   const label = SECTION_LABELS[sectionType] ?? sectionType;
+  const remove = () => {
+    if (isEmpty || window.confirm(t("cv.removeSectionConfirm", { section: label }))) onRemove(sectionType);
+  };
   const titleStyle = { ...theme.sectionTitle, marginBottom: 0 };
 
   const moveUp = () => onMove(visualIdx, visualIdx - 1);
@@ -30,7 +37,7 @@ export function SectionFrame({
 
   return (
     <div
-      className={`group relative mb-6 ${pageBreakBefore ? 'page-break-before' : ''} ${dragVisualIdx === visualIdx ? 'opacity-50' : ''}`}
+      className={`group relative mb-6 ${isEmpty ? 'cv-section-empty' : ''} ${pageBreakBefore ? 'page-break-before' : ''} ${dragVisualIdx === visualIdx ? 'opacity-50' : ''}`}
       draggable
       onDragStart={() => onDragStart(visualIdx)}
       onDragOver={(e) => onDragOver(e, visualIdx)}
@@ -65,6 +72,9 @@ export function SectionFrame({
         <h2 className="text-xs font-bold uppercase tracking-widest" style={titleStyle}>
           {label}
         </h2>
+        {isEmpty && (
+          <span className="text-[10px] italic text-gray-400 print:hidden">{t("cv.sectionEmptyHint")}</span>
+        )}
 
         <button onClick={() => onTogglePageBreak(sectionType)}
           className={`print:hidden p-0.5 ${pageBreakBefore ? 'text-rose-500' : 'text-gray-300 hover:text-gray-500'}`}
@@ -76,6 +86,12 @@ export function SectionFrame({
           className="text-gray-300 hover:text-gray-500 print:hidden ml-auto"
           title={isCollapsed ? "Expand" : "Collapse"}>
           {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+        </button>
+
+        <button onClick={remove}
+          className="text-gray-300 hover:text-red-500 print:hidden"
+          title={t("cv.removeSection")} aria-label={t("cv.removeSection")}>
+          <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
 

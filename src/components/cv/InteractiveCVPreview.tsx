@@ -1,5 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
-import type { CVContent, CVSection, ThemeConfig } from "../../types/cv";
+import { useTranslation } from "react-i18next";
+import { Plus } from "lucide-react";
+import { SECTION_TYPES, emptySection, type BodySectionType, type CVContent, type CVSection, type StringListSectionType, type ThemeConfig } from "../../types/cv";
+import { SECTION_LABELS } from "./EditComponents";
 import type { CVTheme } from "./cvThemes";
 import { ClassicTemplate } from "./templates/ClassicTemplate";
 import { ModernTemplate } from "./templates/ModernTemplate";
@@ -22,6 +25,7 @@ interface InteractiveCVPreviewProps {
 }
 
 export function InteractiveCVPreview({ content, onContentChange, theme, config }: InteractiveCVPreviewProps) {
+  const { t } = useTranslation();
   const [dragVisualIdx, setDragVisualIdx] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -160,32 +164,36 @@ export function InteractiveCVPreview({ content, onContentChange, theme, config }
     }));
   }, [updateSection]);
 
-  const updateCertification = useCallback((idx: number, val: string) => {
-    updateSection(sections => sections.map(s => {
-      if (s.type !== "certifications") return s;
-      const certs = [...(s.certifications ?? [])];
-      certs[idx] = val;
-      return { ...s, certifications: certs } as CVSection;
-    }));
+  const setList = useCallback((type: StringListSectionType, fn: (items: string[]) => string[]) => {
+    updateSection(sections => sections.map(s =>
+      s.type === type ? { ...s, [type]: fn((s as Record<string, unknown>)[type] as string[] ?? []) } as CVSection : s
+    ));
   }, [updateSection]);
 
-  const addCertification = useCallback(() => {
-    updateSection(sections => sections.map(s => {
-      if (s.type !== "certifications") return s;
-      return { ...s, certifications: [...(s.certifications ?? []), ""] } as CVSection;
-    }));
+  const updateListItem = useCallback((type: StringListSectionType, idx: number, val: string) =>
+    setList(type, items => items.map((v, i) => (i === idx ? val : v))), [setList]);
+  const addListItem = useCallback((type: StringListSectionType) =>
+    setList(type, items => [...items, ""]), [setList]);
+  const removeListItem = useCallback((type: StringListSectionType, idx: number) =>
+    setList(type, items => items.filter((_, i) => i !== idx)), [setList]);
+
+  const removeSection = useCallback((type: string) => {
+    updateSection(sections => sections.filter(s => s.type !== type));
   }, [updateSection]);
 
-  const removeCertification = useCallback((idx: number) => {
-    updateSection(sections => sections.map(s => {
-      if (s.type !== "certifications") return s;
-      return { ...s, certifications: (s.certifications ?? []).filter((_, i) => i !== idx) } as CVSection;
-    }));
+  const addSection = useCallback((type: BodySectionType) => {
+    updateSection(sections => [...sections, emptySection(type)]);
   }, [updateSection]);
+
+  const missingSections = SECTION_TYPES.filter(
+    (type): type is BodySectionType => type !== "contact" && !content.sections.some(s => s.type === type)
+  );
+  const addLabels = { certifications: t("cv.addCertification"), languages: t("cv.addLanguage") };
 
   const Template = TEMPLATE_COMPONENTS[config.templateId] ?? ClassicTemplate;
 
   return (
+    <>
     <Template
       content={content}
       theme={theme}
@@ -210,9 +218,23 @@ export function InteractiveCVPreview({ content, onContentChange, theme, config }
       updateEducationItem={updateEducationItem}
       addEducationItem={addEducationItem}
       removeEducationItem={removeEducationItem}
-      updateCertification={updateCertification}
-      addCertification={addCertification}
-      removeCertification={removeCertification}
+      updateListItem={updateListItem}
+      addListItem={addListItem}
+      removeListItem={removeListItem}
+      addLabels={addLabels}
+      onRemoveSection={removeSection}
     />
+    {missingSections.length > 0 && (
+      <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
+        <span className="text-xs text-muted-foreground">{t("cv.addSection")}</span>
+        {missingSections.map(type => (
+          <button key={type} onClick={() => addSection(type)}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs hover:bg-muted">
+            <Plus className="w-3 h-3" /> {SECTION_LABELS[type] ?? type}
+          </button>
+        ))}
+      </div>
+    )}
+    </>
   );
 }

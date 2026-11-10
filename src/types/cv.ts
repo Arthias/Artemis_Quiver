@@ -50,6 +50,10 @@ const CVSectionSchema = z.discriminatedUnion("type", [
   PageBreakSchema.extend({
     type: z.literal("certifications"),
     certifications: z.array(z.string()).optional().describe("Professional certifications")
+  }),
+  PageBreakSchema.extend({
+    type: z.literal("languages"),
+    languages: z.array(z.string()).optional().describe("Spoken languages with level, e.g. \"Spanish (Native)\"")
   })
 ]);
 
@@ -64,7 +68,7 @@ export const TEMPLATE_IDS = ["classic", "modern", "executive", "minimal"] as con
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
 export const SECTION_TYPES = [
-  "summary", "contact", "skills", "experience", "education", "certifications",
+  "summary", "contact", "skills", "experience", "education", "certifications", "languages",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -82,6 +86,7 @@ export const SECTION_VARIANTS_BY_TYPE: Record<SectionType, readonly string[]> = 
   experience: EXPERIENCE_VARIANTS,
   education: EDUCATION_VARIANTS,
   certifications: CERTIFICATIONS_VARIANTS,
+  languages: CERTIFICATIONS_VARIANTS,
 };
 
 const ThemeConfigSchema = z.object({
@@ -96,4 +101,37 @@ const ThemeConfigSchema = z.object({
 
 export type CVSection = z.infer<typeof CVSectionSchema>;
 export type CVContent = z.infer<typeof CVContentSchema>;
+
+/** Sections a body template renders (contact lives in the header). */
+export type BodySectionType = Exclude<SectionType, "contact">;
+export type StringListSectionType = "certifications" | "languages";
+
+const blank = (v: unknown) => typeof v !== "string" || v.trim() === "";
+
+/** True when a section has nothing to print; the PDF export hides it, title included. */
+export function isSectionEmpty(section: CVSection): boolean {
+  switch (section.type) {
+    case "summary": return blank(section.content);
+    case "contact": return ["email", "phone", "linkedin", "website", "location"].every((k) => blank(section[k as keyof typeof section]));
+    case "skills":
+      return (section.skills ?? []).every(blank)
+        && (section.categories ?? []).every((c) => c.items.every(blank));
+    case "experience": return (section.experience ?? []).every((e) => blank(e.role) && blank(e.company));
+    case "education": return (section.education ?? []).every((e) => blank(e.degree) && blank(e.institution));
+    case "certifications": return (section.certifications ?? []).every(blank);
+    case "languages": return (section.languages ?? []).every(blank);
+  }
+}
+
+/** A new, empty section of the given type, for "Add section". */
+export function emptySection(type: BodySectionType): CVSection {
+  switch (type) {
+    case "summary": return { type, content: "" };
+    case "skills": return { type, skills: [] };
+    case "experience": return { type, experience: [] };
+    case "education": return { type, education: [] };
+    case "certifications": return { type, certifications: [] };
+    case "languages": return { type, languages: [] };
+  }
+}
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;

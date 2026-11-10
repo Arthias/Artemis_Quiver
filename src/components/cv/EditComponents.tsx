@@ -11,6 +11,7 @@ export const SECTION_LABELS: Record<string, string> = {
   skills: "Skills",
   education: "Education",
   certifications: "Certifications",
+  languages: "Languages",
 };
 
 export function ExperienceItemCard({ item, onUpdate, onRemove, variant = "classic", theme }: {

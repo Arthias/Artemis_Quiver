@@ -69,7 +69,8 @@ EXAMPLE:
     { "type": "skills", "skills": ["JavaScript", "Python", "React"], "categories": [{"name": "Languages", "items": ["JavaScript", "Python"]}, {"name": "Frameworks", "items": ["React", "Node.js"]}] },
     { "type": "experience", "experience": [{"role": "Senior Dev", "company": "Acme", "period": "2020-2023", "location": "Remote", "bullets": ["Led a team of 5 engineers, delivering 12 features on schedule", "Reduced deployment time by 40% with CI/CD automation", "Architected microservices serving 2M+ users"]}] },
     { "type": "education", "education": [{"degree": "<exactly as in the profile>", "institution": "<exactly as in the profile>", "period": "<as in the profile>", "location": "<as in the profile>"}] },
-    { "type": "certifications", "certifications": ["AWS Solutions Architect"] }
+    { "type": "certifications", "certifications": ["AWS Solutions Architect"] },
+    { "type": "languages", "languages": ["<language> (<level exactly as in the profile>)"] }
   ]
 }
 
@@ -85,6 +86,7 @@ SECTION TYPES:
 4. "experience" — object with "experience" array of {role, company, period, location?, bullets[]}
 5. "education" — object with "education" array of {degree, institution, period, location?}
 6. "certifications" — object with "certifications" array of strings
+7. "languages" — object with "languages" array of strings, each "<language> (<level>)"; include it whenever the profile lists languages
 
 RULES:
 - Be FACTUAL — only include information from the profile

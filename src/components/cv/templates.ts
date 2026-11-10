@@ -27,7 +27,7 @@ export const TEMPLATE_PRESETS: Record<TemplateId, TemplatePreset> = {
     defaultFonts: { headingFont: GEORGIA, bodyFont: INTER },
     defaultVariants: {
       summary: "paragraph", contact: "stacked", skills: "tags",
-      experience: "classic", education: "classic", certifications: "list",
+      experience: "classic", education: "classic", certifications: "list", languages: "list",
     },
   },
   modern: {
@@ -40,7 +40,7 @@ export const TEMPLATE_PRESETS: Record<TemplateId, TemplatePreset> = {
     defaultFonts: { headingFont: INTER, bodyFont: INTER },
     defaultVariants: {
       summary: "paragraph", contact: "stacked", skills: "tags",
-      experience: "cards", education: "classic", certifications: "list",
+      experience: "cards", education: "classic", certifications: "list", languages: "list",
     },
   },
   executive: {
@@ -53,7 +53,7 @@ export const TEMPLATE_PRESETS: Record<TemplateId, TemplatePreset> = {
     defaultFonts: { headingFont: INTER, bodyFont: INTER },
     defaultVariants: {
       summary: "paragraph", contact: "badges", skills: "columns",
-      experience: "cards", education: "cards", certifications: "list",
+      experience: "cards", education: "cards", certifications: "list", languages: "list",
     },
   },
   minimal: {
@@ -66,7 +66,7 @@ export const TEMPLATE_PRESETS: Record<TemplateId, TemplatePreset> = {
     defaultFonts: { headingFont: INTER, bodyFont: INTER },
     defaultVariants: {
       summary: "paragraph", contact: "stacked", skills: "inline",
-      experience: "classic", education: "classic", certifications: "list",
+      experience: "classic", education: "classic", certifications: "list", languages: "list",
     },
   },
 };

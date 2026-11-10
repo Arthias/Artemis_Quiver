@@ -201,6 +201,7 @@ export function CVBuilder() {
           .cv-preview-card .group:hover .bg-gray-50 { background: transparent !important; }
           .cv-preview-card .page-keep { page-break-inside: avoid; break-inside: avoid; }
           .cv-preview-card .page-break-before { page-break-before: always; break-before: page; }
+          .cv-preview-card .cv-section-empty { display: none !important; }
           .print-grid-2 { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.75rem !important; }
         }
         /* Paged.js export target — laid out invisibly behind the app so

@@ -1,11 +1,12 @@
 import { spacingScale } from "../templates";
 import { SectionFrame } from "../SectionFrame";
+import { isSectionEmpty } from "../../../types/cv";
 import { renderSectionContent, type SectionRenderDeps } from "../renderSectionContent";
 import { CVHeader } from "./CVHeader";
 import type { TemplateShellProps } from "./types";
 import { TEMPLATE_PRESETS } from "../templates";
 
-const GRID_TYPES = new Set(["skills", "education", "certifications"]);
+const GRID_TYPES = new Set(["skills", "education", "certifications", "languages"]);
 
 export function ExecutiveTemplate(props: TemplateShellProps) {
   const { content, theme, config, bodySections } = props;
@@ -22,9 +23,9 @@ export function ExecutiveTemplate(props: TemplateShellProps) {
     updateEducationItem: props.updateEducationItem,
     addEducationItem: props.addEducationItem,
     removeEducationItem: props.removeEducationItem,
-    updateCertification: props.updateCertification,
-    addCertification: props.addCertification,
-    removeCertification: props.removeCertification,
+    updateListItem: props.updateListItem,
+    addListItem: props.addListItem,
+    removeListItem: props.removeListItem, addLabels: props.addLabels,
   };
 
   const frame = (section: (typeof bodySections)[number], visualIdx: number) => (
@@ -43,6 +44,8 @@ export function ExecutiveTemplate(props: TemplateShellProps) {
       onMove={props.onMove}
       onToggleCollapse={props.onToggleCollapse}
       onTogglePageBreak={props.onTogglePageBreak}
+      onRemove={props.onRemoveSection}
+      isEmpty={isSectionEmpty(section)}
     >
       {renderSectionContent(section, deps)}
     </SectionFrame>
@@ -54,6 +57,7 @@ export function ExecutiveTemplate(props: TemplateShellProps) {
   const skillsEntry = bodySections.map((s, i) => ({ s, i })).find(({ s }) => s.type === "skills");
   const eduEntry = bodySections.map((s, i) => ({ s, i })).find(({ s }) => s.type === "education");
   const certEntry = bodySections.map((s, i) => ({ s, i })).find(({ s }) => s.type === "certifications");
+  const langEntry = bodySections.map((s, i) => ({ s, i })).find(({ s }) => s.type === "languages");
 
   return (
     <div className="cv-preview-card rounded-lg border border-gray-200 shadow-sm" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
@@ -65,12 +69,13 @@ export function ExecutiveTemplate(props: TemplateShellProps) {
 
         {flowEntries.map(({ s, i }) => frame(s, i))}
 
-        {(skillsEntry || eduEntry || certEntry) && (
+        {(skillsEntry || eduEntry || certEntry || langEntry) && (
           <div className="grid grid-cols-1 md:grid-cols-2 print-grid-2 gap-6 pt-2 border-t" style={{ borderColor: String(theme.divider.borderTop ?? "#e2e8f0").split(" ").pop() }}>
             <div>{skillsEntry && frame(skillsEntry.s, skillsEntry.i)}</div>
             <div>
               {eduEntry && frame(eduEntry.s, eduEntry.i)}
               {certEntry && frame(certEntry.s, certEntry.i)}
+              {langEntry && frame(langEntry.s, langEntry.i)}
             </div>
           </div>
         )}

@@ -618,7 +618,13 @@
     "parseError": "Estructura JSON inválida. Revisa la consola para más detalles.",
     "generationFailed": "Generación de CV fallida.",
     "applyChangesFailed": "No se pudieron aplicar los cambios.",
-    "renderFailed": "No se pudo renderizar el CV. Actualiza e inténtalo de nuevo."
+    "renderFailed": "No se pudo renderizar el CV. Actualiza e inténtalo de nuevo.",
+    "addSection": "Añadir sección:",
+    "removeSection": "Eliminar sección",
+    "removeSectionConfirm": "¿Eliminar la sección {{section}} y todo su contenido?",
+    "sectionEmptyHint": "Vacía: no aparece en el PDF",
+    "addCertification": "Añadir certificación",
+    "addLanguage": "Añadir idioma"
   },
   "cl": {
     "title": "Creador de Cartas de Presentación",

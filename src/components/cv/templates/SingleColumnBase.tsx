@@ -1,5 +1,6 @@
 import { spacingScale, type Spacing } from "../templates";
 import { SectionFrame } from "../SectionFrame";
+import { isSectionEmpty } from "../../../types/cv";
 import { renderSectionContent } from "../renderSectionContent";
 import { CVHeader } from "./CVHeader";
 import type { TemplateShellProps } from "./types";
@@ -40,6 +41,8 @@ export function SingleColumnBase({ spacing, flatCard, props }: { spacing: Spacin
               onMove={props.onMove}
               onToggleCollapse={props.onToggleCollapse}
               onTogglePageBreak={props.onTogglePageBreak}
+              onRemove={props.onRemoveSection}
+              isEmpty={isSectionEmpty(section)}
             >
               {renderSectionContent(section, {
                 theme, config,
@@ -51,9 +54,9 @@ export function SingleColumnBase({ spacing, flatCard, props }: { spacing: Spacin
                 updateEducationItem: props.updateEducationItem,
                 addEducationItem: props.addEducationItem,
                 removeEducationItem: props.removeEducationItem,
-                updateCertification: props.updateCertification,
-                addCertification: props.addCertification,
-                removeCertification: props.removeCertification,
+                updateListItem: props.updateListItem,
+                addListItem: props.addListItem,
+                removeListItem: props.removeListItem, addLabels: props.addLabels,
               })}
             </SectionFrame>
           ))}

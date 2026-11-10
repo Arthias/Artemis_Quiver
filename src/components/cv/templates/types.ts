@@ -1,4 +1,4 @@
-import type { CVContent, CVSection, ThemeConfig } from "../../../types/cv";
+import type { CVContent, CVSection, StringListSectionType, ThemeConfig } from "../../../types/cv";
 import type { CVTheme } from "../cvThemes";
 
 export interface TemplateShellProps {
@@ -25,7 +25,9 @@ export interface TemplateShellProps {
   updateEducationItem: (i: number, item: any) => void;
   addEducationItem: () => void;
   removeEducationItem: (i: number) => void;
-  updateCertification: (i: number, v: string) => void;
-  addCertification: () => void;
-  removeCertification: (i: number) => void;
+  updateListItem: (type: StringListSectionType, i: number, v: string) => void;
+  addListItem: (type: StringListSectionType) => void;
+  removeListItem: (type: StringListSectionType, i: number) => void;
+  addLabels: Record<StringListSectionType, string>;
+  onRemoveSection: (type: string) => void;
 }

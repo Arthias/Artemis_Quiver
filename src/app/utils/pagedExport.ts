@@ -122,6 +122,10 @@ function buildOverrideCss(pageBackground: string, pageMargin: string): string {
     .page-break-before {
       break-before: page;
     }
+    /* A section with nothing in it prints nothing, not even its title. */
+    .cv-section-empty {
+      display: none !important;
+    }
     /* Keep a section title on the same page as the section's first item. */
     .section-heading {
       break-after: avoid;

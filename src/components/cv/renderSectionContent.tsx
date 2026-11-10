@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import type { CVSection, ThemeConfig } from "../../types/cv";
+import type { CVSection, StringListSectionType, ThemeConfig } from "../../types/cv";
 import type { CVTheme } from "./cvThemes";
 import { resolveVariant } from "./templates";
 import { ExperienceItemCard, EducationItemCard, SkillsView } from "./EditComponents";
@@ -16,9 +16,10 @@ export interface SectionRenderDeps {
   updateEducationItem: (i: number, item: any) => void;
   addEducationItem: () => void;
   removeEducationItem: (i: number) => void;
-  updateCertification: (i: number, v: string) => void;
-  addCertification: () => void;
-  removeCertification: (i: number) => void;
+  updateListItem: (type: StringListSectionType, i: number, v: string) => void;
+  addListItem: (type: StringListSectionType) => void;
+  removeListItem: (type: StringListSectionType, i: number) => void;
+  addLabels: Record<StringListSectionType, string>;
 }
 
 export function renderSectionContent(section: CVSection, deps: SectionRenderDeps): React.ReactNode | null {
@@ -85,20 +86,21 @@ export function renderSectionContent(section: CVSection, deps: SectionRenderDeps
         </div>
       );
     }
-    case "certifications": {
-      const s = section;
-      const certs = s.certifications ?? [];
-      const Variant = pick(CERTIFICATIONS_COMPONENTS, resolveVariant(deps.config, "certifications"), "list");
+    case "certifications":
+    case "languages": {
+      const type = section.type;
+      const items = (type === "certifications" ? section.certifications : section.languages) ?? [];
+      const Variant = pick(CERTIFICATIONS_COMPONENTS, resolveVariant(deps.config, type), "list");
       return (
         <div>
           <Variant
-            certifications={certs} theme={deps.theme}
-            onUpdate={deps.updateCertification} onRemove={deps.removeCertification}
+            certifications={items} theme={deps.theme}
+            onUpdate={(i, v) => deps.updateListItem(type, i, v)} onRemove={(i) => deps.removeListItem(type, i)}
           />
-          <button onClick={deps.addCertification}
+          <button onClick={() => deps.addListItem(type)}
             className="mt-3 inline-flex items-center gap-1 text-xs font-medium print:hidden"
             style={{ color: deps.theme.title.color }}>
-            <Plus className="w-3.5 h-3.5" /> Add certification
+            <Plus className="w-3.5 h-3.5" /> {deps.addLabels[type]}
           </button>
         </div>
       );

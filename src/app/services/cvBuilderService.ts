@@ -22,7 +22,20 @@ const SECTION_NORMALIZERS: Record<string, (val: unknown) => Record<string, unkno
   experience: (val) => ({ type: "experience", experience: Array.isArray(val) ? val : [] }),
   education: (val) => ({ type: "education", education: Array.isArray(val) ? val : [] }),
   certifications: (val) => ({ type: "certifications", certifications: Array.isArray(val) ? val : [] }),
+  languages: (val) => ({ type: "languages", languages: Array.isArray(val) ? val : [] }),
 };
+
+// Models return languages as strings or as {language, level} objects; the CV
+// stores "Spanish (Native)" strings.
+function languageToString(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (typeof item !== "object" || item === null) return "";
+  const o = item as Record<string, unknown>;
+  const name = [o.language, o.name].find((v) => typeof v === "string") as string | undefined;
+  const level = [o.level, o.proficiency].find((v) => typeof v === "string" && v.trim()) as string | undefined;
+  if (!name) return "";
+  return level ? `${name} (${level})` : name;
+}
 
 // Weaker models tend to fill optional fields they can't answer (e.g. a
 // missing location) with a literal placeholder instead of omitting them,
@@ -72,6 +85,9 @@ function sanitizeSectionPlaceholders(section: Record<string, unknown>): Record<s
             : item
         ),
       };
+    case "languages":
+      if (!Array.isArray(section.languages)) return section;
+      return { ...section, languages: section.languages.map(languageToString).filter(Boolean) };
     default:
       return section;
   }
