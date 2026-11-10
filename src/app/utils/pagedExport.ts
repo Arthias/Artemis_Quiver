@@ -202,13 +202,24 @@ export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "
     { "paged-export-overrides.css": buildOverrideCss(computedBg, pageMargin) },
   ];
 
+  // Paged.js injects a processed copy of every stylesheet into <head> with the
+  // `@media print` wrappers stripped, so `print:hidden` rules apply on screen
+  // and hide the editor. Those <style> tags outlive the export unless removed.
   const previewer = new Previewer();
-  await previewer.preview(clone, stylesheets, root);
-
-  withTitleRestore(documentTitle, () => {
+  const cleanup = () => {
+    previewer.chunker.removePages(); // disconnects each page's ResizeObserver
+    previewer.polisher.destroy();
     document.body.classList.remove(EXPORTING_BODY_CLASS);
     root.innerHTML = "";
-  });
+  };
+  try {
+    await previewer.preview(clone, stylesheets, root);
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
+
+  withTitleRestore(documentTitle, cleanup);
   document.body.classList.add(EXPORTING_BODY_CLASS);
 
   // Let the "exporting" layout settle (root becomes the only visible subtree)
