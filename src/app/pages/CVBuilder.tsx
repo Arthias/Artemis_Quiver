@@ -203,18 +203,23 @@ export function CVBuilder() {
           .cv-preview-card .page-break-before { page-break-before: always; break-before: page; }
           .print-grid-2 { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.75rem !important; }
         }
-        /* Paged.js export target — laid out off-screen at all times so
-           pagination can be computed, then swapped in for print only. */
+        /* Paged.js export target — laid out invisibly behind the app so
+           pagination can be computed, then swapped in for print only.
+           Hidden with opacity, not a far-off-screen offset: with left:-99999px
+           Paged.js mishandles forced breaks (blank page, then the section
+           twice). */
         #paged-export-root {
           position: fixed;
           top: 0;
-          left: -99999px;
+          left: 0;
           z-index: -1;
+          opacity: 0;
+          pointer-events: none;
         }
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           body.paged-exporting > *:not(#paged-export-root) { display: none !important; }
-          body.paged-exporting #paged-export-root { position: static; left: auto; z-index: auto; }
+          body.paged-exporting #paged-export-root { position: static; z-index: auto; opacity: 1; }
         }
       `}</style>
       <div className="border-b border-border bg-card print:hidden">

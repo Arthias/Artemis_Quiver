@@ -1,7 +1,7 @@
 ---
 tags: [development, cv-builder, pdf, architecture, bugfix]
 status: done
-last_updated: 2026-09-10
+last_updated: 2026-11-10
 ---
 
 # CV PDF Export — Paged.js Migration
@@ -133,6 +133,47 @@ it, and the export root hid itself. Fix: mark that `<style>` tag with
 `data-pagedjs-ignore="true"` (Paged.js's own convention for "don't touch
 this sheet" — it already respects that attribute in its own `removeStyles()`
 helper) and skip any stylesheet carrying it in `collectDocumentStylesheets()`.
+
+## Four more export bugs, fixed 2026-11-10
+
+Reported against real exports: the editor never came back after printing, a
+section title stranded at the foot of a page, and a manual page break giving a
+blank page followed by the same page twice. Reproduced by mounting the real
+`InteractiveCVPreview` with a real CV in Chromium and paginating with the export
+code, across all four templates and a range of summary lengths.
+
+### D. Paged.js styles outlived the export, and hid the editor
+
+`polisher.add()` inserts a processed copy of every stylesheet into `<head>`
+with `@media print` wrappers stripped, so `print:hidden` applied on screen.
+Cleanup only emptied the export root. Now cleanup calls
+`previewer.polisher.destroy()` and `previewer.chunker.removePages()`, on
+`afterprint` and on a failed pagination.
+
+### E. A far-off-screen export root breaks forced page breaks
+
+With `#paged-export-root { left: -99999px }`, any section with `break-before:
+page` produced a blank page and then that section twice — every template, every
+content length. Placing the root at 0,0 behind the app with `opacity: 0` fixes
+it (the print rule restores `opacity: 1`). Paged.js decides breaks from element
+positions; do not move the root off-screen again.
+
+### F. The builder's fallback `@page` margin outranked Paged.js's
+
+`CVBuilder`'s `<style>` renders inside `<body>`, so its print-only
+`@page { margin: 0.15in }` beats Paged.js's `@page` in `<head>`. Paged.js pages
+are already full A4 with their own margins; the extra margin made Chrome shrink
+each sheet (the white frame seen on exported PDFs). The export now appends
+`@page { size: A4; margin: 0 }` at the end of `<body>` while it runs. It also
+disconnects each page's `ResizeObserver` before printing, so print layout
+cannot trigger a re-flow mid-print.
+
+### G. Section titles left alone at the foot of a page
+
+Nothing tied a section's title row to its first item. `SectionFrame`'s title
+row carries `.section-heading`, and the export override sets
+`break-after: avoid` on it. Paged.js only honours break rules from
+stylesheets, not inline styles, so it has to live in the override CSS.
 
 ## Backlog
 

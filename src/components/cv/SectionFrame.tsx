@@ -46,7 +46,7 @@ export function SectionFrame({
           <div className="flex-1 border-t-2 border-dashed border-rose-300" />
         </div>
       )}
-      <div className="flex items-center gap-1.5 mb-3">
+      <div className="section-heading flex items-center gap-1.5 mb-3">
         <span className="cursor-grab text-gray-300 hover:text-gray-500 shrink-0 print:hidden" title="Drag to reorder">
           <GripVertical className="w-4 h-4" />
         </span>

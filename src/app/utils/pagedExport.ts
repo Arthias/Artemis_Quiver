@@ -122,6 +122,10 @@ function buildOverrideCss(pageBackground: string, pageMargin: string): string {
     .page-break-before {
       break-before: page;
     }
+    /* Keep a section title on the same page as the section's first item. */
+    .section-heading {
+      break-after: avoid;
+    }
   `;
 }
 
@@ -205,10 +209,19 @@ export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "
   // Paged.js injects a processed copy of every stylesheet into <head> with the
   // `@media print` wrappers stripped, so `print:hidden` rules apply on screen
   // and hide the editor. Those <style> tags outlive the export unless removed.
+  // Paged.js pages are already full A4 sheets with their own margins, so the
+  // printer page must add none. The builders' native-print fallback sets
+  // `@page { margin: 0.15in }` in a <style> inside <body>, which outranks
+  // Paged.js's own @page rule in <head>; with it, Chrome shrinks every sheet
+  // and pages drift (blank and repeated pages). Last in <body> wins.
+  const pageRule = document.createElement("style");
+  pageRule.textContent = "@page { size: A4; margin: 0; }";
+
   const previewer = new Previewer();
   const cleanup = () => {
     previewer.chunker.removePages(); // disconnects each page's ResizeObserver
     previewer.polisher.destroy();
+    pageRule.remove();
     document.body.classList.remove(EXPORTING_BODY_CLASS);
     root.innerHTML = "";
   };
@@ -218,6 +231,10 @@ export async function printWithPagedJs({ sourceEl, documentTitle, pageMargin = "
     cleanup();
     throw err;
   }
+  // Layout is final. Stop Paged.js re-flowing pages when print layout
+  // resizes them, which repeats or drops content mid-print.
+  for (const page of previewer.chunker.pages) page.removeListeners();
+  document.body.appendChild(pageRule);
 
   withTitleRestore(documentTitle, cleanup);
   document.body.classList.add(EXPORTING_BODY_CLASS);
