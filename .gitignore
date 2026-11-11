@@ -86,3 +86,6 @@ Temp_Design-analysis/
 # Local dev/test context (personal profiles, fixtures, notes). Never commit:
 # this repo is public.
 .devlocal/
+
+# Live test data (real profiles, job posts, generated samples). Never commit.
+artemis_quiver_docs/XX-Private/
