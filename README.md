@@ -103,6 +103,8 @@ and reload the extension after any change to it.
 ## Choosing a provider
 
 Configured in **Settings**, in two slots (primary and secondary, with a routing rule).
+You can save more models and turn on **Choose a model per task** to send each kind of
+call (job analysis, CV generation, Application Assist, Flow scoring...) to a different one.
 
 | Provider | What it is | Data leaves your machine? |
 |---|---|---|
@@ -125,7 +127,9 @@ In the extension, set a **real** LLM URL — the Vite dev proxy paths (`/api/lms
   extension works with no server), Dexie.js over IndexedDB, i18n via react-i18next (en, es)
   with translation keys typed so a mistyped key fails `tsc`.
 - A **provider adapter layer** (`src/app/services/provider/`) fronts all four provider
-  types behind one interface, with primary/secondary endpoints and a routing rule.
+  types behind one interface. Every call goes through `runLlm(task, ...)`, which picks the
+model for that task from the settings (primary/secondary routing, or the per-task table)
+and applies redaction, timeouts and fallback in one place.
 - The extension is MV3 with **no static content scripts** — overlays are registered at
   runtime for the sites you enable, and `*://*/*` is an *optional* host permission.
 - Two Vite configs: `vite.config.ts` (web app) and `vite.ext.config.ts` (extension).

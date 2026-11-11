@@ -1,7 +1,7 @@
 ---
 tags: [api, llm, local, providers]
 status: completed
-last_updated: 2026-07-06
+last_updated: 2026-11-11
 ---
 
 # 🔌 LLM Integration — Provider Architecture
@@ -71,6 +71,23 @@ Secondary routing via `secondaryUse`:
 - `"fallback"` — Retry secondary on primary failure
 - `"quick-tasks"` — Classification/scoring to secondary, generation to primary
 - `"always"` — Use secondary only
+
+## 🎯 Per-task models (as-built, 2026-11-11)
+
+Every call names its task (`LlmTask` in `types/llm.ts`) and goes through
+`runLlm(task, messages, settings)` in `services/llmService.ts`; JSON calls use
+`runLlmJson` (`services/llmJson.ts`), which turns on provider JSON mode and repairs a
+bad reply once per attempt. `endpointFor(settings, task)` picks the model:
+
+1. In cloud mode with **Choose a model per task** on (`perTaskModels`), the task's entry
+   in `taskModels` wins — `"primary"`, `"secondary"`, or the `id` of a saved model in
+   `models`.
+2. Otherwise (task on Default, model deleted or empty, toggle off, local mode) the
+   `secondaryUse` routing above applies.
+
+Flow's model (`flow.llmEndpoint`) takes the same references; it is the "Flow job scoring"
+row of the table and the dropdown on the Flow tab. The overlay's fallback scoring in
+`extension/background.ts` still uses only primary/secondary.
 
 ---
 
