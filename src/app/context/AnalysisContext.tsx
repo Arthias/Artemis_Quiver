@@ -9,7 +9,6 @@ import {
 } from "react";
 import { AppError } from "../utils/errors";
 import { analyzeJobPosting, followUpChat } from "../services/jobAnalysisService";
-import { getActiveEndpoint } from "../services/llmService";
 import type { AnalysisResult, AnalysisSession } from "../types/analysis";
 import type { ChatMessage } from "../types/llm";
 import type { CVContent, ThemeConfig } from "../types/cv";
@@ -136,7 +135,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const { result, markdown } = await analyzeJobPosting(trimmed, profile, getActiveEndpoint(config));
+      const { result, markdown } = await analyzeJobPosting(trimmed, profile, config);
       const session: AnalysisSession = {
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
@@ -275,7 +274,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
           draftJobPosting,
           profile,
           updatedMessages,
-          getActiveEndpoint(config)
+          config
         );
         const assistantMsg: ChatMessage = { role: "assistant", content: reply };
         const finalMessages = [...updatedMessages, assistantMsg];

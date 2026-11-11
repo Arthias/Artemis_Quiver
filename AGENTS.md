@@ -100,6 +100,8 @@ src/
 
 Two independently configured `ModelEndpoint` slots — primary and secondary. `SecondaryUse` controls routing: `never | fallback | quick-tasks | always`. Adapter factory lives in `src/app/services/provider/registry.ts`.
 
+**Every app LLM call goes through `runLlm(task, messages, settings)`** in `src/app/services/llmService.ts`. The caller names its `LlmTask` (`types/llm.ts`); `endpointFor` picks the model from the settings, and `runLlm` applies redaction, the task's timeout, error logging and fallback. Services take the `LlmConfig`, never a pre-picked endpoint. A new kind of call adds a task to `LlmTask` and to `TASKS` in `llmService.ts`. Exceptions: `extension/background.ts` calls its adapters directly (its own redaction), and Flow makes its own calls with the endpoint Quiver sends it.
+
 ```typescript
 type ProviderType = "openai-compatible" | "anthropic" | "google-gemini" | "webllm";
 ```

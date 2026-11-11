@@ -8,7 +8,6 @@ import { useConfig } from "../context/ConfigContext";
 import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { generateCoverLetter, editCoverLetter } from "../services/clBuilderService";
-import { getActiveEndpoint } from "../services/llmService";
 import type { CLContent } from "../../types/cl";
 import { CLContentSchema } from "../../types/cl";
 import { InteractiveCLPreview } from "../../components/cv/InteractiveCLPreview";
@@ -87,7 +86,7 @@ export function CLBuilder() {
       const content = await generateCoverLetter(
         profile,
         { jobDescription: jobDescription || undefined, companyName, position, seedDraft, locale: outputLang },
-        getActiveEndpoint(config)
+        config
       );
       const parsed = JSON.parse(content) as CLContent;
       const validated = CLContentSchema.parse(parsed);
@@ -117,7 +116,7 @@ export function CLBuilder() {
     try {
       const currentJson = JSON.stringify(clContent);
       const lang = clContent.language ?? outputLang;
-      const updated = await editCoverLetter(currentJson, text, profile, getActiveEndpoint(config), lang);
+      const updated = await editCoverLetter(currentJson, text, profile, config, lang);
       const parsed = JSON.parse(updated) as CLContent;
       const validated = CLContentSchema.parse(parsed);
       setClContent({ ...validated, language: lang });

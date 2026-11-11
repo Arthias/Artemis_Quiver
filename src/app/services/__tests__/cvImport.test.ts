@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { CvImportError, extractCvText, missingDetails, pdfItemsToText, structureProfile, tidyText, unfence } from "../cvImport";
-import { chatCompletionWithFallback } from "../llmService";
+import { runLlm } from "../llmService";
 import type { LlmConfig } from "../../types/llm";
 
-vi.mock("../llmService", () => ({ chatCompletionWithFallback: vi.fn() }));
+vi.mock("../llmService", () => ({ runLlm: vi.fn() }));
 
 const file = (name: string, text: string) => new File([text], name);
 const long = "Abogada. Poder Judicial, 2017 - presente. Proyectista en cámara de apelaciones.";
@@ -38,9 +38,9 @@ describe("tidyText", () => {
 
 describe("structureProfile", () => {
   it("sends the raw text and strips a markdown fence from the reply", async () => {
-    vi.mocked(chatCompletionWithFallback).mockResolvedValueOnce("```markdown\n# Ana\n\n## Experience\n```");
+    vi.mocked(runLlm).mockResolvedValueOnce("```markdown\n# Ana\n\n## Experience\n```");
     expect(await structureProfile(long, {} as LlmConfig)).toBe("# Ana\n\n## Experience");
-    const [messages] = vi.mocked(chatCompletionWithFallback).mock.calls[0]!;
+    const [, messages] = vi.mocked(runLlm).mock.calls[0]!;
     expect(messages[0]!.content).toContain("Never add, infer or embellish");
     expect(messages[1]!.content).toBe(long);
   });

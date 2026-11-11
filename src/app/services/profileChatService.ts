@@ -1,6 +1,6 @@
-import type { ChatMessage, ModelEndpoint } from "../types/llm";
+import type { ChatMessage, LlmConfig } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
-import { chatCompletion } from "./llmService";
+import { runLlm } from "./llmService";
 
 const PROFILE_CHAT_SYSTEM = `You are a career coach helping refine a candidate's Markdown master profile.
 Suggest concrete edits based on the user's request. When proposing profile changes, include a section:
@@ -11,15 +11,16 @@ Do not invent experience. Only use information from the current profile and user
 export async function profileChat(
   messages: ChatMessage[],
   profileMarkdown: string,
-  endpoint: ModelEndpoint
+  llm: LlmConfig
 ): Promise<string> {
   try {
-    return await chatCompletion(
+    return await runLlm(
+      "profileChat",
       [
         { role: "system", content: `${PROFILE_CHAT_SYSTEM}\n\n## Current profile\n\n${profileMarkdown}` },
         ...messages,
       ],
-      endpoint
+      llm
     );
   } catch (err) {
     if (err instanceof AppError) throw err;

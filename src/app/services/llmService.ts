@@ -1,4 +1,4 @@
-import type { ChatMessage, LlmConfig, ModelEndpoint } from "../types/llm";
+import type { ChatMessage, LlmConfig, LlmTask, ModelEndpoint } from "../types/llm";
 import { getAdapter } from "./provider";
 import { redactorFor } from "./redaction";
 
@@ -50,32 +50,49 @@ export async function testConnection(endpoint: ModelEndpoint): Promise<string> {
   }
 }
 
-export function getActiveEndpoint(
-  config: LlmConfig,
-  forTask?: "quick"
-): ModelEndpoint {
-  if (forTask === "quick" && config.secondaryUse === "quick-tasks") {
-    return config.secondary;
-  }
+/** Per-task traits: "quick" tasks may go to the secondary model; timeouts for the long ones. */
+const TASKS: Record<LlmTask, { quick?: boolean; timeoutMs?: number }> = {
+  jobAnalysis: {},
+  jobFollowUp: {},
+  cvGenerate: {},
+  cvEdit: {},
+  cvOptimize: {},
+  clGenerate: {},
+  clEdit: {},
+  profileChat: {},
+  profileImport: { timeoutMs: 300_000 },
+  profilePreferences: { timeoutMs: 180_000 },
+  profileLists: { timeoutMs: 180_000 },
+  assistMatchFields: { quick: true },
+  assistExtractValues: {},
+  assistDraftAnswer: {},
+};
+
+/** The model the settings assign to a task (no task: the model used by default). */
+export function endpointFor(config: LlmConfig, task?: LlmTask): ModelEndpoint {
+  if (config.secondaryUse === "always") return config.secondary;
+  if (task && TASKS[task].quick && config.secondaryUse === "quick-tasks") return config.secondary;
   return config.primary;
 }
 
-export async function chatCompletionWithFallback(
+/**
+ * The one way the app calls a model: say what you are doing and pass the
+ * messages; the settings pick the model, and this handles redaction, the
+ * timeout, error logging and falling back to the secondary model.
+ */
+export async function runLlm(
+  task: LlmTask,
   messages: ChatMessage[],
   config: LlmConfig,
-  options?: { timeoutMs?: number; forTask?: "quick" }
+  options?: { timeoutMs?: number }
 ): Promise<string> {
-  const primary = getActiveEndpoint(config, options?.forTask);
-
-  if (config.secondaryUse === "always") {
-    return chatCompletion(messages, config.secondary, options);
-  }
-
+  const endpoint = endpointFor(config, task);
+  const opts = { timeoutMs: options?.timeoutMs ?? TASKS[task].timeoutMs };
   try {
-    return await chatCompletion(messages, primary, options);
+    return await chatCompletion(messages, endpoint, opts);
   } catch (err) {
-    if (config.secondaryUse === "fallback") {
-      return chatCompletion(messages, config.secondary, options);
+    if (config.secondaryUse === "fallback" && endpoint !== config.secondary && config.secondary.model) {
+      return chatCompletion(messages, config.secondary, opts);
     }
     throw err;
   }

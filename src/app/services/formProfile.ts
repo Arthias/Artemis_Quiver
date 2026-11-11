@@ -9,7 +9,7 @@
 // the next form with that label matches by plain string lookup.
 import { db } from "../db/schema";
 import type { ChatMessage, LlmConfig } from "../types/llm";
-import { chatCompletionWithFallback } from "./llmService";
+import { runLlm } from "./llmService";
 import { extractJsonObject } from "../utils/jsonParse";
 
 export interface FormProfileField {
@@ -338,7 +338,7 @@ export async function classifyLabels(
     }
   }
   if (!llm) throw new Error("No model available to identify fields.");
-  const out = await chatCompletionWithFallback([{ role: "user", content: prompt }], llm, { forTask: "quick" });
+  const out = await runLlm("assistMatchFields", [{ role: "user", content: prompt }], llm);
   return { matches: parseMatches(extractJsonObject(out), labels, keys), engine: "model" };
 }
 
@@ -358,7 +358,7 @@ export async function extractFieldValues(profileMarkdown: string, keys: string[]
       content: `Keys: ${keys.join(", ")}\n\nProfile:\n${profileMarkdown}\n\nAnswer with JSON only: an object mapping every key to a string.`,
     },
   ];
-  const raw = extractJsonObject(await chatCompletionWithFallback(messages, llm)) as Record<string, unknown>;
+  const raw = extractJsonObject(await runLlm("assistExtractValues", messages, llm)) as Record<string, unknown>;
   const out: Record<string, string> = {};
   for (const k of keys) if (typeof raw[k] === "string") out[k] = (raw[k] as string).trim();
   return out;
@@ -403,6 +403,6 @@ export function buildDraftMessages(req: DraftRequest): ChatMessage[] {
 }
 
 export async function draftAnswer(req: DraftRequest, llm: LlmConfig): Promise<string> {
-  const text = (await chatCompletionWithFallback(buildDraftMessages(req), llm)).trim();
+  const text = (await runLlm("assistDraftAnswer", buildDraftMessages(req), llm)).trim();
   return req.maxLength ? text.slice(0, req.maxLength) : text;
 }

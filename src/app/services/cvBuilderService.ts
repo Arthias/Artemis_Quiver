@@ -1,6 +1,5 @@
-import type { ModelEndpoint } from "../types/llm";
-import type { ChatMessage } from "../types/llm";
-import { chatCompletion } from "./llmService";
+import type { ChatMessage, LlmConfig, LlmTask } from "../types/llm";
+import { runLlm } from "./llmService";
 import { AppError, ErrorCodes, type ErrorCode } from "../utils/errors";
 import { extractJsonObject } from "../utils/jsonParse";
 import {
@@ -162,7 +161,8 @@ function buildMessages(
 
 async function withJsonRetry(
   buildMessages: (attempt: number, lastRaw: string, lastError: string) => ChatMessage[],
-  endpoint: ModelEndpoint,
+  task: LlmTask,
+  llm: LlmConfig,
   errorCode: ErrorCode,
   errorMessage: string,
 ): Promise<string> {
@@ -172,7 +172,7 @@ async function withJsonRetry(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const messages = buildMessages(attempt, lastRaw, lastErrorMessage);
-      const raw = await chatCompletion(messages, endpoint);
+      const raw = await runLlm(task, messages, llm);
 
       try {
         return normalizeCvJson(raw);
@@ -194,13 +194,13 @@ export async function generateCv(
   profileMarkdown: string,
   jobDescription: string | undefined,
   cvRecommendations: string[] | undefined,
-  endpoint: ModelEndpoint,
+  llm: LlmConfig,
   options?: GenerateCvOptions
 ): Promise<string> {
   const mode = options?.mode ?? "standard";
   if (!JSON_MODES.includes(mode)) {
     const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
-    return chatCompletion(messages, endpoint);
+    return runLlm("cvGenerate", messages, llm);
   }
 
   return withJsonRetry(
@@ -214,7 +214,8 @@ export async function generateCv(
       }
       return messages;
     },
-    endpoint,
+    "cvGenerate",
+    llm,
     ErrorCodes.CV_GENERATION_FAILED,
     "CV generation failed",
   );
@@ -224,7 +225,7 @@ export async function editCv(
   currentCvJson: string,
   userRequest: string,
   profileMarkdown: string,
-  endpoint: ModelEndpoint,
+  llm: LlmConfig,
   locale: string = i18n.language,
 ): Promise<string> {
   return withJsonRetry(
@@ -241,7 +242,8 @@ export async function editCv(
       }
       return messages;
     },
-    endpoint,
+    "cvEdit",
+    llm,
     ErrorCodes.CV_GENERATION_FAILED,
     "CV edit failed",
   );
@@ -250,7 +252,7 @@ export async function editCv(
 export async function optimizeCv(
   profileMarkdown: string,
   mode: OptimizationMode,
-  endpoint: ModelEndpoint,
+  llm: LlmConfig,
   context?: Partial<PromptContext>
 ): Promise<string> {
   const ctx: PromptContext = {
@@ -270,11 +272,12 @@ export async function optimizeCv(
 
   const contextBlock = contextParts.length > 0 ? `\n\n${contextParts.join("\n")}` : "";
 
-  return chatCompletion(
+  return runLlm(
+    "cvOptimize",
     [
       { role: "system", content: systemPrompt },
       { role: "user", content: `## Candidate profile\n\n${profileMarkdown}${contextBlock}` },
     ],
-    endpoint
+    llm
   );
 }

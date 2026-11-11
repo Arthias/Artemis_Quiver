@@ -4,10 +4,10 @@ import {
   canonicalJson, generateTitles, isStale, makeLayer, preferencesFromCard, preferencesHash, renderFingerprint,
   targetLanguages,
 } from "../profileLayers";
-import { chatCompletionWithFallback } from "../llmService";
+import { runLlm } from "../llmService";
 import type { LlmConfig } from "../../types/llm";
 
-vi.mock("../llmService", () => ({ chatCompletionWithFallback: vi.fn() }));
+vi.mock("../llmService", () => ({ runLlm: vi.fn() }));
 
 describe("preferences schema", () => {
   it("reads Flow's shape, plain language names included", () => {
@@ -92,7 +92,7 @@ describe("generateTitles", () => {
   const prefs = ProfilePreferencesSchema.parse({ home_country: "AR", languages: ["Spanish"], fields: ["legal advice"] });
 
   it("asks for English titles, then translates them one language per call", async () => {
-    vi.mocked(chatCompletionWithFallback)
+    vi.mocked(runLlm)
       .mockResolvedValueOnce('{"titles":["Lawyer","Compliance Analyst","Lawyer"],"exclude_titles":["intern"]}')
       .mockResolvedValueOnce('{"titles":["Abogado","Analista de Compliance","Abogado"]}');
     const res = await generateTitles("# CV", prefs, llm);
@@ -102,13 +102,13 @@ describe("generateTitles", () => {
     ]);
     expect(res.exclude_titles).toEqual(["intern"]);
     expect(res.failed).toEqual([]);
-    const calls = vi.mocked(chatCompletionWithFallback).mock.calls;
-    expect(calls[0]![0][1]!.content).toContain("Fields of work: legal advice");
-    expect(calls[1]![0][0]!.content).toContain("into Spanish");
+    const calls = vi.mocked(runLlm).mock.calls;
+    expect(calls[0]![1][1]!.content).toContain("Fields of work: legal advice");
+    expect(calls[1]![1][0]!.content).toContain("into Spanish");
   });
 
   it("keeps the English titles when a translation fails", async () => {
-    vi.mocked(chatCompletionWithFallback).mockReset()
+    vi.mocked(runLlm).mockReset()
       .mockResolvedValueOnce('{"titles":["Lawyer"]}')
       .mockResolvedValueOnce("not json");
     const res = await generateTitles("# CV", prefs, llm);

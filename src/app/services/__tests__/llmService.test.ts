@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { chatCompletion, getActiveEndpoint, chatCompletionWithFallback } from "../llmService";
+import { chatCompletion, endpointFor, runLlm } from "../llmService";
 import type { ModelEndpoint, LlmConfig } from "../../types/llm";
 
 // llmService fire-and-forgets an error-log write via a dynamic import of
@@ -58,44 +58,49 @@ describe("chatCompletion", () => {
   });
 });
 
-describe("getActiveEndpoint", () => {
-  it("should return primary by default", () => {
-    const ep = getActiveEndpoint(mockConfig);
-    expect(ep.model).toBe("test-model");
+describe("endpointFor", () => {
+  it("returns primary by default", () => {
+    expect(endpointFor(mockConfig).model).toBe("test-model");
+    expect(endpointFor(mockConfig, "cvGenerate").model).toBe("test-model");
   });
 
-  it("should return secondary for quick-tasks when secondaryUse is quick-tasks", () => {
+  it("sends quick tasks to secondary when secondaryUse is quick-tasks", () => {
     const config = { ...mockConfig, secondaryUse: "quick-tasks" as const };
-    const ep = getActiveEndpoint(config, "quick");
-    expect(ep.model).toBe("small-model");
+    expect(endpointFor(config, "assistMatchFields").model).toBe("small-model");
+    expect(endpointFor(config, "cvGenerate").model).toBe("test-model");
+  });
+
+  it("sends every task to secondary when secondaryUse is always", () => {
+    const config = { ...mockConfig, secondaryUse: "always" as const };
+    expect(endpointFor(config, "cvGenerate").model).toBe("small-model");
   });
 });
 
-describe("chatCompletionWithFallback", () => {
-  it("should use primary when secondaryUse is never", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ choices: [{ message: { content: "Primary" } }] }),
-    });
+describe("runLlm", () => {
+  const ok = (content: string) => ({ ok: true, json: () => Promise.resolve({ choices: [{ message: { content } }] }) });
+
+  it("uses primary when secondaryUse is never", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(ok("Primary"));
     vi.stubGlobal("fetch", mockFetch);
 
-    const result = await chatCompletionWithFallback([{ role: "user", content: "Hi" }], mockConfig);
+    const result = await runLlm("cvGenerate", [{ role: "user", content: "Hi" }], mockConfig);
     expect(result).toBe("Primary");
     expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("localhost:1234"), expect.anything());
   });
 
-  it("should fallback to secondary on primary failure when secondaryUse is fallback", async () => {
-    const mockFetch = vi.fn()
-      .mockRejectedValueOnce(new Error("Primary failed"))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ choices: [{ message: { content: "Secondary" } }] }),
-      });
+  it("falls back to secondary on primary failure when secondaryUse is fallback", async () => {
+    const mockFetch = vi.fn().mockRejectedValueOnce(new Error("Primary failed")).mockResolvedValueOnce(ok("Secondary"));
     vi.stubGlobal("fetch", mockFetch);
 
     const config = { ...mockConfig, secondaryUse: "fallback" as const };
-    const result = await chatCompletionWithFallback([{ role: "user", content: "Hi" }], config);
+    const result = await runLlm("cvGenerate", [{ role: "user", content: "Hi" }], config);
     expect(result).toBe("Secondary");
     expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fall back to an unconfigured secondary", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Primary failed")));
+    const config = { ...mockConfig, secondaryUse: "fallback" as const, secondary: { ...mockConfig.secondary, model: "" } };
+    await expect(runLlm("cvGenerate", [{ role: "user", content: "Hi" }], config)).rejects.toThrow("Primary failed");
   });
 });

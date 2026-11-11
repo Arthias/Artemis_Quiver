@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import { analyzeJobPosting, analysisToMarkdown, followUpChat } from "../jobAnalysisService";
 import type { AnalysisResult } from "../../types/analysis";
-import type { ChatMessage, ModelEndpoint } from "../../types/llm";
+import type { ChatMessage, LlmConfig, ModelEndpoint } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
-  chatCompletion: vi.fn(),
+  runLlm: vi.fn(),
 }));
 
-import { chatCompletion } from "../llmService";
+import { runLlm } from "../llmService";
 
-const mockEndpoint: ModelEndpoint = {
+const endpoint: ModelEndpoint = {
   label: "Test",
   provider: "openai-compatible",
   baseUrl: "/api/lmstudio",
@@ -17,9 +17,11 @@ const mockEndpoint: ModelEndpoint = {
   temperature: 0.7,
 };
 
+const mockConfig: LlmConfig = { providerMode: "cloud", primary: endpoint, secondary: endpoint, secondaryUse: "never", autoSaveProfile: false };
+
 describe("analyzeJobPosting", () => {
   it("should parse a valid LLM response", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       score: 85,
       salaryRange: "$100k-$120k",
       summary: "Strong match",
@@ -31,7 +33,7 @@ describe("analyzeJobPosting", () => {
     const { result, markdown } = await analyzeJobPosting(
       "React Developer position",
       "## Profile\nSenior engineer",
-      mockEndpoint
+      mockConfig
     );
 
     expect(result.score).toBe(85);
@@ -44,18 +46,18 @@ describe("analyzeJobPosting", () => {
   });
 
   it("should throw on missing score", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       salaryRange: "$100k",
       tips: ["Tip 1"],
       cvRecommendations: ["Rec 1"],
       coverLetterDraft: "Draft",
     }));
 
-    await expect(analyzeJobPosting("test", "profile", mockEndpoint)).rejects.toThrow("valid score");
+    await expect(analyzeJobPosting("test", "profile", mockConfig)).rejects.toThrow("valid score");
   });
 
   it("should throw on missing required fields", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       score: 80,
       salaryRange: "$100k",
       tips: [],
@@ -63,13 +65,13 @@ describe("analyzeJobPosting", () => {
       coverLetterDraft: "",
     }));
 
-    await expect(analyzeJobPosting("test", "profile", mockEndpoint)).rejects.toThrow("missing required fields");
+    await expect(analyzeJobPosting("test", "profile", mockConfig)).rejects.toThrow("missing required fields");
   });
 
   it("should handle LLM returning markdown-wrapped JSON", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue('```json\n{"score": 92, "salaryRange": "$130k", "tips": ["Tip"], "cvRecommendations": ["Rec"], "coverLetterDraft": "Draft"}\n```');
+    vi.mocked(runLlm).mockResolvedValue('```json\n{"score": 92, "salaryRange": "$130k", "tips": ["Tip"], "cvRecommendations": ["Rec"], "coverLetterDraft": "Draft"}\n```');
 
-    const { result } = await analyzeJobPosting("test", "profile", mockEndpoint);
+    const { result } = await analyzeJobPosting("test", "profile", mockConfig);
     expect(result.score).toBe(92);
   });
 });
@@ -96,11 +98,11 @@ describe("analysisToMarkdown", () => {
 
 describe("followUpChat", () => {
   beforeEach(() => {
-    vi.mocked(chatCompletion).mockReset();
+    vi.mocked(runLlm).mockReset();
   });
 
   it("should call LLM with follow-up system prompt and context", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Here is tailored advice...");
+    vi.mocked(runLlm).mockResolvedValue("Here is tailored advice...");
 
     const messages: ChatMessage[] = [
       { role: "user", content: "Why should I work here?" },
@@ -110,30 +112,30 @@ describe("followUpChat", () => {
       "Software Engineer job at Google",
       "## Profile\nExperienced developer",
       messages,
-      mockEndpoint
+      mockConfig
     );
 
     expect(reply).toBe("Here is tailored advice...");
-    const calls = vi.mocked(chatCompletion).mock.calls;
-    const systemContent = calls[0]?.[0]?.[0]?.content ?? "";
+    const calls = vi.mocked(runLlm).mock.calls;
+    const systemContent = calls[0]?.[1]?.[0]?.content ?? "";
     expect(systemContent).toContain("job application coach");
     expect(systemContent).toContain("follow-up");
   });
 
   it("should handle empty message history", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("First follow-up response");
+    vi.mocked(runLlm).mockResolvedValue("First follow-up response");
 
-    const reply = await followUpChat("Job posting", "Profile", [], mockEndpoint);
+    const reply = await followUpChat("Job posting", "Profile", [], mockConfig);
     expect(reply).toBe("First follow-up response");
   });
 
   it("should include job posting and profile in the prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Response");
+    vi.mocked(runLlm).mockResolvedValue("Response");
 
-    await followUpChat("Senior React role", "Frontend profile", [], mockEndpoint);
+    await followUpChat("Senior React role", "Frontend profile", [], mockConfig);
 
-    const calls = vi.mocked(chatCompletion).mock.calls;
-    const userContent = calls[0]?.[0]?.find(m => m.role === "user")?.content ?? "";
+    const calls = vi.mocked(runLlm).mock.calls;
+    const userContent = calls[0]?.[1]?.find(m => m.role === "user")?.content ?? "";
     expect(userContent).toContain("Senior React role");
     expect(userContent).toContain("Frontend profile");
   });

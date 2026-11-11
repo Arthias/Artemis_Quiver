@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { profileChat, extractUpdatedProfile } from "../profileChatService";
-import type { ChatMessage, ModelEndpoint } from "../../types/llm";
+import type { ChatMessage, LlmConfig, ModelEndpoint } from "../../types/llm";
 
 vi.mock("../llmService", () => ({
-  chatCompletion: vi.fn(),
+  runLlm: vi.fn(),
 }));
 
-import { chatCompletion } from "../llmService";
+import { runLlm } from "../llmService";
 
-const mockEndpoint: ModelEndpoint = {
+const endpoint: ModelEndpoint = {
   label: "Test",
   provider: "openai-compatible",
   baseUrl: "/api/lmstudio",
@@ -16,32 +16,34 @@ const mockEndpoint: ModelEndpoint = {
   temperature: 0.7,
 };
 
+const mockConfig: LlmConfig = { providerMode: "cloud", primary: endpoint, secondary: endpoint, secondaryUse: "never", autoSaveProfile: false };
+
 describe("profileChat", () => {
   it("should include system prompt with current profile", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Suggestion text");
+    vi.mocked(runLlm).mockResolvedValue("Suggestion text");
 
     const messages: ChatMessage[] = [{ role: "user", content: "Improve my summary" }];
-    const result = await profileChat(messages, "# Current profile", mockEndpoint);
+    const result = await profileChat(messages, "# Current profile", mockConfig);
 
     expect(result).toBe("Suggestion text");
-    const callArgs = vi.mocked(chatCompletion).mock.calls[0]!;
-    const systemContent = callArgs[0][0]!.content ?? "";
+    const callArgs = vi.mocked(runLlm).mock.calls[0]!;
+    const systemContent = callArgs[1][0]!.content ?? "";
     expect(systemContent).toContain("# Current profile");
   });
 
   it("should pass user messages to LLM", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Response");
+    vi.mocked(runLlm).mockResolvedValue("Response");
 
     const messages: ChatMessage[] = [
       { role: "user", content: "First message" },
       { role: "assistant", content: "First reply" },
       { role: "user", content: "Second message" },
     ];
-    await profileChat(messages, "# Profile", mockEndpoint);
+    await profileChat(messages, "# Profile", mockConfig);
 
-    const calls = vi.mocked(chatCompletion).mock.calls;
+    const calls = vi.mocked(runLlm).mock.calls;
     const lastCall = calls[calls.length - 1]!;
-    const userMessages = lastCall[0].filter(m => m.role === "user");
+    const userMessages = lastCall[1].filter(m => m.role === "user");
     expect(userMessages).toHaveLength(2);
   });
 });

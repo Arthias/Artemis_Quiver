@@ -1,7 +1,6 @@
-import type { ModelEndpoint } from "../types/llm";
-import type { ChatMessage } from "../types/llm";
+import type { ChatMessage, LlmConfig } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
-import { chatCompletion } from "./llmService";
+import { runLlm } from "./llmService";
 import { extractJsonObject } from "../utils/jsonParse";
 import { clGeneratePrompt, clEditPrompt } from "./prompts";
 import i18n from "../i18n";
@@ -39,7 +38,7 @@ function parseClJson(raw: string): string {
 export async function generateCoverLetter(
   profileMarkdown: string,
   options: GenerateCoverLetterOptions,
-  endpoint: ModelEndpoint
+  llm: LlmConfig
 ): Promise<string> {
   const company = typeof options.companyName === "string" && options.companyName.trim()
     ? options.companyName.trim() : "the company";
@@ -70,7 +69,7 @@ export async function generateCoverLetter(
         );
       }
 
-      const raw = await chatCompletion(messages, endpoint);
+      const raw = await runLlm("clGenerate", messages, llm);
 
       try {
         return parseClJson(raw);
@@ -99,7 +98,7 @@ export async function editCoverLetter(
   currentLetterJson: string,
   userRequest: string,
   profileMarkdown: string,
-  endpoint: ModelEndpoint,
+  llm: LlmConfig,
   locale: string = i18n.language,
 ): Promise<string> {
   const systemPrompt = clEditPrompt(userRequest, locale);
@@ -120,7 +119,7 @@ export async function editCoverLetter(
         );
       }
 
-      const raw = await chatCompletion(messages, endpoint);
+      const raw = await runLlm("clEdit", messages, llm);
 
       try {
         return parseClJson(raw);

@@ -12,7 +12,18 @@ export interface ModelEndpoint {
   reasoningEffort?: "none";
 }
 
-export type SecondaryUse = "never" | "fallback" | "quick-tasks" | "always";
+/**
+ * Every kind of LLM call the app makes, named by purpose. Callers say which
+ * task they are; `runLlm` decides which model serves it.
+ */
+export type LlmTask =
+  | "jobAnalysis" | "jobFollowUp"
+  | "cvGenerate" | "cvEdit" | "cvOptimize"
+  | "clGenerate" | "clEdit"
+  | "profileChat" | "profileImport" | "profilePreferences" | "profileLists"
+  | "assistMatchFields" | "assistExtractValues" | "assistDraftAnswer";
+
+export type SecondaryUse ="never" | "fallback" | "quick-tasks" | "always";
 
 export type ProviderMode = "cloud" | "local";
 

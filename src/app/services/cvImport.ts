@@ -2,7 +2,7 @@
 // plain text in the editor (no LLM), and "Structure with AI" can then rewrite
 // that text into sections with one call. Both parsers load only when used.
 import type { LlmConfig } from "../types/llm";
-import { chatCompletionWithFallback } from "./llmService";
+import { runLlm } from "./llmService";
 
 export class CvImportError extends Error {
   constructor(public readonly code: "unsupported" | "legacyDoc" | "noText", message: string) {
@@ -86,10 +86,10 @@ export function unfence(s: string): string {
 }
 
 export async function structureProfile(rawText: string, llm: LlmConfig): Promise<string> {
-  const out = unfence(await chatCompletionWithFallback(
+  const out = unfence(await runLlm(
+    "profileImport",
     [{ role: "system", content: STRUCTURE_PROMPT }, { role: "user", content: rawText }],
     llm,
-    { timeoutMs: 300000 },
   ));
   if (!out) throw new Error("The model returned an empty profile.");
   return out;

@@ -1,21 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
 import { generateCv, editCv, optimizeCv } from "../cvBuilderService";
-import type { ModelEndpoint } from "../../types/llm";
+import type { LlmConfig, ModelEndpoint } from "../../types/llm";
 import { AppError } from "../../utils/errors";
 
 vi.mock("../llmService", () => ({
-  chatCompletion: vi.fn(),
+  runLlm: vi.fn(),
 }));
 
-import { chatCompletion } from "../llmService";
+import { runLlm } from "../llmService";
 
-const mockEndpoint: ModelEndpoint = {
+const endpoint: ModelEndpoint = {
   label: "Test",
   provider: "openai-compatible",
   baseUrl: "http://localhost:11434",
   model: "test-model",
   temperature: 0.7,
 };
+
+const mockConfig: LlmConfig = { providerMode: "cloud", primary: endpoint, secondary: endpoint, secondaryUse: "never", autoSaveProfile: false };
 
 const validCvJson = JSON.stringify({
   name: "Test User",
@@ -28,19 +30,19 @@ const validCvJson = JSON.stringify({
 });
 
 function lastSystemPrompt(): string {
-  const calls = vi.mocked(chatCompletion).mock.calls;
-  return calls[calls.length - 1]![0].find((m) => m.role === "system")!.content ?? "";
+  const calls = vi.mocked(runLlm).mock.calls;
+  return calls[calls.length - 1]![1].find((m) => m.role === "system")!.content ?? "";
 }
 
 describe("generateCv", () => {
   beforeEach(() => {
-    vi.mocked(chatCompletion).mockReset();
+    vi.mocked(runLlm).mockReset();
   });
 
   it("should return normalized JSON string on success", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
 
-    const result = await generateCv("# Profile\nDeveloper", "Software Engineer", ["Add metrics"], mockEndpoint);
+    const result = await generateCv("# Profile\nDeveloper", "Software Engineer", ["Add metrics"], mockConfig);
 
     const parsed = JSON.parse(result);
     expect(parsed.sections).toHaveLength(3);
@@ -48,44 +50,44 @@ describe("generateCv", () => {
   });
 
   it("should handle empty job description gracefully", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
 
-    const result = await generateCv("# Profile\nDeveloper", undefined, undefined, mockEndpoint);
+    const result = await generateCv("# Profile\nDeveloper", undefined, undefined, mockConfig);
     const parsed = JSON.parse(result);
     expect(parsed.sections).toHaveLength(3);
   });
 
   it("should retry 4 times on malformed JSON then throw AppError", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("not json");
+    vi.mocked(runLlm).mockResolvedValue("not json");
 
-    await expect(generateCv("# Profile", "Job", [], mockEndpoint)).rejects.toThrow(AppError);
-    expect(vi.mocked(chatCompletion)).toHaveBeenCalledTimes(4);
+    await expect(generateCv("# Profile", "Job", [], mockConfig)).rejects.toThrow(AppError);
+    expect(vi.mocked(runLlm)).toHaveBeenCalledTimes(4);
   });
 
   it("should succeed on 2nd attempt after initial JSON failure", async () => {
-    vi.mocked(chatCompletion)
+    vi.mocked(runLlm)
       .mockResolvedValueOnce("bad json")
       .mockResolvedValueOnce(validCvJson);
 
-    const result = await generateCv("# Profile", "Job", [], mockEndpoint);
+    const result = await generateCv("# Profile", "Job", [], mockConfig);
     const parsed = JSON.parse(result);
     expect(parsed.sections).toHaveLength(3);
-    expect(vi.mocked(chatCompletion)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(runLlm)).toHaveBeenCalledTimes(2);
   });
 
   it("should include corrective feedback on 3rd attempt", async () => {
-    vi.mocked(chatCompletion)
+    vi.mocked(runLlm)
       .mockResolvedValueOnce("bad json")
       .mockResolvedValueOnce("bad json again")
       .mockResolvedValueOnce(validCvJson);
 
-    const result = await generateCv("# Profile", "Job", [], mockEndpoint);
+    const result = await generateCv("# Profile", "Job", [], mockConfig);
     const parsed = JSON.parse(result);
     expect(parsed.sections).toHaveLength(3);
 
-    const calls = vi.mocked(chatCompletion).mock.calls;
+    const calls = vi.mocked(runLlm).mock.calls;
     // 3rd call (index 2) should have corrective feedback
-    const thirdCallMessages = calls[2]?.[0] ?? [];
+    const thirdCallMessages = calls[2]?.[1] ?? [];
     const userRoles = thirdCallMessages.filter((m: any) => m.role === "user");
     expect(userRoles.length).toBeGreaterThanOrEqual(2);
     const lastUser = userRoles[userRoles.length - 1]?.content ?? "";
@@ -93,7 +95,7 @@ describe("generateCv", () => {
   });
 
   it("should normalize key-based sections to type-based", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       name: "Test User",
       title: "Engineer",
       sections: [
@@ -102,7 +104,7 @@ describe("generateCv", () => {
       ],
     }));
 
-    const result = await generateCv("# Profile", "Job", [], mockEndpoint);
+    const result = await generateCv("# Profile", "Job", [], mockConfig);
     const parsed = JSON.parse(result);
     expect(parsed.name).toBe("Test User");
     expect(parsed.sections[0].type).toBe("summary");
@@ -112,7 +114,7 @@ describe("generateCv", () => {
   });
 
   it("should strip placeholder values like 'N/A' from optional location fields", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       name: "Test User",
       title: "Engineer",
       sections: [
@@ -128,7 +130,7 @@ describe("generateCv", () => {
       ],
     }));
 
-    const result = await generateCv("# Profile", "Job", [], mockEndpoint);
+    const result = await generateCv("# Profile", "Job", [], mockConfig);
     const parsed = JSON.parse(result);
     const [contact, experience, education] = parsed.sections;
     expect(contact.phone).toBeUndefined();
@@ -138,7 +140,7 @@ describe("generateCv", () => {
   });
 
   it("should turn language objects into 'Language (Level)' strings", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify({
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       name: "Test User",
       title: "Engineer",
       sections: [
@@ -147,53 +149,53 @@ describe("generateCv", () => {
       ],
     }));
 
-    const parsed = JSON.parse(await generateCv("# Profile", "Job", [], mockEndpoint));
+    const parsed = JSON.parse(await generateCv("# Profile", "Job", [], mockConfig));
     expect(parsed.sections[0].languages).toEqual(["Italian (B2)", "Spanish (Native)", "English"]);
     expect(parsed.sections[1]).toEqual({ type: "languages", languages: ["French (A2)"] });
   });
 
   it("should write in the chosen output language, not the app's", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
-    await generateCv("# Profile", "Job", [], mockEndpoint, { locale: "it" });
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
+    await generateCv("# Profile", "Job", [], mockConfig, { locale: "it" });
     const system = lastSystemPrompt();
     expect(system).toContain("Respond ENTIRELY in Italian");
 
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
-    await editCv(validCvJson, "Shorter", "# Profile", mockEndpoint, "es");
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
+    await editCv(validCvJson, "Shorter", "# Profile", mockConfig, "es");
     const editSystem = lastSystemPrompt();
     expect(editSystem).toContain("Respond ENTIRELY in Spanish");
   });
 
   it("should include recommendations in the prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
 
-    await generateCv("# Profile", "Job", ["Add cloud skills", "Improve metrics"], mockEndpoint);
+    await generateCv("# Profile", "Job", ["Add cloud skills", "Improve metrics"], mockConfig);
 
-    const calls = vi.mocked(chatCompletion).mock.calls;
+    const calls = vi.mocked(runLlm).mock.calls;
     const lastCall = calls[calls.length - 1]!;
-    const userContent = lastCall[0].find(m => m.role === "user")!.content ?? "";
+    const userContent = lastCall[1].find(m => m.role === "user")!.content ?? "";
     expect(userContent).toContain("Add cloud skills");
     expect(userContent).toContain("Improve metrics");
   });
 
   it("should pass industry and target role context in prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
 
-    await generateCv("# Profile", "Job", [], mockEndpoint, {
+    await generateCv("# Profile", "Job", [], mockConfig, {
       targetRole: "Senior Engineer",
       industry: "FinTech",
     });
 
-    const calls = vi.mocked(chatCompletion).mock.calls;
-    const systemContent = calls[0]?.[0]?.find(m => m.role === "system")?.content ?? "";
+    const calls = vi.mocked(runLlm).mock.calls;
+    const systemContent = calls[0]?.[1]?.find(m => m.role === "system")?.content ?? "";
     expect(systemContent).toContain("Senior Engineer");
     expect(systemContent).toContain("FinTech");
   });
 
   it("should return raw text for non-JSON optimization modes", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Concise summary text");
+    vi.mocked(runLlm).mockResolvedValue("Concise summary text");
 
-    const result = await generateCv("# Profile", undefined, undefined, mockEndpoint, {
+    const result = await generateCv("# Profile", undefined, undefined, mockConfig, {
       mode: "audit",
       targetRole: "Designer",
     });
@@ -204,34 +206,34 @@ describe("generateCv", () => {
 
 describe("editCv", () => {
   beforeEach(() => {
-    vi.mocked(chatCompletion).mockReset();
+    vi.mocked(runLlm).mockReset();
   });
 
   it("should call LLM with edit prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue(validCvJson);
+    vi.mocked(runLlm).mockResolvedValue(validCvJson);
 
-    const result = await editCv(validCvJson, "Make it shorter", "# Profile", mockEndpoint);
+    const result = await editCv(validCvJson, "Make it shorter", "# Profile", mockConfig);
     const parsed = JSON.parse(result);
     expect(parsed.sections).toBeDefined();
   });
 
   it("should retry on malformed JSON and throw AppError", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("bad json");
+    vi.mocked(runLlm).mockResolvedValue("bad json");
 
-    await expect(editCv(validCvJson, "Make it shorter", "# Profile", mockEndpoint)).rejects.toThrow(AppError);
-    expect(vi.mocked(chatCompletion)).toHaveBeenCalledTimes(4);
+    await expect(editCv(validCvJson, "Make it shorter", "# Profile", mockConfig)).rejects.toThrow(AppError);
+    expect(vi.mocked(runLlm)).toHaveBeenCalledTimes(4);
   });
 });
 
 describe("optimizeCv", () => {
   beforeEach(() => {
-    vi.mocked(chatCompletion).mockReset();
+    vi.mocked(runLlm).mockReset();
   });
 
   it("should call LLM with audit mode prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Your CV is too vague in the experience section...");
+    vi.mocked(runLlm).mockResolvedValue("Your CV is too vague in the experience section...");
 
-    const result = await optimizeCv("# Profile", "audit", mockEndpoint, {
+    const result = await optimizeCv("# Profile", "audit", mockConfig, {
       targetRole: "PM",
       industry: "SaaS",
     });
@@ -240,16 +242,16 @@ describe("optimizeCv", () => {
   });
 
   it("should pass context fields to the prompt", async () => {
-    vi.mocked(chatCompletion).mockResolvedValue("Hiring manager feedback");
+    vi.mocked(runLlm).mockResolvedValue("Hiring manager feedback");
 
-    await optimizeCv("# Profile", "hiring-manager", mockEndpoint, {
+    await optimizeCv("# Profile", "hiring-manager", mockConfig, {
       targetRole: "Product Manager",
       industry: "SaaS",
       jobDescription: "Looking for a PM",
     });
 
-    const calls = vi.mocked(chatCompletion).mock.calls;
-    const systemContent = calls[0]?.[0]?.find(m => m.role === "system")?.content ?? "";
+    const calls = vi.mocked(runLlm).mock.calls;
+    const systemContent = calls[0]?.[1]?.find(m => m.role === "system")?.content ?? "";
     expect(systemContent).toContain("Product Manager");
     expect(systemContent).toContain("SaaS");
   });
@@ -258,8 +260,8 @@ describe("optimizeCv", () => {
     const modes = ["ats-optimize", "audit", "hiring-manager"] as const;
 
     for (const mode of modes) {
-      vi.mocked(chatCompletion).mockResolvedValue(`Result for ${mode}`);
-      const result = await optimizeCv("# Profile", mode, mockEndpoint);
+      vi.mocked(runLlm).mockResolvedValue(`Result for ${mode}`);
+      const result = await optimizeCv("# Profile", mode, mockConfig);
       expect(result).toBe(`Result for ${mode}`);
     }
   });

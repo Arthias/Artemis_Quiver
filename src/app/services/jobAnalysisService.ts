@@ -1,8 +1,8 @@
 import type { AnalysisResult } from "../types/analysis";
-import type { ChatMessage, ModelEndpoint } from "../types/llm";
+import type { ChatMessage, LlmConfig } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { extractJsonObject } from "../utils/jsonParse";
-import { chatCompletion } from "./llmService";
+import { runLlm } from "./llmService";
 import { localeInstruction } from "./prompts";
 import i18n from "../i18n";
 
@@ -97,9 +97,10 @@ ${result.coverLetterDraft}
 export async function analyzeJobPosting(
   jobPosting: string,
   profileMarkdown: string,
-  endpoint: ModelEndpoint
+  llm: LlmConfig
 ): Promise<{ result: AnalysisResult; markdown: string }> {
-  const content = await chatCompletion(
+  const content = await runLlm(
+    "jobAnalysis",
     [
       { role: "system", content: `${ANALYSIS_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
       {
@@ -107,7 +108,7 @@ export async function analyzeJobPosting(
         content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}`,
       },
     ],
-    endpoint
+    llm
   );
 
   const parsed = validateAnalysisResult(extractJsonObject(content, ErrorCodes.ANALYSIS_FAILED));
@@ -132,13 +133,14 @@ export async function followUpChat(
   jobPosting: string,
   profileMarkdown: string,
   messages: ChatMessage[],
-  endpoint: ModelEndpoint
+  llm: LlmConfig
 ): Promise<string> {
   const history = messages.length > 0
     ? messages.map(m => `${m.role}: ${m.content}`).join("\n\n")
     : "";
 
-  return chatCompletion(
+  return runLlm(
+    "jobFollowUp",
     [
       { role: "system", content: `${FOLLOWUP_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
       {
@@ -146,6 +148,6 @@ export async function followUpChat(
         content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}\n\n## Conversation so far\n\n${history || "No previous questions — this is the first follow-up."}`,
       },
     ],
-    endpoint
+    llm
   );
 }

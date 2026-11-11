@@ -9,7 +9,6 @@ import { useProfile } from "../context/ProfileContext";
 import { useBuilderHandoff } from "../context/BuilderHandoffContext";
 import { useAnalysis } from "../context/AnalysisContext";
 import { generateCv, editCv } from "../services/cvBuilderService";
-import { getActiveEndpoint } from "../services/llmService";
 import type { CVContent, SectionType, ThemeConfig } from "../types/cv";
 import { InteractiveCVPreview } from "../../components/cv/InteractiveCVPreview";
 import { toast } from "sonner";
@@ -102,7 +101,7 @@ export function CVBuilder() {
         profile,
         jobDescription || undefined,
         activeRecs.length > 0 ? activeRecs : undefined,
-        getActiveEndpoint(config),
+        config,
         { locale: outputLang },
       );
       let parsedContent: CVContent;
@@ -138,7 +137,7 @@ export function CVBuilder() {
     try {
       const currentJson = JSON.stringify(cvContent);
       const lang = cvContent.language ?? outputLang;
-      const updated = await editCv(currentJson, text, profile, getActiveEndpoint(config), lang);
+      const updated = await editCv(currentJson, text, profile, config, lang);
       const parsed = extractJsonObject(updated) as CVContent;
       setCvContent({ ...parsed, language: lang });
     } catch (err) {

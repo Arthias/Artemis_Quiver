@@ -6,7 +6,6 @@ import { loadTranslations, t } from "./i18n";
 import { extractPageContent } from "./pageExtract";
 import { getActiveProfileId, getProfile, getSessions, saveSession } from "../app/db";
 import { analyzeJobPosting } from "../app/services/jobAnalysisService";
-import { getActiveEndpoint } from "../app/services/llmService";
 import type { AnalysisResult } from "../app/types/analysis";
 import type { BuilderHandoff } from "../app/types/workspace";
 import { ApplySection, CvSection, companyFromUrl } from "./ApplyAssist";
@@ -334,8 +333,7 @@ function Panel() {
       const profile = await getProfile(activeId);
       if (!profile) throw new Error(t("sidepanel.noProfile"));
 
-      const endpoint = getActiveEndpoint(profile.settings);
-      const { result: analysis, markdown } = await analyzeJobPosting(data.text, profile.profileMarkdown, endpoint);
+      const { result: analysis, markdown } = await analyzeJobPosting(data.text, profile.profileMarkdown, profile.settings);
 
       const sessionId = crypto.randomUUID();
       await saveSession({
