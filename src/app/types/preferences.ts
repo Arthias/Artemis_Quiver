@@ -75,8 +75,8 @@ export interface FlowBacklogSettings {
 
 /** Everything Flow needs to run, owned here and sent in the sync bundle. */
 export interface FlowRunConfig {
-  /** Which of Quiver's endpoints Flow uses. */
-  llmEndpoint: "primary" | "secondary";
+  /** Which of Quiver's models Flow uses: "primary", "secondary" or a saved model's id. */
+  llmEndpoint: string;
   /** Separate models for Flow's cheap and full scoring passes; empty = the endpoint's model. */
   softModel: string;
   hardModel: string;

@@ -1,4 +1,4 @@
-import type { ChatMessage, LlmConfig, LlmTask, ModelEndpoint } from "../types/llm";
+import type { ChatMessage, LlmConfig, LlmTask, ModelEndpoint, ModelRef } from "../types/llm";
 import { getAdapter } from "./provider";
 import type { ChatCompletionOptions } from "./provider/ProviderAdapter";
 import { redactorFor } from "./redaction";
@@ -69,8 +69,19 @@ const TASKS: Record<LlmTask, { quick?: boolean; timeoutMs?: number }> = {
   assistDraftAnswer: {},
 };
 
+/** The endpoint a model reference points at; undefined if it no longer exists. */
+export function modelByRef(config: LlmConfig, ref: ModelRef | undefined): ModelEndpoint | undefined {
+  if (ref === "primary") return config.primary;
+  if (ref === "secondary") return config.secondary;
+  return config.models?.find((m) => m.id === ref);
+}
+
 /** The model the settings assign to a task (no task: the model used by default). */
 export function endpointFor(config: LlmConfig, task?: LlmTask): ModelEndpoint {
+  if (task && config.perTaskModels && config.providerMode !== "local") {
+    const chosen = modelByRef(config, config.taskModels?.[task]);
+    if (chosen?.model) return chosen;
+  }
   if (config.secondaryUse === "always") return config.secondary;
   if (task && TASKS[task].quick && config.secondaryUse === "quick-tasks") return config.secondary;
   return config.primary;

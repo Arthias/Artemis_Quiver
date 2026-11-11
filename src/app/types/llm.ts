@@ -23,7 +23,15 @@ export type LlmTask =
   | "profileChat" | "profileImport" | "profilePreferences" | "profileLists"
   | "assistMatchFields" | "assistExtractValues" | "assistDraftAnswer";
 
-export type SecondaryUse ="never" | "fallback" | "quick-tasks" | "always";
+/** A saved model beyond primary/secondary, referenced from `taskModels` by id. */
+export interface SavedModel extends ModelEndpoint {
+  id: string;
+}
+
+/** Which model serves a task: "primary", "secondary", or a `SavedModel` id. */
+export type ModelRef = string;
+
+export type SecondaryUse = "never" | "fallback" | "quick-tasks" | "always";
 
 export type ProviderMode = "cloud" | "local";
 
@@ -39,6 +47,11 @@ export interface LlmConfig {
     secondaryUse: SecondaryUse;
   };
   autoSaveProfile: boolean;
+  /** Extra models the per-task table can pick from. */
+  models?: SavedModel[];
+  /** When on (cloud mode only), `taskModels` overrides the primary/secondary routing per task. */
+  perTaskModels?: boolean;
+  taskModels?: Partial<Record<LlmTask, ModelRef>>;
 }
 
 export interface ChatMessage {

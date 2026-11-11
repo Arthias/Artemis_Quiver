@@ -75,4 +75,11 @@ describe("buildFlowBundle llm", () => {
     const { bundle } = await buildFlowBundle(source());
     expect(bundle.llm).toMatchObject({ provider: "lmstudio", reasoning_effort: null });
   });
+
+  it("sends the saved model Flow scoring points at", async () => {
+    const extra = { ...DEFAULT_PRIMARY_ENDPOINT, id: "x1", baseUrl: "http://other:1234", model: "qwen-x" };
+    const flow = { ...defaultFlowRunConfig(), llmEndpoint: "x1" };
+    const { bundle } = await buildFlowBundle(source({ settings: settings({ models: [extra], flow }) }));
+    expect(bundle.llm).toMatchObject({ base_url: "http://other:1234", model: "qwen-x" });
+  });
 });

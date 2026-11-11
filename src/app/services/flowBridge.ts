@@ -3,6 +3,7 @@ import type { ProfileSettings } from "../types/workspace";
 import { defaultFlowRunConfig, type Layer, type ProfilePreferences } from "../types/preferences";
 import { canonicalJson, sha256 } from "./profileLayers";
 import { redactorFor } from "./redaction";
+import { modelByRef } from "./llmService";
 
 export interface FlowStatus {
   connected: boolean;
@@ -707,7 +708,7 @@ export interface FlowSyncSource {
 /** The bundle PUT /api/sync takes, and its hash. */
 export async function buildFlowBundle(src: FlowSyncSource): Promise<{ bundle: Record<string, unknown>; hash: string }> {
   const flow = src.settings.flow ?? defaultFlowRunConfig();
-  const ep = flow.llmEndpoint === "secondary" ? src.settings.secondary : src.settings.primary;
+  const ep = modelByRef(src.settings, flow.llmEndpoint) ?? src.settings.primary;
   let llm: Record<string, unknown> | null = null;
   if (ep?.model && (ep.provider === "anthropic" || ep.provider === "openai-compatible" || ep.provider === "ollama")) {
     const mapped = mapProviderForFlow(ep);

@@ -15,7 +15,7 @@ import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useConfig } from "../context/ConfigContext";
-import { listModels as listModelsApi, testConnection } from "../services/llmService";
+import { listModels as listModelsApi, modelByRef, testConnection } from "../services/llmService";
 import {
   checkFlowHealth,
   exportFlowDb,
@@ -29,7 +29,7 @@ import {
 import { useFlowSync } from "../hooks/useFlowSync";
 import { defaultFlowRunConfig, type FlowRunConfig } from "../types/preferences";
 import { Link } from "react-router";
-import type { ProviderType, SecondaryUse, ModelEndpoint } from "../types/llm";
+import type { ProviderType, SecondaryUse, ModelEndpoint, LlmConfig, LlmTask, SavedModel } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
 import { PROVIDER_DEFAULT_BASE_URLS } from "../config/defaults";
 import type { ThemeMode } from "../types/workspace";
@@ -566,7 +566,8 @@ function FlowSettingsCard() {
     }
   }
 
-  const endpoint = flow.llmEndpoint === "secondary" ? config.secondary : config.primary;
+  const endpoint = modelByRef(config, flow.llmEndpoint) ?? config.primary;
+  const options = modelOptions(config, t);
 
   return (
     <Card className="p-6 space-y-4">
@@ -615,12 +616,11 @@ function FlowSettingsCard() {
             <select
               className="h-9 rounded-md border border-input bg-input-background px-2 text-sm"
               value={flow.llmEndpoint}
-              onChange={(e) => editFlow({ llmEndpoint: e.target.value as FlowRunConfig["llmEndpoint"] })}
+              onChange={(e) => editFlow({ llmEndpoint: e.target.value })}
             >
-              <option value="primary">{t("config.primaryModel")}</option>
-              <option value="secondary">{t("config.secondaryModel")}</option>
+              {options.map((o) => <option key={o.ref} value={o.ref}>{o.label}</option>)}
             </select>
-            <FlowEndpointRow endpoint={endpoint} label={flow.llmEndpoint === "secondary" ? t("config.secondaryModel") : t("config.primaryModel")} flowBaseUrl={config.flowBaseUrl!} connected={connected} />
+            <FlowEndpointRow endpoint={endpoint} label={options.find((o) => o.ref === flow.llmEndpoint)?.label ?? t("config.primaryModel")} flowBaseUrl={config.flowBaseUrl!} connected={connected} />
             <div className="grid grid-cols-2 gap-3">
               {(["softModel", "hardModel"] as const).map((key) => (
                 <div key={key}>
@@ -986,6 +986,112 @@ const SECONDARY_USE_OPTIONS: { value: SecondaryUse; labelKey: string; descKey: s
   { value: "quick-tasks", labelKey: "config.quickTasks", descKey: "config.quickTasksDesc" },
   { value: "always", labelKey: "config.always", descKey: "config.alwaysDesc" },
 ];
+
+/** Every model a task can point at, for a dropdown. */
+function modelOptions(config: LlmConfig, t: (key: string) => string): { ref: string; label: string }[] {
+  const name = (base: string, ep: ModelEndpoint) => (ep.model ? `${base} (${ep.model})` : base);
+  return [
+    { ref: "primary", label: name(t("config.primaryModel"), config.primary) },
+    { ref: "secondary", label: name(t("config.secondaryModel"), config.secondary) },
+    ...(config.models ?? []).map((m) => ({ ref: m.id, label: name(m.label, m) })),
+  ];
+}
+
+/** The tasks the per-task table lists, in the order a user meets them. */
+const TABLE_TASKS: LlmTask[] = [
+  "jobAnalysis", "jobFollowUp", "cvGenerate", "cvEdit", "clGenerate", "clEdit",
+  "profileImport", "profilePreferences", "profileLists",
+  "assistMatchFields", "assistExtractValues", "assistDraftAnswer",
+];
+
+function TaskModelsSection() {
+  const { t } = useTranslation();
+  const { config, updateConfig } = useConfig();
+  const models = config.models ?? [];
+  const options = modelOptions(config, t);
+  const flow = config.flow ?? defaultFlowRunConfig();
+
+  const setModels = (next: SavedModel[]) => updateConfig({ models: next });
+  const addModel = () =>
+    setModels([...models, { ...DEFAULT_SECONDARY_ENDPOINT, id: crypto.randomUUID(), label: t("config.modelN", { n: models.length + 3 }) }]);
+
+  return (
+    <div className="space-y-4 border-t pt-4">
+      {models.map((m) => (
+        <div key={m.id} className="relative">
+          <ModelEndpointCard
+            label={m.label}
+            endpoint={m}
+            onChange={(patch) => setModels(models.map((x) => (x.id === m.id ? { ...x, ...patch } : x)))}
+            providerOptions={CLOUD_PROVIDER_OPTIONS}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute top-2 right-2"
+            aria-label={t("config.removeModel")}
+            onClick={() => setModels(models.filter((x) => x.id !== m.id))}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
+      <Button variant="outline" size="sm" onClick={addModel}>
+        <Plus className="w-4 h-4" />
+        {t("config.addModel")}
+      </Button>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="mb-1 block">{t("config.perTaskModels")}</Label>
+          <p className="text-xs text-muted-foreground">{t("config.perTaskModelsDesc")}</p>
+        </div>
+        <Switch checked={!!config.perTaskModels} onCheckedChange={(on) => updateConfig({ perTaskModels: on })} />
+      </div>
+
+      {config.perTaskModels && (
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 items-center">
+          {TABLE_TASKS.map((task) => (
+            <TaskModelRow
+              key={task}
+              label={t(`config.task_${task}`)}
+              value={config.taskModels?.[task] ?? ""}
+              options={[{ ref: "", label: t("config.taskDefault") }, ...options]}
+              onChange={(ref) => updateConfig({ taskModels: { ...config.taskModels, [task]: ref || undefined } })}
+            />
+          ))}
+          <TaskModelRow
+            label={t("config.task_flowScoring")}
+            value={flow.llmEndpoint}
+            options={options}
+            onChange={(ref) => updateConfig({ flow: { ...flow, llmEndpoint: ref } })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskModelRow({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: { ref: string; label: string }[];
+  onChange: (ref: string) => void;
+}) {
+  return (
+    <>
+      <span className="text-sm">{label}</span>
+      <select
+        className="h-9 rounded-md border border-input bg-input-background px-2 text-sm"
+        value={options.some((o) => o.ref === value) ? value : ""}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+      >
+        {options.map((o) => <option key={o.ref} value={o.ref}>{o.label}</option>)}
+      </select>
+    </>
+  );
+}
 
 function ModelEndpointCard({
   label,
@@ -1525,10 +1631,10 @@ export function Config() {
     const results: string[] = [];
     const errors: string[] = [];
 
-    for (const ep of testBoth
-      ? [config.primary, config.secondary]
-      : [config.primary]
-    ) {
+    const inTable = config.perTaskModels
+      ? (config.models ?? []).filter((m) => Object.values(config.taskModels ?? {}).includes(m.id) || config.flow?.llmEndpoint === m.id)
+      : [];
+    for (const ep of [...(testBoth ? [config.primary, config.secondary] : [config.primary]), ...inTable]) {
       try {
         const reply = await testConnection(ep);
         results.push(`${ep.label} (${ep.model}): ${t("config.testOk", { reply })}`);
@@ -1688,6 +1794,8 @@ export function Config() {
                 <p className="text-xs text-muted-foreground -mt-2">
                   {t(SECONDARY_USE_OPTIONS.find((o) => o.value === config.secondaryUse)?.descKey || "")}
                 </p>
+
+                <TaskModelsSection />
 
                 <div className="flex gap-2 items-center pt-2 border-t">
                   <Button variant="outline" onClick={handleTest} disabled={testing}>

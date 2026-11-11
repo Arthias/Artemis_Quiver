@@ -94,6 +94,26 @@ describe("endpointFor", () => {
     const config = { ...mockConfig, secondaryUse: "always" as const };
     expect(endpointFor(config, "cvGenerate").model).toBe("small-model");
   });
+
+  describe("per-task models", () => {
+    const extra = { ...mockEndpoint, id: "q", model: "qwen" };
+    const config: LlmConfig = { ...mockConfig, models: [extra], perTaskModels: true, taskModels: { cvGenerate: "q", jobAnalysis: "secondary" } };
+
+    it("uses the model the table picks", () => {
+      expect(endpointFor(config, "cvGenerate").model).toBe("qwen");
+      expect(endpointFor(config, "jobAnalysis").model).toBe("small-model");
+    });
+
+    it("keeps the normal routing for tasks left on default, a deleted model, or with the toggle off", () => {
+      expect(endpointFor(config, "clGenerate").model).toBe("test-model");
+      expect(endpointFor({ ...config, models: [] }, "cvGenerate").model).toBe("test-model");
+      expect(endpointFor({ ...config, perTaskModels: false }, "cvGenerate").model).toBe("test-model");
+    });
+
+    it("is ignored in local mode", () => {
+      expect(endpointFor({ ...config, providerMode: "local" }, "cvGenerate").model).toBe("test-model");
+    });
+  });
 });
 
 describe("runLlm", () => {
