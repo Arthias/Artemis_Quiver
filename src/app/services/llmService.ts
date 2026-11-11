@@ -1,5 +1,6 @@
 import type { ChatMessage, LlmConfig, LlmTask, ModelEndpoint } from "../types/llm";
 import { getAdapter } from "./provider";
+import type { ChatCompletionOptions } from "./provider/ProviderAdapter";
 import { redactorFor } from "./redaction";
 
 function logLlmError(err: unknown, endpoint: ModelEndpoint) {
@@ -17,7 +18,7 @@ function logLlmError(err: unknown, endpoint: ModelEndpoint) {
 export async function chatCompletion(
   messages: ChatMessage[],
   endpoint: ModelEndpoint,
-  options?: { timeoutMs?: number }
+  options?: ChatCompletionOptions
 ): Promise<string> {
   const adapter = getAdapter(endpoint.provider);
   try {
@@ -84,10 +85,10 @@ export async function runLlm(
   task: LlmTask,
   messages: ChatMessage[],
   config: LlmConfig,
-  options?: { timeoutMs?: number }
+  options?: ChatCompletionOptions
 ): Promise<string> {
   const endpoint = endpointFor(config, task);
-  const opts = { timeoutMs: options?.timeoutMs ?? TASKS[task].timeoutMs };
+  const opts = { ...options, timeoutMs: options?.timeoutMs ?? TASKS[task].timeoutMs };
   try {
     return await chatCompletion(messages, endpoint, opts);
   } catch (err) {

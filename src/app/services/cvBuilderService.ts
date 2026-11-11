@@ -1,5 +1,6 @@
 import type { ChatMessage, LlmConfig, LlmTask } from "../types/llm";
 import { runLlm } from "./llmService";
+import { runLlmJson } from "./llmJson";
 import { AppError, ErrorCodes, type ErrorCode } from "../utils/errors";
 import { extractJsonObject } from "../utils/jsonParse";
 import {
@@ -159,35 +160,17 @@ function buildMessages(
   ];
 }
 
-async function withJsonRetry(
-  buildMessages: (attempt: number, lastRaw: string, lastError: string) => ChatMessage[],
-  task: LlmTask,
-  llm: LlmConfig,
-  errorCode: ErrorCode,
-  errorMessage: string,
-): Promise<string> {
-  let lastRaw = "";
-  let lastErrorMessage = "";
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const messages = buildMessages(attempt, lastRaw, lastErrorMessage);
-      const raw = await runLlm(task, messages, llm);
-
-      try {
-        return normalizeCvJson(raw);
-      } catch (normalizeErr) {
-        lastRaw = raw;
-        lastErrorMessage = normalizeErr instanceof Error ? normalizeErr.message : String(normalizeErr);
-        if (attempt < MAX_RETRIES) continue;
-        throw new AppError(errorCode, `${errorMessage} after ${MAX_RETRIES + 1} attempts.`);
-      }
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      throw new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
-    }
+/** A JSON call for a CV: up to MAX_RETRIES repairs, then a typed error. */
+async function cvJson(task: LlmTask, messages: ChatMessage[], llm: LlmConfig, errorCode: ErrorCode, errorMessage: string): Promise<string> {
+  try {
+    return await runLlmJson(task, messages, llm, normalizeCvJson, {
+      attempts: MAX_RETRIES + 1,
+      onExhausted: () => new AppError(errorCode, `${errorMessage} after ${MAX_RETRIES + 1} attempts.`),
+    });
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(ErrorCodes.LLM_API_FAILURE, err instanceof Error ? err.message : String(err));
   }
-  throw new AppError(ErrorCodes.UNKNOWN, errorMessage);
 }
 
 export async function generateCv(
@@ -198,27 +181,9 @@ export async function generateCv(
   options?: GenerateCvOptions
 ): Promise<string> {
   const mode = options?.mode ?? "standard";
-  if (!JSON_MODES.includes(mode)) {
-    const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
-    return runLlm("cvGenerate", messages, llm);
-  }
-
-  return withJsonRetry(
-    (attempt, lastRaw, lastError) => {
-      const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
-      if (attempt >= 2 && lastRaw) {
-        messages.push(
-          { role: "assistant", content: lastRaw },
-          { role: "user", content: `Fix the JSON formatting error above: ${lastError}. Return ONLY valid JSON. No markdown fences.` }
-        );
-      }
-      return messages;
-    },
-    "cvGenerate",
-    llm,
-    ErrorCodes.CV_GENERATION_FAILED,
-    "CV generation failed",
-  );
+  const messages = buildMessages(profileMarkdown, jobDescription, cvRecommendations, mode, options);
+  if (!JSON_MODES.includes(mode)) return runLlm("cvGenerate", messages, llm);
+  return cvJson("cvGenerate", messages, llm, ErrorCodes.CV_GENERATION_FAILED, "CV generation failed");
 }
 
 export async function editCv(
@@ -228,25 +193,11 @@ export async function editCv(
   llm: LlmConfig,
   locale: string = i18n.language,
 ): Promise<string> {
-  return withJsonRetry(
-    (attempt, lastRaw, lastError) => {
-      const messages: ChatMessage[] = [
-        { role: "system", content: `${cvEditPrompt(userRequest)}${localeInstruction(locale)}` },
-        { role: "user", content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}` },
-      ];
-      if (attempt >= 2 && lastRaw) {
-        messages.push(
-          { role: "assistant", content: lastRaw },
-          { role: "user", content: `Fix the JSON error above: ${lastError}. Return ONLY valid JSON.` }
-        );
-      }
-      return messages;
-    },
-    "cvEdit",
-    llm,
-    ErrorCodes.CV_GENERATION_FAILED,
-    "CV edit failed",
-  );
+  const messages: ChatMessage[] = [
+    { role: "system", content: `${cvEditPrompt(userRequest)}${localeInstruction(locale)}` },
+    { role: "user", content: `## Master profile (reference)\n\n${profileMarkdown}\n\n## Current CV JSON\n\n${currentCvJson}` },
+  ];
+  return cvJson("cvEdit", messages, llm, ErrorCodes.CV_GENERATION_FAILED, "CV edit failed");
 }
 
 export async function optimizeCv(

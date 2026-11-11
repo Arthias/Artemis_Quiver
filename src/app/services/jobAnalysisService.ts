@@ -3,6 +3,7 @@ import type { ChatMessage, LlmConfig } from "../types/llm";
 import { AppError, ErrorCodes } from "../utils/errors";
 import { extractJsonObject } from "../utils/jsonParse";
 import { runLlm } from "./llmService";
+import { runLlmJson } from "./llmJson";
 import { localeInstruction } from "./prompts";
 import i18n from "../i18n";
 
@@ -99,7 +100,7 @@ export async function analyzeJobPosting(
   profileMarkdown: string,
   llm: LlmConfig
 ): Promise<{ result: AnalysisResult; markdown: string }> {
-  const content = await runLlm(
+  const parsed = await runLlmJson(
     "jobAnalysis",
     [
       { role: "system", content: `${ANALYSIS_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
@@ -108,10 +109,9 @@ export async function analyzeJobPosting(
         content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}`,
       },
     ],
-    llm
+    llm,
+    (content) => validateAnalysisResult(extractJsonObject(content, ErrorCodes.ANALYSIS_FAILED))
   );
-
-  const parsed = validateAnalysisResult(extractJsonObject(content, ErrorCodes.ANALYSIS_FAILED));
   const markdown = analysisToMarkdown(jobPosting, parsed);
   return { result: parsed, markdown };
 }

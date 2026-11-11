@@ -10,6 +10,7 @@
 import { db } from "../db/schema";
 import type { ChatMessage, LlmConfig } from "../types/llm";
 import { runLlm } from "./llmService";
+import { runLlmJson } from "./llmJson";
 import { extractJsonObject } from "../utils/jsonParse";
 
 export interface FormProfileField {
@@ -338,8 +339,8 @@ export async function classifyLabels(
     }
   }
   if (!llm) throw new Error("No model available to identify fields.");
-  const out = await runLlm("assistMatchFields", [{ role: "user", content: prompt }], llm);
-  return { matches: parseMatches(extractJsonObject(out), labels, keys), engine: "model" };
+  const matches = await runLlmJson("assistMatchFields", [{ role: "user", content: prompt }], llm, (out) => parseMatches(extractJsonObject(out), labels, keys));
+  return { matches, engine: "model" };
 }
 
 // ── Seeding from the profile markdown ───────────────────────────────────
@@ -358,7 +359,7 @@ export async function extractFieldValues(profileMarkdown: string, keys: string[]
       content: `Keys: ${keys.join(", ")}\n\nProfile:\n${profileMarkdown}\n\nAnswer with JSON only: an object mapping every key to a string.`,
     },
   ];
-  const raw = extractJsonObject(await runLlm("assistExtractValues", messages, llm)) as Record<string, unknown>;
+  const raw = await runLlmJson("assistExtractValues", messages, llm, (r) => extractJsonObject(r) as Record<string, unknown>);
   const out: Record<string, string> = {};
   for (const k of keys) if (typeof raw[k] === "string") out[k] = (raw[k] as string).trim();
   return out;

@@ -1,6 +1,6 @@
-import type { ChatMessage, LlmConfig } from "../types/llm";
-import { AppError, ErrorCodes } from "../utils/errors";
-import { runLlm } from "./llmService";
+import type { ChatMessage, LlmConfig, LlmTask } from "../types/llm";
+import { AppError, ErrorCodes, type ErrorCode } from "../utils/errors";
+import { runLlmJson } from "./llmJson";
 import { extractJsonObject } from "../utils/jsonParse";
 import { clGeneratePrompt, clEditPrompt } from "./prompts";
 import i18n from "../i18n";
@@ -35,6 +35,19 @@ function parseClJson(raw: string): string {
   return JSON.stringify(parsed);
 }
 
+/** A JSON call for a cover letter: up to MAX_RETRIES repairs, then a typed error. */
+async function clJson(task: LlmTask, messages: ChatMessage[], llm: LlmConfig, code: ErrorCode, what: string): Promise<string> {
+  try {
+    return await runLlmJson(task, messages, llm, parseClJson, {
+      attempts: MAX_RETRIES + 1,
+      onExhausted: () => new AppError(code, `${what} after ${MAX_RETRIES + 1} attempts.`),
+    });
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(code, err instanceof Error ? err.message : String(err));
+  }
+}
+
 export async function generateCoverLetter(
   profileMarkdown: string,
   options: GenerateCoverLetterOptions,
@@ -51,47 +64,11 @@ export async function generateCoverLetter(
     : "";
 
   const systemPrompt = clGeneratePrompt(company, role, hasJobDescription, options.locale ?? i18n.language);
-
-  let lastRaw = "";
-  let lastErrorMessage = "";
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const messages: ChatMessage[] = [
-        { role: "system", content: `${systemPrompt}\n\nCompany: ${company}\nPosition: ${role}` },
-        { role: "user", content: `## Candidate profile\n\n${profileMarkdown}${jobPart}${seedPart}` },
-      ];
-
-      if (attempt >= 2 && lastRaw) {
-        messages.push(
-          { role: "assistant", content: lastRaw },
-          { role: "user", content: `Fix the JSON formatting error above: ${lastErrorMessage}. Return ONLY valid JSON. No markdown fences.` }
-        );
-      }
-
-      const raw = await runLlm("clGenerate", messages, llm);
-
-      try {
-        return parseClJson(raw);
-      } catch (parseErr) {
-        lastRaw = raw;
-        lastErrorMessage = parseErr instanceof Error ? parseErr.message : String(parseErr);
-        if (attempt < MAX_RETRIES) continue;
-        throw new AppError(
-          ErrorCodes.CL_GENERATION_FAILED,
-          `Cover letter generation failed after ${MAX_RETRIES + 1} attempts.`,
-        );
-      }
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      throw new AppError(
-        ErrorCodes.CL_GENERATION_FAILED,
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
-
-  throw new AppError(ErrorCodes.UNKNOWN, "Cover letter generation failed unexpectedly.");
+  const messages: ChatMessage[] = [
+    { role: "system", content: `${systemPrompt}\n\nCompany: ${company}\nPosition: ${role}` },
+    { role: "user", content: `## Candidate profile\n\n${profileMarkdown}${jobPart}${seedPart}` },
+  ];
+  return clJson("clGenerate", messages, llm, ErrorCodes.CL_GENERATION_FAILED, "Cover letter generation failed");
 }
 
 export async function editCoverLetter(
@@ -102,46 +79,11 @@ export async function editCoverLetter(
   locale: string = i18n.language,
 ): Promise<string> {
   const systemPrompt = clEditPrompt(userRequest, locale);
-  let lastRaw = "";
-  let lastErrorMessage = "";
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const messages: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `## Master profile\n\n${profileMarkdown}\n\n## Current cover letter JSON\n\n${currentLetterJson}` },
-      ];
-
-      if (attempt >= 2 && lastRaw) {
-        messages.push(
-          { role: "assistant", content: lastRaw },
-          { role: "user", content: `Fix the JSON error above: ${lastErrorMessage}. Return ONLY valid JSON.` }
-        );
-      }
-
-      const raw = await runLlm("clEdit", messages, llm);
-
-      try {
-        return parseClJson(raw);
-      } catch (parseErr) {
-        lastRaw = raw;
-        lastErrorMessage = parseErr instanceof Error ? parseErr.message : String(parseErr);
-        if (attempt < MAX_RETRIES) continue;
-        throw new AppError(
-          ErrorCodes.CL_EDIT_FAILED,
-          `Cover letter edit failed after ${MAX_RETRIES + 1} attempts.`,
-        );
-      }
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      throw new AppError(
-        ErrorCodes.CL_EDIT_FAILED,
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
-
-  throw new AppError(ErrorCodes.UNKNOWN, "Cover letter edit failed unexpectedly.");
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: `## Master profile\n\n${profileMarkdown}\n\n## Current cover letter JSON\n\n${currentLetterJson}` },
+  ];
+  return clJson("clEdit", messages, llm, ErrorCodes.CL_EDIT_FAILED, "Cover letter edit failed");
 }
 
 

@@ -40,6 +40,7 @@ export const geminiAdapter: ProviderAdapter = {
             generationConfig: {
               temperature: endpoint.temperature,
               maxOutputTokens: endpoint.maxTokens ?? 1024,
+              ...(options?.json ? { responseMimeType: "application/json" } : {}),
             },
           }),
           signal,

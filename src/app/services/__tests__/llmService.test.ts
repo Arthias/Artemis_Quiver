@@ -58,6 +58,26 @@ describe("chatCompletion", () => {
   });
 });
 
+describe("JSON mode (OpenAI-compatible)", () => {
+  const ok = { ok: true, status: 200, json: () => Promise.resolve({ choices: [{ message: { content: "{}" } }] }) };
+
+  it("sends response_format when JSON is asked for", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(ok);
+    vi.stubGlobal("fetch", mockFetch);
+    await chatCompletion([{ role: "user", content: "Hi" }], mockEndpoint, { json: true });
+    expect(JSON.parse(mockFetch.mock.calls[0]![1].body).response_format).toEqual({ type: "json_object" });
+  });
+
+  it("asks again without it when the server rejects it", async () => {
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 400, text: () => Promise.resolve("response_format not supported") })
+      .mockResolvedValueOnce(ok);
+    vi.stubGlobal("fetch", mockFetch);
+    expect(await chatCompletion([{ role: "user", content: "Hi" }], mockEndpoint, { json: true })).toBe("{}");
+    expect(JSON.parse(mockFetch.mock.calls[1]![1].body).response_format).toBeUndefined();
+  });
+});
+
 describe("endpointFor", () => {
   it("returns primary by default", () => {
     expect(endpointFor(mockConfig).model).toBe("test-model");

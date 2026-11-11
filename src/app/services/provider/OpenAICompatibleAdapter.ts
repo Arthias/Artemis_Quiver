@@ -19,20 +19,25 @@ export const openAICompatibleAdapter: ProviderAdapter = {
     const timeoutMs = options?.timeoutMs ?? 120_000;
     const { signal, clear } = createAbortSignal(timeoutMs);
 
+    const post = (json: boolean) => fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: buildHeaders(endpoint),
+      body: JSON.stringify({
+        model: endpoint.model,
+        messages,
+        temperature: endpoint.temperature,
+        max_tokens: endpoint.maxTokens,
+        ...(endpoint.reasoningEffort ? { reasoning_effort: endpoint.reasoningEffort } : {}),
+        ...(json ? { response_format: { type: "json_object" } } : {}),
+        stream: false,
+      }),
+      signal,
+    });
+
     try {
-      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: buildHeaders(endpoint),
-        body: JSON.stringify({
-          model: endpoint.model,
-          messages,
-          temperature: endpoint.temperature,
-          max_tokens: endpoint.maxTokens,
-          ...(endpoint.reasoningEffort ? { reasoning_effort: endpoint.reasoningEffort } : {}),
-          stream: false,
-        }),
-        signal,
-      });
+      let response = await post(!!options?.json);
+      // Some servers reject `json_object` (they accept only a schema); ask again without it.
+      if (options?.json && response.status === 400) response = await post(false);
 
       if (!response.ok) {
         const detail = await response.text().catch(() => "");

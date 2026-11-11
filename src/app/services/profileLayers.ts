@@ -11,7 +11,7 @@ import {
   type Layer,
   type ProfilePreferences,
 } from "../types/preferences";
-import { runLlm } from "./llmService";
+import { runLlmJson } from "./llmJson";
 import { extractJsonObject } from "../utils/jsonParse";
 import { COUNTRIES, languageCode, languageName, placeCode, placeCodes } from "../utils/geo";
 
@@ -128,9 +128,12 @@ export async function generatePreferences(masterMarkdown: string, llm: LlmConfig
     { role: "system", content: PREFERENCES_PROMPT },
     { role: "user", content: `## Profile\n\n${masterMarkdown}` },
   ];
-  const raw = extractJsonObject(await runLlm("profilePreferences", messages, llm));
-  if (!raw || typeof raw !== "object") throw new Error("The model did not return a preferences card.");
-  return preferencesFromCard(raw as Record<string, unknown>);
+  const raw = await runLlmJson("profilePreferences", messages, llm, (r) => {
+    const card = extractJsonObject(r);
+    if (!card || typeof card !== "object") throw new Error("The model did not return a preferences card.");
+    return card as Record<string, unknown>;
+  });
+  return preferencesFromCard(raw);
 }
 
 // ── Generate titles ─────────────────────────────────────────────────────────
@@ -166,11 +169,12 @@ export function targetLanguages(p: ProfilePreferences): string[] {
 }
 
 async function askList(system: string, user: string, key: string, llm: LlmConfig): Promise<Record<string, unknown>> {
-  const raw = extractJsonObject(await runLlm(
-    "profileLists", [{ role: "system", content: system }, { role: "user", content: user }], llm));
-  if (!raw || typeof raw !== "object" || !Array.isArray((raw as Record<string, unknown>)[key]))
-    throw new Error(`The model did not return a "${key}" list.`);
-  return raw as Record<string, unknown>;
+  return runLlmJson("profileLists", [{ role: "system", content: system }, { role: "user", content: user }], llm, (r) => {
+    const raw = extractJsonObject(r);
+    if (!raw || typeof raw !== "object" || !Array.isArray((raw as Record<string, unknown>)[key]))
+      throw new Error(`The model did not return a "${key}" list.`);
+    return raw as Record<string, unknown>;
+  });
 }
 
 export interface GeneratedTitles {
