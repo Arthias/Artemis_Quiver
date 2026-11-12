@@ -83,7 +83,13 @@ export interface FlowRunConfig {
   backlog: FlowBacklogSettings;
   apply: { daily_cap: number | null; review_by: string | null };
   prescore: { enabled: boolean; threshold: number };
+  /** Source families Flow searches; null or absent = all of them. */
+  sources?: FlowSource[] | null;
 }
+
+/** Flow's source families (Flow app/sync.py SOURCES), in its order. */
+export const FLOW_SOURCES = ["indeed", "linkedin", "ats", "boards", "career", "jobdrop"] as const;
+export type FlowSource = (typeof FLOW_SOURCES)[number];
 
 /** Flow's own defaults, so a fresh install behaves the same either side. */
 export const defaultFlowRunConfig = (): FlowRunConfig => ({
@@ -101,4 +107,5 @@ export const defaultFlowRunConfig = (): FlowRunConfig => ({
   },
   apply: { daily_cap: null, review_by: null },
   prescore: { enabled: false, threshold: 60 },
+  sources: null,
 });

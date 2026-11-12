@@ -27,7 +27,7 @@ import {
   type FlowStatus,
 } from "../services/flowBridge";
 import { useFlowSync } from "../hooks/useFlowSync";
-import { defaultFlowRunConfig, type FlowRunConfig } from "../types/preferences";
+import { defaultFlowRunConfig, FLOW_SOURCES, type FlowRunConfig } from "../types/preferences";
 import { Link } from "react-router";
 import type { ProviderType, SecondaryUse, ModelEndpoint, LlmConfig, LlmTask, SavedModel } from "../types/llm";
 import { DEFAULT_PRIMARY_ENDPOINT, DEFAULT_SECONDARY_ENDPOINT } from "../types/llm";
@@ -917,6 +917,29 @@ function FlowRunSettingsSection({ flow, onChange }: { flow: FlowRunConfig; onCha
               onChange={(e) => onChange({ apply: { ...flow.apply, review_by: e.target.value || null } })}
               className="bg-input-background" />
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <Label>{t("config.flowSourcesTitle")}</Label>
+          <p className="text-xs text-muted-foreground">{t("config.flowSourcesDesc")}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {FLOW_SOURCES.map((src) => {
+            const on = flow.sources ?? FLOW_SOURCES;
+            return (
+              <label key={src} className="flex items-center justify-between gap-3 text-sm">
+                <span>{t(`config.flowSource_${src}`)}</span>
+                <Switch checked={on.includes(src)}
+                  onCheckedChange={(checked) => {
+                    const next = FLOW_SOURCES.filter((s) => (s === src ? checked : on.includes(s)));
+                    // All on is stored as null: new sources Flow adds later stay on.
+                    onChange({ sources: next.length === FLOW_SOURCES.length ? null : next });
+                  }} />
+              </label>
+            );
+          })}
         </div>
       </div>
 

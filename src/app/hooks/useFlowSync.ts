@@ -13,7 +13,7 @@ import {
   type FlowSyncSource,
   type FlowSyncState,
 } from "../services/flowBridge";
-import { defaultFlowRunConfig, ProfilePreferencesSchema, type FlowRunConfig } from "../types/preferences";
+import { defaultFlowRunConfig, FLOW_SOURCES, ProfilePreferencesSchema, type FlowRunConfig, type FlowSource } from "../types/preferences";
 import { makeLayer, masterHash } from "../services/profileLayers";
 
 export function useFlowSync({ auto = false }: { auto?: boolean } = {}) {
@@ -82,6 +82,7 @@ export function useFlowSync({ auto = false }: { auto?: boolean } = {}) {
         backlog: { ...defaults.backlog, ...backlog, skip_aggregator_boards: !!backlog.skip_aggregator_boards },
         apply: st.apply ?? defaults.apply,
         prescore: st.prescore ?? defaults.prescore,
+        sources: (st.sources?.filter((s): s is FlowSource => (FLOW_SOURCES as readonly string[]).includes(s))) ?? null,
       };
       const parsed = ProfilePreferencesSchema.safeParse(prefs);
       updateProfileData({

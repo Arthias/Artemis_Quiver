@@ -684,6 +684,7 @@ export interface FlowSyncState {
   synced_at: string | null;
   apply?: { daily_cap: number | null; review_by: string | null };
   prescore?: { enabled: boolean; threshold: number };
+  sources?: string[] | null;
 }
 
 export type FlowSyncProblem = "first-sync" | "other-profile";
@@ -732,6 +733,7 @@ export async function buildFlowBundle(src: FlowSyncSource): Promise<{ bundle: Re
     backlog: flow.backlog,
     apply: flow.apply,
     prescore: flow.prescore,
+    sources: flow.sources ?? null,
   };
   const hash = await sha256(canonicalJson(body));
   return { bundle: { ...body, hash }, hash };

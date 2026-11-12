@@ -82,4 +82,12 @@ describe("buildFlowBundle llm", () => {
     const { bundle } = await buildFlowBundle(source({ settings: settings({ models: [extra], flow }) }));
     expect(bundle.llm).toMatchObject({ base_url: "http://other:1234", model: "qwen-x" });
   });
+
+  it("sends sources as null when all are on, and the chosen list otherwise", async () => {
+    expect((await buildFlowBundle(source())).bundle.sources).toBeNull();
+    const flow = { ...defaultFlowRunConfig(), sources: ["indeed" as const, "ats" as const] };
+    const { bundle, hash } = await buildFlowBundle(source({ settings: settings({ flow }) }));
+    expect(bundle.sources).toEqual(["indeed", "ats"]);
+    expect(hash).not.toBe((await buildFlowBundle(source())).hash);
+  });
 });

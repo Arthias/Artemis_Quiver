@@ -720,11 +720,6 @@ function StrategyTab({
   const [keywordsText, setKeywordsText] = useState("");
   const [locationsText, setLocationsText] = useState("");
   const [excludeText, setExcludeText] = useState("");
-  const [companiesText, setCompaniesText] = useState("");
-  const [sourcesText, setSourcesText] = useState("");
-  const [resultsWanted, setResultsWanted] = useState("50");
-  const [salaryFloor, setSalaryFloor] = useState("");
-  const [salaryFloorCurrency, setSalaryFloorCurrency] = useState("USD");
 
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -734,11 +729,6 @@ function StrategyTab({
     setKeywordsText(arrayToText(s.keywords));
     setLocationsText(arrayToText(s.locations));
     setExcludeText(arrayToText(s.exclude_keywords));
-    setCompaniesText(arrayToText(s.target_companies));
-    setSourcesText(arrayToText(s.sources));
-    setResultsWanted(String(s.results_wanted ?? 50));
-    setSalaryFloor(s.salary_floor != null ? String(s.salary_floor) : "");
-    setSalaryFloorCurrency(s.salary_floor_currency || "USD");
   }
 
   const load = useCallback(async () => {
@@ -774,11 +764,9 @@ function StrategyTab({
         keywords: textToArray(keywordsText),
         locations: textToArray(locationsText),
         exclude_keywords: textToArray(excludeText),
-        target_companies: textToArray(companiesText),
-        sources: textToArray(sourcesText),
-        results_wanted: Number(resultsWanted) || strategy.results_wanted,
-        salary_floor: salaryFloor.trim() === "" ? null : Number(salaryFloor),
-        salary_floor_currency: salaryFloorCurrency.trim() || "USD",
+        // Sources, result counts, salary floor and target companies are not
+        // edited here: sources are a synced setting (Settings → Flow), and
+        // search never reads the other three.
       });
       setStrategy(updated);
       applyToForm(updated);
@@ -848,26 +836,6 @@ function StrategyTab({
         <div className="space-y-1.5">
           <Label htmlFor="strategy-exclude">{t("flow.strategyExclude")}</Label>
           <Textarea id="strategy-exclude" rows={2} value={excludeText} onChange={(e) => setExcludeText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="strategy-companies">{t("flow.strategyCompanies")}</Label>
-          <Textarea id="strategy-companies" rows={2} value={companiesText} onChange={(e) => setCompaniesText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="strategy-sources">{t("flow.strategySources")}</Label>
-          <Input id="strategy-sources" value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} placeholder={t("flow.strategyCommaHint")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="strategy-results">{t("flow.strategyResultsWanted")}</Label>
-          <Input id="strategy-results" type="number" min={1} value={resultsWanted} onChange={(e) => setResultsWanted(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="strategy-salary">{t("flow.strategySalaryFloor")}</Label>
-          <Input id="strategy-salary" type="number" min={0} value={salaryFloor} onChange={(e) => setSalaryFloor(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="strategy-currency">{t("flow.strategyCurrency")}</Label>
-          <Input id="strategy-currency" value={salaryFloorCurrency} onChange={(e) => setSalaryFloorCurrency(e.target.value)} />
         </div>
       </div>
 
