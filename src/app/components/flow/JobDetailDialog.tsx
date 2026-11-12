@@ -12,6 +12,8 @@ import {
   getJob,
   updateJobStatus,
   updateJobLabel,
+  updateJobVerdict,
+  type FitVerdict,
   type FlowJobDetail,
 } from "../../services/flowBridge";
 import { scoreClass } from "./JobCard";
@@ -88,6 +90,21 @@ export function JobDetailDialog({ jobId, flowBaseUrl, onOpenChange, onChanged }:
     }
   }
 
+  async function handleVerdict(v: FitVerdict) {
+    if (!job) return;
+    const next = job.verdict === v ? null : v;
+    setLabelUpdating(true);
+    try {
+      await updateJobVerdict(flowBaseUrl, job.id, next);
+      setJob({ ...job, verdict: next });
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLabelUpdating(false);
+    }
+  }
+
   let alternateSources: { board?: string; url?: string }[] = [];
   if (job?.alternate_sources) {
     try {
@@ -151,6 +168,18 @@ export function JobDetailDialog({ jobId, flowBaseUrl, onOpenChange, onChanged }:
                     className="capitalize"
                   >
                     {t(`flow.status_${s}`)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">{t("flow.wouldYouApply")}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(["yes", "maybe", "no"] as const).map((v) => (
+                  <Button key={v} type="button" size="sm" variant={job.verdict === v ? "default" : "outline"}
+                    aria-pressed={job.verdict === v} disabled={labelUpdating} onClick={() => handleVerdict(v)}>
+                    {t(`flow.fit_${v}`)}
                   </Button>
                 ))}
               </div>

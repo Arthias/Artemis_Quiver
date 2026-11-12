@@ -112,6 +112,8 @@ export interface FlowJobSummary {
   ingested_at: string;
   job_type: string;
   label: string;
+  /** The user's "would I apply?" (Flow job_labels); null when not given. */
+  verdict?: FitVerdict | null;
   archive_reason: string | null;
   /** LLM-generated 1-2 sentence "why this matched" blurb — only populated for jobs scoring > 70. */
   summary: string | null;
@@ -360,6 +362,13 @@ export function getJob(baseUrl: string, jobId: string): Promise<FlowJobDetail> {
 
 export function updateJobStatus(baseUrl: string, jobId: string, status: string): Promise<void> {
   return flowPatch(baseUrl, `/api/jobs/${jobId}/status`, { status }, "updateJobStatus");
+}
+
+export type FitVerdict = "yes" | "maybe" | "no";
+
+/** Record (or with null, remove) the user's fit verdict; Flow keeps it across database clears. */
+export function updateJobVerdict(baseUrl: string, jobId: string, verdict: FitVerdict | null): Promise<void> {
+  return flowPatch(baseUrl, `/api/jobs/${jobId}/verdict`, { verdict }, "updateJobVerdict");
 }
 
 export function updateJobLabel(baseUrl: string, jobId: string, label: string): Promise<void> {

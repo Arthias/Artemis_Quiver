@@ -45,6 +45,12 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
     </span>
   );
 
+  const fitBadge = job.verdict && (
+    <span className="text-[11px] rounded-full bg-muted px-2 py-0.5 text-muted-foreground shrink-0">
+      {t(`flow.fit_${job.verdict}`)}
+    </span>
+  );
+
   const newBadge = isNew && (
     <span className="text-[11px] rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 shrink-0 font-medium">
       {t("flow.newBadge")}
@@ -73,6 +79,7 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
           </p>
           <div className="flex items-center gap-1.5 shrink-0">
             {newBadge}
+            {fitBadge}
             {reasonBadge}
             {scoreBadge}
           </div>
@@ -104,6 +111,7 @@ export function JobCard({ job, onClick, compact = false, showSummary = false, is
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {newBadge}
+          {fitBadge}
           {reasonBadge}
           {scoreBadge}
         </div>

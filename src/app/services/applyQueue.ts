@@ -9,7 +9,7 @@
 // the same code, and every update is one readwrite transaction: the side
 // panel, the app and the alarm drain can't overwrite each other's changes.
 
-import type { FlowApplyQueue, FlowQueueItem, FlowVerdict } from "./flowBridge";
+import type { FitVerdict, FlowApplyQueue, FlowQueueItem, FlowVerdict } from "./flowBridge";
 
 const DB_NAME = "ArtemisQuiverDB";
 export const OUTBOX_KEY = "applyOutbox";
@@ -25,6 +25,8 @@ export interface QueueEntry extends FlowQueueItem {
   openedAt?: string;
   /** The Flow application id, for undoing a mistaken "applied". */
   appId?: string;
+  /** The user's "would I apply?", independent of whether they did. */
+  fit?: FitVerdict;
 }
 
 export interface StoredQueue extends Omit<FlowApplyQueue, "items"> {
@@ -248,7 +250,10 @@ export async function tagItem(
   } else if (tag === "not_applied") {
     await enqueue([{ ...base, method: "PATCH", path: `/api/jobs/${item.job_id}/label`, body: { label: "reviewed" } }]);
   } else if (tag === "archived" || tag === "closed") {
-    await enqueue([{ ...base, method: "PATCH", path: `/api/jobs/${item.job_id}/status`, body: { status: "archived" } }]);
+    await enqueue([{
+      ...base, method: "PATCH", path: `/api/jobs/${item.job_id}/status`,
+      body: { status: "archived", archive_reason: tag === "closed" ? "closed" : "manual" },
+    }]);
   } else if (tag === "blocked") {
     if (!block?.evidence.trim()) throw new Error("Quote the text that rules this job out.");
     await enqueue([{
@@ -260,6 +265,15 @@ export async function tagItem(
     }]);
   }
   const updated = await updateItem(profileId, item.job_id, { state: "done", tag, appId });
+  void drainOutbox().catch(() => {});
+  return updated;
+}
+
+/** Record the user's fit verdict; tapping the current one again removes it. */
+export async function setFit(profileId: string, q: StoredQueue, item: QueueEntry, fit: FitVerdict): Promise<StoredQueue> {
+  const next = item.fit === fit ? null : fit;
+  await enqueue([{ flowBaseUrl: q.flowBaseUrl, method: "PATCH", path: `/api/jobs/${item.job_id}/verdict`, body: { verdict: next } }]);
+  const updated = await updateItem(profileId, item.job_id, { fit: next ?? undefined });
   void drainOutbox().catch(() => {});
   return updated;
 }

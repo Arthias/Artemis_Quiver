@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../db/schema";
-import { drainOutbox, loadQueue, outbox, saveQueue, tagItem, undoApplied, currentItem } from "../applyQueue";
+import { drainOutbox, loadQueue, outbox, saveQueue, setFit, tagItem, undoApplied, currentItem } from "../applyQueue";
 import type { FlowApplyQueue, FlowQueueItem } from "../flowBridge";
 
 const item = (id: string, company: string): FlowQueueItem => ({
@@ -60,5 +60,27 @@ describe("assisted apply outbox", () => {
     await expect(tagItem("p", q, q.items[0]!, "blocked", { kind: "degree", evidence: " " }))
       .rejects.toThrow();
     expect(await outbox()).toEqual([]);
+  });
+
+  it("sends closed as its own archive reason", async () => {
+    const q = await saveQueue("p", "http://flow", queue);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    await tagItem("p", q, q.items[0]!, "closed");
+    await tagItem("p", await loadQueue("p") as typeof q, q.items[1]!, "archived");
+    const ops = await outbox();
+    expect(ops.map((o) => o.body)).toEqual([
+      { status: "archived", archive_reason: "closed" }, { status: "archived", archive_reason: "manual" }]);
+  });
+
+  it("records a fit verdict without finishing the item, and a second tap clears it", async () => {
+    const q = await saveQueue("p", "http://flow", queue);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const after = await setFit("p", q, q.items[0]!, "maybe");
+    expect(after.items[0]).toMatchObject({ fit: "maybe", state: "queued" });
+    const cleared = await setFit("p", after, after.items[0]!, "maybe");
+    expect(cleared.items[0]!.fit).toBeUndefined();
+    const ops = await outbox();
+    expect(ops.map((o) => [o.path, o.body])).toEqual([
+      ["/api/jobs/j1/verdict", { verdict: "maybe" }], ["/api/jobs/j1/verdict", { verdict: null }]]);
   });
 });

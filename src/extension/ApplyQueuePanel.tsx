@@ -12,6 +12,7 @@ import {
   loadQueue,
   outbox,
   tagItem,
+  setFit,
   undoApplied,
   updateItem,
   type ApplyTag,
@@ -19,7 +20,9 @@ import {
   type QueueEntry,
   type StoredQueue,
 } from "../app/services/applyQueue";
-import type { FlowVerdict } from "../app/services/flowBridge";
+import type { FitVerdict, FlowVerdict } from "../app/services/flowBridge";
+
+const FITS: FitVerdict[] = ["yes", "maybe", "no"];
 
 const QUEUE_UPDATED = "ARTEMIS_APPLY_QUEUE_UPDATED";
 
@@ -76,6 +79,16 @@ export function ApplyQueueSection({ tabId }: { tabId: number | null }) {
       setUnsynced((await outbox()).length);
       // The drain runs in the background; refresh the count once it's had a moment.
       setTimeout(() => void outbox().then((o) => setUnsynced(o.length)), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function fit(entry: QueueEntry, value: FitVerdict) {
+    if (!profileId || !queue) return;
+    setError(null);
+    try {
+      setQueue(await setFit(profileId, queue, entry, value));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -153,6 +166,14 @@ export function ApplyQueueSection({ tabId }: { tabId: number | null }) {
             </div>
           ) : (
             <>
+              <div style={{ fontSize: "12px", fontWeight: 600, marginTop: "10px" }}>{t("sidepanel.queue.wouldYouApply")}</div>
+              <div style={row}>
+                {FITS.map((f) => (
+                  <button key={f} onClick={() => fit(item, f)} style={item.fit === f ? primary : btn} aria-pressed={item.fit === f}>
+                    {t(`sidepanel.queue.fit_${f}`)}
+                  </button>
+                ))}
+              </div>
               <div style={{ fontSize: "12px", fontWeight: 600, marginTop: "10px" }}>{t("sidepanel.queue.didYouSubmit")}</div>
               <div style={row}>
                 <button onClick={() => tag(item, "applied")} style={primary}>{t("sidepanel.queue.tag_applied")}</button>
