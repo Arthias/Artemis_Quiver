@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { analyzeJobPosting, analysisToMarkdown, followUpChat } from "../jobAnalysisService";
 import type { AnalysisResult } from "../../types/analysis";
 import type { ChatMessage, LlmConfig, ModelEndpoint } from "../../types/llm";
@@ -7,7 +7,19 @@ vi.mock("../llmService", () => ({
   runLlm: vi.fn(),
 }));
 
+vi.mock("../clBuilderService", () => ({
+  generateCoverLetter: vi.fn(),
+}));
+
 import { runLlm } from "../llmService";
+import { generateCoverLetter } from "../clBuilderService";
+
+const LETTER = {
+  senderName: "Jane Doe",
+  salutation: "Dear Acme team,",
+  bodyParagraphs: ["Opening.", "Evidence."],
+  closing: "Kind regards,",
+};
 
 const endpoint: ModelEndpoint = {
   label: "Test",
@@ -20,6 +32,10 @@ const endpoint: ModelEndpoint = {
 const mockConfig: LlmConfig = { providerMode: "cloud", primary: endpoint, secondary: endpoint, secondaryUse: "never", autoSaveProfile: false };
 
 describe("analyzeJobPosting", () => {
+  beforeEach(() => {
+    vi.mocked(generateCoverLetter).mockReset().mockResolvedValue(JSON.stringify(LETTER));
+  });
+
   it("should parse a valid LLM response", async () => {
     vi.mocked(runLlm).mockResolvedValue(JSON.stringify({
       score: 85,
@@ -40,9 +56,22 @@ describe("analyzeJobPosting", () => {
     expect(result.salaryRange).toBe("$100k-$120k");
     expect(result.tips).toHaveLength(2);
     expect(result.cvRecommendations).toHaveLength(2);
-    expect(result.coverLetterDraft).toBe("Dear hiring manager...");
+    // The letter comes from the cover-letter generator, not the analysis reply.
+    expect(result.coverLetter?.senderName).toBe("Jane Doe");
+    expect(result.coverLetterDraft).toBe("Dear Acme team,\n\nOpening.\n\nEvidence.\n\nKind regards,\nJane Doe");
+    expect(vi.mocked(generateCoverLetter).mock.calls[0]?.[1].jobDescription).toBe("React Developer position");
     expect(markdown).toContain("85%");
     expect(markdown).toContain("React Developer position");
+  });
+
+  it("keeps the analysis when the letter fails", async () => {
+    vi.mocked(runLlm).mockResolvedValue(JSON.stringify({ score: 70, salaryRange: "x", tips: ["t"], cvRecommendations: ["r"] }));
+    vi.mocked(generateCoverLetter).mockRejectedValue(new Error("model down"));
+
+    const { result } = await analyzeJobPosting("job", "profile", mockConfig);
+    expect(result.score).toBe(70);
+    expect(result.coverLetterDraft).toBe("");
+    expect(result.coverLetter).toBeUndefined();
   });
 
   it("should throw on missing score", async () => {

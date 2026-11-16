@@ -144,3 +144,12 @@ export function parsePlainTextToCLContent(text: string, senderName?: string): CL
     closing,
   };
 }
+
+/** The letter as text-box-ready plain text: salutation, body, sign-off. No letterhead. */
+export function clToPlainText(cl: CLContent): string {
+  return [
+    cl.salutation,
+    cl.bodyParagraphs.filter(Boolean).join("\n\n"),
+    `${cl.closing}\n${cl.senderName}`,
+  ].join("\n\n").trim();
+}

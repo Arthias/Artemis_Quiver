@@ -41,6 +41,8 @@ export interface ProfileWorkspaceData {
 export interface BuilderHandoff {
   jobPosting: string;
   coverLetterDraft?: string;
+  /** The structured letter; preferred over parsing coverLetterDraft. */
+  coverLetter?: import("../../types/cl").CLContent;
   cvRecommendations?: string[];
   companyName?: string;
   position?: string;

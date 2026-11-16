@@ -17,7 +17,7 @@ import type { ThemeConfig } from "../../types/cv";
 import { AppError } from "../utils/errors";
 import { logAppError } from "../utils/errorLogger";
 import { toast } from "sonner";
-import { parsePlainTextToCLContent } from "../utils/clParser";
+import { parsePlainTextToCLContent, clToPlainText } from "../utils/clParser";
 import { useTranslation } from "react-i18next";
 import { BuilderAssistantPanel } from "../components/builder/BuilderAssistantPanel";
 import { BuilderErrorDisplay } from "../components/builder/BuilderErrorDisplay";
@@ -71,7 +71,10 @@ export function CLBuilder() {
     if (handoff.jobPosting) setJobDescription(handoff.jobPosting);
     if (handoff.companyName) setCompanyName(handoff.companyName);
     if (handoff.position) setPosition(handoff.position);
-    if (handoff.coverLetterDraft) {
+    if (handoff.coverLetter) {
+      setClContent(handoff.coverLetter);
+      setIsGenerated(true);
+    } else if (handoff.coverLetterDraft) {
       setSeedDraft(handoff.coverLetterDraft);
       setClContent(parsePlainTextToCLContent(handoff.coverLetterDraft));
       setIsGenerated(true);
@@ -130,12 +133,7 @@ export function CLBuilder() {
 
   const copyPlainText = useCallback(() => {
     if (!clContent) return;
-    // Text-box ready: no letterhead, recipient block or subject line.
-    const text = [
-      clContent.salutation,
-      clContent.bodyParagraphs.filter(Boolean).join("\n\n"),
-      `${clContent.closing}\n${clContent.senderName}`,
-    ].join("\n\n").trim();
+    const text = clToPlainText(clContent);
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast.success("Copied to clipboard");

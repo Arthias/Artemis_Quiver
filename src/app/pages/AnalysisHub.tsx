@@ -326,6 +326,7 @@ export function AnalysisHub() {
                       setHandoff({
                         jobPosting: draftJobPosting,
                         coverLetterDraft: result.coverLetterDraft,
+                        coverLetter: result.coverLetter,
                         sourceSessionId: activeSessionId ?? undefined,
                       });
                       navigate("/cl-builder");
@@ -338,7 +339,7 @@ export function AnalysisHub() {
                 </div>
                 <div className="bg-muted/30 rounded-lg p-4">
                   <pre className="whitespace-pre-wrap text-sm text-muted-foreground font-sans">
-                    {result.coverLetterDraft}
+                    {result.coverLetterDraft || t("analysis.coverLetterUnavailable")}
                   </pre>
                 </div>
               </Card>

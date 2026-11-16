@@ -5,6 +5,10 @@ import { extractJsonObject } from "../utils/jsonParse";
 import { runLlm } from "./llmService";
 import { runLlmJson } from "./llmJson";
 import { localeInstruction } from "./prompts";
+import { generateCoverLetter } from "./clBuilderService";
+import { CLContentSchema, type CLContent } from "../../types/cl";
+import { clToPlainText } from "../utils/clParser";
+import { logAppError } from "../utils/errorLogger";
 import i18n from "../i18n";
 
 const ANALYSIS_SYSTEM_PROMPT = `You are a job application coach. Analyze job postings against a candidate profile.
@@ -16,8 +20,7 @@ Use this exact schema:
   "salaryRange": "<estimated range as string>",
   "summary": "<2-3 sentence match summary>",
   "tips": ["<interview tip>", ...],
-  "cvRecommendations": ["<cv improvement>", ...],
-  "coverLetterDraft": "<full cover letter text>"
+  "cvRecommendations": ["<cv improvement>", ...]
 }
 Provide 3-5 tips and 3-5 cvRecommendations. Be specific to the job and profile.`;
 
@@ -37,11 +40,10 @@ function validateAnalysisResult(data: unknown): AnalysisResult {
   const cvRecommendations = Array.isArray(obj.cvRecommendations)
     ? obj.cvRecommendations.map(String)
     : [];
-  const coverLetterDraft = String(obj.coverLetterDraft ?? "");
   const summary = obj.summary != null ? String(obj.summary) : undefined;
   const title = obj.title != null ? String(obj.title) : undefined;
 
-  if (!tips.length || !cvRecommendations.length || !coverLetterDraft) {
+  if (!tips.length || !cvRecommendations.length) {
     throw new AppError(ErrorCodes.ANALYSIS_FAILED, "Analysis response is missing required fields.");
   }
 
@@ -50,10 +52,20 @@ function validateAnalysisResult(data: unknown): AnalysisResult {
     salaryRange,
     tips,
     cvRecommendations,
-    coverLetterDraft,
+    coverLetterDraft: "",
     summary,
     title,
   };
+}
+
+async function draftCoverLetter(jobPosting: string, profileMarkdown: string, llm: LlmConfig): Promise<CLContent | undefined> {
+  try {
+    const json = await generateCoverLetter(profileMarkdown, { jobDescription: jobPosting, locale: i18n.language }, llm);
+    return { ...CLContentSchema.parse(JSON.parse(json)), language: i18n.language };
+  } catch (err) {
+    logAppError(err, { phase: "analysisCoverLetter" });
+    return undefined;
+  }
 }
 
 export function analysisToMarkdown(
@@ -100,18 +112,26 @@ export async function analyzeJobPosting(
   profileMarkdown: string,
   llm: LlmConfig
 ): Promise<{ result: AnalysisResult; markdown: string }> {
-  const parsed = await runLlmJson(
-    "jobAnalysis",
-    [
-      { role: "system", content: `${ANALYSIS_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
-      {
-        role: "user",
-        content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}`,
-      },
-    ],
-    llm,
-    (content) => validateAnalysisResult(extractJsonObject(content, ErrorCodes.ANALYSIS_FAILED))
-  );
+  // The letter comes from the cover-letter generator, so it follows the same rules as
+  // the CL builder. It runs beside the analysis; if it fails, the analysis still stands.
+  const [analysis, coverLetter] = await Promise.all([
+    runLlmJson(
+      "jobAnalysis",
+      [
+        { role: "system", content: `${ANALYSIS_SYSTEM_PROMPT}${localeInstruction(i18n.language)}` },
+        {
+          role: "user",
+          content: `## Candidate profile\n\n${profileMarkdown}\n\n## Job posting\n\n${jobPosting}`,
+        },
+      ],
+      llm,
+      (content) => validateAnalysisResult(extractJsonObject(content, ErrorCodes.ANALYSIS_FAILED))
+    ),
+    draftCoverLetter(jobPosting, profileMarkdown, llm),
+  ]);
+  const parsed: AnalysisResult = coverLetter
+    ? { ...analysis, coverLetter, coverLetterDraft: clToPlainText(coverLetter) }
+    : analysis;
   const markdown = analysisToMarkdown(jobPosting, parsed);
   return { result: parsed, markdown };
 }

@@ -407,6 +407,7 @@ function Panel() {
     const handoff: BuilderHandoff = {
       jobPosting: deepResult.jobPosting,
       coverLetterDraft: deepResult.result.coverLetterDraft,
+      coverLetter: deepResult.result.coverLetter,
       sourceSessionId: deepResult.sessionId,
     };
     void handoffToApp(

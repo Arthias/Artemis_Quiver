@@ -45,6 +45,7 @@
     "generateCV": "Generate CV with Recommendations",
     "openCV": "Open CV",
     "coverLetterDraft": "Cover Letter Draft",
+    "coverLetterUnavailable": "The letter could not be drafted this time. Open the builder to generate it.",
     "editInBuilder": "Edit in Builder",
     "followUpQuestions": "Follow-up Questions",
     "followUpSubtitle": "Ask follow-up questions about this job posting, practice interview answers, or generate side content.",

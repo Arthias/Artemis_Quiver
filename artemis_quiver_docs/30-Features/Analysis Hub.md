@@ -1,7 +1,7 @@
 ---
 tags: [feature, analysis, job-hunting]
 status: completed
-last_updated: 2026-05-28
+last_updated: 2026-11-16
 ---
 
 # 🔍 Analysis Hub
@@ -65,4 +65,4 @@ When viewing a past analysis result, a **collapsible card** at the top shows the
 - **CV Optimization Card**: Lists 3-5 suggestions for improving the resume. Two buttons:
   - "Edit Profile" — navigates to `/profile` to update the master profile
   - "Generate CV with Recommendations" — passes `jobPosting` + `cvRecommendations` + `autoGenerate: true` to CV Builder via `BuilderHandoffContext`, then navigates to `/cv-builder`. The CV Builder auto-generates the CV on mount.
-- **Cover Letter Card**: Renders the raw letter output. The "Edit in Builder" button transfers the letter draft to `BuilderHandoffContext` and redirects to `/cl-builder`.
+- **Cover Letter Card**: Shows the letter as plain text. Since 2026-11-16 it is written by the CL builder's own generator (`generateCoverLetter`), run in parallel with the analysis call, so it follows the same prompt rules; the analysis prompt no longer asks for a letter. If the letter call fails the analysis still saves and the card says so. "Edit in Builder" hands over the structured letter (`coverLetter`) so the builder opens it as-is; sessions saved earlier carry only text, which the builder parses.

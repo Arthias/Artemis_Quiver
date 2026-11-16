@@ -45,6 +45,7 @@
     "generateCV": "Generar CV con Recomendaciones",
     "openCV": "Abrir CV",
     "coverLetterDraft": "Borrador de Carta",
+    "coverLetterUnavailable": "Esta vez no se pudo redactar la carta. Abre el editor para generarla.",
     "editInBuilder": "Editar en el Creador",
     "followUpQuestions": "Preguntas de Seguimiento",
     "followUpSubtitle": "Haz preguntas sobre esta oferta, practica respuestas de entrevista o genera contenido adicional.",
