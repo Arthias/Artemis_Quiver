@@ -251,43 +251,32 @@ export function selectPrompt(
 
 const CL_JSON_FORMAT = `You MUST return ONLY a valid JSON object. No markdown fences, no text outside the JSON.
 
-EXAMPLE:
+EXAMPLE (shape only — never reuse its wording or facts):
 {
   "senderName": "Jane Doe",
   "senderTitle": "Senior Software Engineer",
   "date": "May 29, 2026",
-  "recipientName": "Hiring Manager",
-  "companyName": "Acme Corp",
-  "companyLocation": "San Francisco, CA",
-  "position": "Senior Engineer",
-  "subject": "Application for Senior Engineer Position",
-  "salutation": "Dear Hiring Manager,",
+  "salutation": "Dear Acme hiring team,",
   "bodyParagraphs": [
-    "I am writing to express my strong interest in the Senior Engineer position at Acme Corp. With 8 years of experience in full-stack development, I have honed skills in React, Node.js, and cloud architecture that align closely with the requirements of this role.",
-    "In my current role at TechCo, I led a team of 5 engineers delivering 12 major features on schedule. I reduced deployment time by 40% through CI/CD automation and architected microservices serving 2M+ users.",
-    "I would welcome the opportunity to discuss how my technical leadership and product instincts can drive impact at Acme Corp."
+    "Acme's Senior Engineer role asks for someone who can scale a React and Node platform while mentoring a growing team, which is the work I have done for the past four years at TechCo.",
+    "The posting puts CI/CD ownership first: at TechCo I rebuilt our pipeline and cut deployment time by 40%. It also asks for experience with high-traffic services, and I designed the microservices that now serve over 2 million users. On mentoring, I lead a team of five engineers who shipped 12 major features on schedule last year.",
+    "I would be glad to talk through how I could do the same for Acme's platform team."
   ],
-  "closing": "Sincerely,"
+  "closing": "Kind regards,"
 }
 
-TOP-LEVEL FIELDS:
-1. "senderName" — your full name (required)
-2. "senderTitle" — your professional title (optional)
-3. "date" — letter date string (optional)
-4. "recipientName" — hiring manager name if known (optional, default "Hiring Manager")
-5. "companyName" — target company (optional)
-6. "companyLocation" — company city, state (optional)
-7. "position" — target position title (optional)
-8. "subject" — Re: subject line (optional)
-9. "salutation" — greeting line (required, e.g. "Dear Hiring Manager,")
-10. "bodyParagraphs" — array of paragraph strings (required, at least 1)
-11. "closing" — sign-off (required, e.g. "Sincerely,")
+FIELDS:
+- "senderName" (required), "senderTitle" (optional), "date" (optional)
+- "salutation" (required) — address the company's team, or a named person only if the job description names one
+- "bodyParagraphs" (required) — exactly 3 plain-prose strings
+- "closing" (required)
+- Do not add recipient address, company location or "Re:" subject fields.
 
 RULES:
-- Be FACTUAL — only include information from the candidate profile
-- Write 3-4 paragraphs: opening (role interest + fit), middle (key achievements), closing (enthusiasm + call to action)
-- Use professional business letter tone
-- Return ONLY the JSON object, no text/comments/formatting around it`;
+- 150–250 words across the body. Short and specific beats complete.
+- Plain prose only: no bullet points, dashes-as-lists, headings or markdown. The letter is often pasted into a plain text box.
+- Be FACTUAL: every claim must come from the candidate profile. If the profile has no evidence for a requirement, leave that requirement out — never stretch or invent.
+- Return ONLY the JSON object`;
 
 export function clGeneratePrompt(
   _company: string,
@@ -296,20 +285,23 @@ export function clGeneratePrompt(
   locale?: string,
 ): string {
   const parts: string[] = [
-    "You are an expert cover letter writer and career coach.",
+    "You write short, precise cover letters that a recruiter can read in thirty seconds.",
   ];
 
   if (hasJobDescription) {
-    parts.push("The candidate has provided a job description below. Tailor the cover letter to that specific role, mirroring key requirements and showing how the candidate's experience addresses them.");
+    parts.push("A job description is provided. Pick the 2–3 requirements it stresses most AND for which the candidate profile has concrete evidence. Those requirements drive the whole letter.");
+  } else {
+    parts.push("No job description is provided. Use the candidate's 2–3 strongest, most concrete achievements instead.");
   }
 
   parts.push(`
-WRITING GUIDELINES:
-- Opening paragraph: State the role you're applying for, express enthusiasm, and give a 1-sentence overview of why you're a strong fit.
-- Middle paragraphs (1-2): Highlight 2-3 specific achievements or experiences from the profile that directly map to job requirements. Use metrics where possible.
-- Closing paragraph: Reiterate enthusiasm, mention desire for an interview, and thank the reader.
-- Tone: Professional, confident, specific. Avoid clichés like "I am writing to apply" (instead, lead with enthusiasm and fit).
-- If no job description is provided, write a general but compelling letter highlighting the candidate's strongest attributes.
+STRUCTURE (3 paragraphs):
+1. Opening, 1–2 sentences: name the role and the single strongest reason the candidate fits. Do not open with "I am writing to", "I am excited to apply" or similar.
+2. Evidence, 3–4 sentences: for each chosen requirement, name it in the employer's terms and answer it with one specific piece of evidence from the profile (employer, what was done, a number when the profile has one).
+3. Close, 1–2 sentences: a direct invitation to talk. No "thank you for your time and consideration", no restating the letter.
+
+AVOID: "passionate", "team player", "proven track record", "I believe I would be a great fit", "dynamic", and any sentence that would fit any job.
+If a draft is provided, reuse its facts but follow this structure and length.
 
 ${CL_JSON_FORMAT}`);
 
@@ -325,6 +317,7 @@ RULES:
 - Preserve all fields unless the user explicitly asks to change them
 - Modify only the bodyParagraphs unless otherwise requested
 - Keep the same tone unless asked to change it
+- Keep plain prose (no bullets or markdown) and stay under about 250 words unless asked otherwise
 - Return ONLY valid JSON, no text outside
 
 ${CL_JSON_FORMAT}${localeInstruction(locale)}`;

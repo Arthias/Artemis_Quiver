@@ -37,7 +37,7 @@ export function CLBuilder() {
 
   const CL_SUGGESTIONS = [
     { title: t("cl.suggestionFormal"), hint: t("cl.suggestionFormalHint"), prompt: "Make the tone more formal and professional for a corporate setting." },
-    { title: t("cl.suggestionShorter"), hint: t("cl.suggestionShorterHint"), prompt: "Shorten the letter to roughly three concise paragraphs." },
+    { title: t("cl.suggestionShorter"), hint: t("cl.suggestionShorterHint"), prompt: "Cut the letter to about 150 words, keeping only the strongest evidence." },
     { title: t("cl.suggestionEnthusiasm"), hint: t("cl.suggestionEnthusiasmHint"), prompt: "Add more enthusiasm while staying professional." },
     { title: t("cl.suggestionLeadership"), hint: t("cl.suggestionLeadershipHint"), prompt: "Emphasize leadership and team management experience." },
     { title: t("cl.suggestionTechStack"), hint: t("cl.suggestionTechStackHint"), prompt: "Highlight relevant technical skills and stack from the profile." },
@@ -130,23 +130,12 @@ export function CLBuilder() {
 
   const copyPlainText = useCallback(() => {
     if (!clContent) return;
+    // Text-box ready: no letterhead, recipient block or subject line.
     const text = [
-      clContent.senderName,
-      clContent.senderTitle,
-      clContent.date,
-      "",
-      clContent.recipientName ? `To: ${clContent.recipientName}` : "",
-      clContent.companyName ? `Company: ${clContent.companyName}` : "",
-      "",
-      clContent.subject ? `Re: ${clContent.subject}` : "",
-      "",
       clContent.salutation,
-      "",
-      ...clContent.bodyParagraphs,
-      "",
-      clContent.closing,
-      clContent.senderName,
-    ].filter(Boolean).join("\n");
+      clContent.bodyParagraphs.filter(Boolean).join("\n\n"),
+      `${clContent.closing}\n${clContent.senderName}`,
+    ].join("\n\n").trim();
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       toast.success("Copied to clipboard");

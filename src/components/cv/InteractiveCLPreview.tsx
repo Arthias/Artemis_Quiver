@@ -10,10 +10,6 @@ interface InteractiveCLPreviewProps {
   theme: CVTheme;
 }
 
-function CLThemeDivider({ theme }: { theme: CVTheme }) {
-  return <hr style={theme.divider} />;
-}
-
 export function InteractiveCLPreview({ content, onContentChange, theme }: InteractiveCLPreviewProps) {
 
   const updateField = useCallback(<K extends keyof CLContent>(field: K, value: CLContent[K]) => {
@@ -49,25 +45,25 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
   return (
     <div className="cl-preview-card rounded-lg border border-gray-200 shadow-sm max-w-3xl mx-auto" style={{ fontFamily: theme.fontFamily, background: theme.container.background, ...theme.card }}>
       <div className="p-8 md:p-10">
-        {/* Sender header */}
+        {/* Sender header: a letterhead, not a CV headline */}
         {content.senderName && (
-          <div className="mb-6 group relative">
+          <div className="mb-8 group relative">
             <InlineInput
               value={content.senderName}
               onSave={v => updateField("senderName", v)}
-              className="" placeholder="Your Name"
-              style={theme.name}
+              className="block w-fit" placeholder="Your Name"
+              style={{ ...theme.name, fontSize: "1.25rem", fontWeight: 600, letterSpacing: "normal" }}
             />
             {content.senderTitle && (
               <InlineInput
                 value={content.senderTitle}
                 onSave={v => updateField("senderTitle", v)}
-                className="" placeholder="Job Title"
-                style={theme.title}
+                className="block w-fit text-sm" placeholder="Job Title"
+                style={theme.muted}
               />
             )}
             {content.date && (
-              <p className="mt-1" style={theme.muted}>{content.date}</p>
+              <p className="mt-4 text-sm" style={theme.muted}>{content.date}</p>
             )}
             <button
               onClick={removeSenderHeader}
@@ -79,30 +75,6 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
           </div>
         )}
 
-        <CLThemeDivider theme={theme} />
-
-        {/* Recipient info */}
-        {(content.recipientName || content.companyName) && (
-          <div className="mb-4 space-y-0.5" style={theme.muted}>
-            {content.recipientName && (
-              <InlineInput value={content.recipientName} onSave={v => updateField("recipientName", v)} placeholder="Hiring Manager" />
-            )}
-            {content.companyName && (
-              <InlineInput value={content.companyName} onSave={v => updateField("companyName", v)} placeholder="Company Name" />
-            )}
-            {content.companyLocation && (
-              <InlineInput value={content.companyLocation} onSave={v => updateField("companyLocation", v)} placeholder="City, State" />
-            )}
-          </div>
-        )}
-
-        {/* Subject */}
-        {content.subject && (
-          <p className="text-sm font-semibold mb-4" style={{ color: theme.sectionTitle.color }}>
-            Re: <InlineInput value={content.subject} onSave={v => updateField("subject", v)} placeholder="Position you're applying for" />
-          </p>
-        )}
-
         {/* Salutation */}
         <InlineInput
           value={content.salutation}
@@ -112,10 +84,8 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
           style={{ color: theme.body.color }}
         />
 
-        <CLThemeDivider theme={theme} />
-
         {/* Body paragraphs */}
-        <div className="space-y-4" style={theme.body}>
+        <div className="mt-4 space-y-4" style={theme.body}>
           {content.bodyParagraphs.map((p, idx) => (
             <div key={idx} className="group relative">
               <InlineTextarea
@@ -139,8 +109,6 @@ export function InteractiveCLPreview({ content, onContentChange, theme }: Intera
             <Plus className="w-3.5 h-3.5" /> Add paragraph
           </button>
         </div>
-
-        <CLThemeDivider theme={theme} />
 
         {/* Closing */}
         <div className="mt-6 space-y-1">
