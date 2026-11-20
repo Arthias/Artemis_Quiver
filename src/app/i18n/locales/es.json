@@ -562,6 +562,8 @@
     "statByStatus": "Por Estado",
     "statBySource": "Por Fuente",
     "unknownSource": "desconocido",
+    "newThisWeek": "+{{count}} esta semana",
+    "lastNewRow": "Última fila nueva",
     "lastScrape": "Última búsqueda",
     "never": "Nunca",
     "tabApply": "Postular",

@@ -942,12 +942,27 @@ function StatsTab({ flowBaseUrl, refreshKey, t }: { flowBaseUrl: string; refresh
         <div className="rounded border border-border p-3">
           <h3 className="text-sm font-medium mb-2">{t("flow.statBySource")}</h3>
           <div className="space-y-1.5">
-            {Object.entries(stats.by_source).slice(0, 8).map(([source, count]) => (
-              <div key={source} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{source || t("flow.unknownSource")}</span>
-                <span className="font-medium">{count}</span>
-              </div>
-            ))}
+            {Object.entries(stats.by_source).slice(0, 8).map(([source, count]) => {
+              const act = stats.source_activity?.[source];
+              // A source with history but nothing new this week has likely stopped producing.
+              const quiet = act !== undefined && act.new_7d === 0;
+              return (
+                <div key={source} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{source || t("flow.unknownSource")}</span>
+                  <span className="font-medium">
+                    {count}
+                    {act && (
+                      <span
+                        className={`ml-2 text-xs ${quiet ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}
+                        title={act.last_new ? `${t("flow.lastNewRow")}: ${new Date(act.last_new).toLocaleString()}` : undefined}
+                      >
+                        {t("flow.newThisWeek", { count: act.new_7d })}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

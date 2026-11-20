@@ -562,6 +562,8 @@
     "statByStatus": "By Status",
     "statBySource": "By Source",
     "unknownSource": "unknown",
+    "newThisWeek": "+{{count}} this week",
+    "lastNewRow": "Last new row",
     "lastScrape": "Last scrape",
     "never": "Never",
     "tabApply": "Apply",

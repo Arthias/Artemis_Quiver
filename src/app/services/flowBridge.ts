@@ -143,6 +143,8 @@ export interface FlowDashboardStats {
   total_jobs: number;
   by_status: Record<string, number>;
   by_source: Record<string, number>;
+  /** New rows per source in the last 7 days; absent on Flow builds before 2026-11-20. */
+  source_activity?: Record<string, { new_7d: number; last_new: string | null }>;
   ingested_today: number;
   last_scrape: string | null;
   avg_score: number;
